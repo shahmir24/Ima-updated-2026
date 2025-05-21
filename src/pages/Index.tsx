@@ -62,30 +62,6 @@ const Index = () => {
             </div>
           </Link>
           
-          <Link to="/focus" className="col-span-3 rounded-3xl overflow-hidden">
-            <div className="bg-gradient-to-br from-purple-600 to-purple-900 rounded-3xl p-5 h-full flex flex-col justify-between card-hover">
-              <div>
-                <h3 className="text-lg font-bold mb-1">Focus time</h3>
-                <p className="text-sm text-purple-200">Pomodoro</p>
-              </div>
-              <div className="mt-auto flex justify-end">
-                <Clock className="h-7 w-7 text-white/90" />
-              </div>
-            </div>
-          </Link>
-          
-          <Link to="/journal" className="col-span-3 rounded-3xl overflow-hidden">
-            <div className="bg-gradient-to-br from-teal-600 to-teal-900 rounded-3xl p-5 h-full flex flex-col justify-between card-hover">
-              <div>
-                <h3 className="text-lg font-bold mb-1">Daily journal</h3>
-                <p className="text-sm text-teal-200">Check in</p>
-              </div>
-              <div className="mt-auto flex justify-end">
-                <Heart className="h-7 w-7 text-white/90" />
-              </div>
-            </div>
-          </Link>
-
           <Link to="/productivity" className="col-span-2 rounded-3xl overflow-hidden">
             <div className="bg-gradient-to-br from-amber-600 to-amber-900 rounded-3xl p-5 h-full flex flex-col justify-between card-hover">
               <div>
@@ -118,6 +94,30 @@ const Index = () => {
               </div>
               <div className="mt-auto flex justify-end">
                 <MessageSquare className="h-7 w-7 text-white/90" />
+              </div>
+            </div>
+          </Link>
+          
+          <Link to="/focus" className="col-span-3 rounded-3xl overflow-hidden">
+            <div className="bg-gradient-to-br from-purple-600 to-purple-900 rounded-3xl p-5 h-full flex flex-col justify-between card-hover">
+              <div>
+                <h3 className="text-lg font-bold mb-1">Focus time</h3>
+                <p className="text-sm text-purple-200">Pomodoro</p>
+              </div>
+              <div className="mt-auto flex justify-end">
+                <Clock className="h-7 w-7 text-white/90" />
+              </div>
+            </div>
+          </Link>
+          
+          <Link to="/journal" className="col-span-3 rounded-3xl overflow-hidden">
+            <div className="bg-gradient-to-br from-teal-600 to-teal-900 rounded-3xl p-5 h-full flex flex-col justify-between card-hover">
+              <div>
+                <h3 className="text-lg font-bold mb-1">Daily journal</h3>
+                <p className="text-sm text-teal-200">Check in</p>
+              </div>
+              <div className="mt-auto flex justify-end">
+                <Heart className="h-7 w-7 text-white/90" />
               </div>
             </div>
           </Link>
