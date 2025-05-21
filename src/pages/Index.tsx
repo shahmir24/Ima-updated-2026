@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Heart, Circle, Clock, Calendar } from 'lucide-react';
+import { Heart, Circle, Clock, Calendar, MessageSquare, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
@@ -44,8 +44,8 @@ const Index = () => {
         </div>
 
         {/* Feature cards grid */}
-        <div className="grid grid-cols-2 gap-4">
-          <Link to="/breathe" className="col-span-2 rounded-3xl overflow-hidden">
+        <div className="grid grid-cols-6 gap-4">
+          <Link to="/breathe" className="col-span-6 rounded-3xl overflow-hidden">
             <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-3xl p-6 aspect-[2/1] flex flex-col justify-between card-hover glow relative">
               <div className="absolute inset-0 flex items-center justify-center opacity-30">
                 <div className="w-40 h-40 rounded-full bg-blue-400/20 animate-breathe"></div>
@@ -62,7 +62,7 @@ const Index = () => {
             </div>
           </Link>
           
-          <Link to="/focus" className="col-span-1 rounded-3xl overflow-hidden">
+          <Link to="/focus" className="col-span-3 rounded-3xl overflow-hidden">
             <div className="bg-gradient-to-br from-purple-600 to-purple-900 rounded-3xl p-5 h-full flex flex-col justify-between card-hover">
               <div>
                 <h3 className="text-lg font-bold mb-1">Focus time</h3>
@@ -74,7 +74,7 @@ const Index = () => {
             </div>
           </Link>
           
-          <Link to="/journal" className="col-span-1 rounded-3xl overflow-hidden">
+          <Link to="/journal" className="col-span-3 rounded-3xl overflow-hidden">
             <div className="bg-gradient-to-br from-teal-600 to-teal-900 rounded-3xl p-5 h-full flex flex-col justify-between card-hover">
               <div>
                 <h3 className="text-lg font-bold mb-1">Daily journal</h3>
@@ -82,6 +82,42 @@ const Index = () => {
               </div>
               <div className="mt-auto flex justify-end">
                 <Heart className="h-7 w-7 text-white/90" />
+              </div>
+            </div>
+          </Link>
+
+          <Link to="/productivity" className="col-span-2 rounded-3xl overflow-hidden">
+            <div className="bg-gradient-to-br from-amber-600 to-amber-900 rounded-3xl p-5 h-full flex flex-col justify-between card-hover">
+              <div>
+                <h3 className="text-lg font-bold mb-1">Productivity</h3>
+                <p className="text-sm text-amber-200">Tasks</p>
+              </div>
+              <div className="mt-auto flex justify-end">
+                <Activity className="h-7 w-7 text-white/90" />
+              </div>
+            </div>
+          </Link>
+
+          <Link to="/wellness" className="col-span-2 rounded-3xl overflow-hidden">
+            <div className="bg-gradient-to-br from-emerald-600 to-emerald-900 rounded-3xl p-5 h-full flex flex-col justify-between card-hover">
+              <div>
+                <h3 className="text-lg font-bold mb-1">Wellness</h3>
+                <p className="text-sm text-emerald-200">Health</p>
+              </div>
+              <div className="mt-auto flex justify-end">
+                <Heart className="h-7 w-7 text-white/90" />
+              </div>
+            </div>
+          </Link>
+
+          <Link to="/chatbot" className="col-span-2 rounded-3xl overflow-hidden">
+            <div className="bg-gradient-to-br from-cyan-600 to-cyan-900 rounded-3xl p-5 h-full flex flex-col justify-between card-hover">
+              <div>
+                <h3 className="text-lg font-bold mb-1">iMA Chat</h3>
+                <p className="text-sm text-cyan-200">AI Assistant</p>
+              </div>
+              <div className="mt-auto flex justify-end">
+                <MessageSquare className="h-7 w-7 text-white/90" />
               </div>
             </div>
           </Link>
@@ -146,7 +182,7 @@ const Index = () => {
           <Button variant="ghost" size="icon" className="flex flex-col items-center">
             <Clock className="h-6 w-6" />
           </Button>
-          <Button variant="primary" size="icon" className="flex flex-col items-center p-2 rounded-full bg-gradient-to-br from-blue-500 to-teal-400 -translate-y-3">
+          <Button variant="ghost" size="icon" className="flex flex-col items-center p-2 rounded-full bg-gradient-to-br from-blue-500 to-teal-400 -translate-y-3">
             <Circle className="h-6 w-6 text-white" />
           </Button>
           <Button variant="ghost" size="icon" className="flex flex-col items-center">
