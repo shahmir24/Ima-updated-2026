@@ -11,11 +11,11 @@ const Index = () => {
       {/* Header */}
       <header className="w-full max-w-lg mx-auto p-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="h-10 w-10 rounded-full flex items-center justify-center">
+          <div className="h-10 w-14 flex items-center justify-center">
             <img 
-              src="/lovable-uploads/9d2d240c-335b-497e-a6a6-d265927acd91.png" 
+              src="/lovable-uploads/d8549ee1-5d5d-4efb-9c5b-9c1b49629e14.png" 
               alt="iMA Logo" 
-              className="h-10 w-10 object-contain"
+              className="h-8 w-auto object-contain"
             />
           </div>
           <h1 className="text-2xl font-bold">iMA</h1>
@@ -188,7 +188,7 @@ const Index = () => {
           </Button>
           <Button variant="ghost" size="icon" className="flex flex-col items-center p-2 rounded-full bg-gradient-to-br from-blue-500 to-teal-400 -translate-y-3">
             <img 
-              src="/lovable-uploads/9d2d240c-335b-497e-a6a6-d265927acd91.png" 
+              src="/lovable-uploads/d8549ee1-5d5d-4efb-9c5b-9c1b49629e14.png" 
               alt="iMA Logo" 
               className="h-6 w-6 object-contain"
             />
