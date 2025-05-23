@@ -9,8 +9,9 @@ const Index = () => {
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
       {/* Header */}
-      <header className="w-full max-w-lg mx-auto p-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <header className="w-full max-w-lg mx-auto p-4 flex items-center">
+        <div className="w-10 h-10"></div> {/* Left spacer */}
+        <div className="flex-1 flex items-center justify-center gap-2">
           <div className="h-10 w-14 flex items-center justify-center">
             <img 
               src="/lovable-uploads/d8549ee1-5d5d-4efb-9c5b-9c1b49629e14.png" 
@@ -18,7 +19,7 @@ const Index = () => {
               className="h-8 w-auto object-contain"
             />
           </div>
-          <h1 className="text-2xl font-bold">iMA</h1>
+          <h1 className="text-2xl font-bold font-morisawa">iMA</h1>
         </div>
         <div className="rounded-full bg-secondary p-1 w-10 h-10 flex items-center justify-center">
           <div className="h-8 w-8 rounded-full bg-gray-700"></div>

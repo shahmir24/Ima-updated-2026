@@ -3,6 +3,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
 @layer base {
   :root {
     --background: 220 40% 5%;
@@ -44,6 +46,10 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+  }
+  
+  .font-morisawa {
+    font-family: 'Noto Sans JP', sans-serif; /* Using Noto Sans JP as a fallback for Morisawa Pro */
   }
 }
 
