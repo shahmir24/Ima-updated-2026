@@ -1,51 +1,73 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Heart, Circle, Clock, Calendar, MessageSquare, Activity } from 'lucide-react';
+import { Heart, Circle, Clock, Calendar, MessageSquare, Activity, Smile, Frown, Meh, Zap, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
 const Index = () => {
+  const [selectedMood, setSelectedMood] = useState<string | null>(null);
+
+  const moods = [
+    { name: "Happy", icon: Smile, color: "from-yellow-400 to-orange-400" },
+    { name: "Sad", icon: Frown, color: "from-blue-400 to-blue-600" },
+    { name: "Calm", icon: Circle, color: "from-blue-500 to-teal-400" },
+    { name: "Anxious", icon: Zap, color: "from-red-400 to-pink-500" },
+    { name: "Focused", icon: Brain, color: "from-purple-400 to-purple-600" }
+  ];
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
       {/* Header */}
-      <header className="w-full max-w-lg mx-auto p-4 flex items-center">
-        <div className="w-10 h-10"></div> {/* Left spacer */}
-        <div className="flex-1 flex items-center justify-center gap-2">
-          <div className="h-10 w-14 flex items-center justify-center">
-            <img 
-              src="/lovable-uploads/d8549ee1-5d5d-4efb-9c5b-9c1b49629e14.png" 
-              alt="iMA Logo" 
-              className="h-8 w-auto object-contain"
-            />
-          </div>
-          <h1 className="text-2xl font-bold font-morisawa">iMA</h1>
+      <header className="w-full max-w-lg mx-auto p-4 flex items-center justify-between">
+        {/* Centered Title */}
+        <div className="flex-1 flex items-center justify-center">
+          <h1 className="text-3xl font-bold font-morisawa">iMA</h1>
         </div>
-        <div className="rounded-full bg-secondary p-1 w-10 h-10 flex items-center justify-center">
-          <div className="h-8 w-8 rounded-full bg-gray-700"></div>
+        
+        {/* Logo in top right */}
+        <div className="h-12 w-16 flex items-center justify-center">
+          <img 
+            src="/lovable-uploads/d8549ee1-5d5d-4efb-9c5b-9c1b49629e14.png" 
+            alt="iMA Logo" 
+            className="h-10 w-auto object-contain"
+          />
         </div>
       </header>
 
       {/* Main content */}
       <main className="flex-1 max-w-lg w-full mx-auto px-4 py-6 flex flex-col gap-6">
-        {/* Welcome message */}
-        <div className="mb-4">
-          <h2 className="text-2xl font-bold mb-1">Good evening, Lisa</h2>
-          <p className="text-muted-foreground">How are you feeling today?</p>
+        {/* Question */}
+        <div className="text-center mb-6">
+          <h2 className="text-xl font-medium text-foreground">How are you feeling today?</h2>
         </div>
 
         {/* Mood selection */}
-        <div className="flex gap-4 mb-6 overflow-x-auto pb-2">
-          {["Calm", "Happy", "Tired", "Anxious", "Focused"].map((mood, index) => (
-            <button key={index} className="flex flex-col items-center min-w-[80px]">
-              <div className={`w-14 h-14 rounded-full 
-                ${index === 0 ? "bg-gradient-to-br from-blue-500 to-teal-400" : "bg-secondary"} 
-                flex items-center justify-center mb-2`}>
-                {index === 0 && <Circle className="h-6 w-6 text-white" />}
-              </div>
-              <span className={index === 0 ? "text-white" : "text-muted-foreground"}>{mood}</span>
-            </button>
-          ))}
+        <div className="flex justify-center gap-4 mb-8 overflow-x-auto pb-2">
+          {moods.map((mood, index) => {
+            const IconComponent = mood.icon;
+            const isSelected = selectedMood === mood.name;
+            
+            return (
+              <button 
+                key={index} 
+                onClick={() => setSelectedMood(mood.name)}
+                className="flex flex-col items-center min-w-[80px] transition-all duration-200"
+              >
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-2 transition-all duration-200 ${
+                  isSelected 
+                    ? `bg-gradient-to-br ${mood.color} shadow-lg scale-110` 
+                    : "bg-secondary hover:bg-secondary/80"
+                }`}>
+                  <IconComponent className={`h-7 w-7 ${isSelected ? 'text-white' : 'text-muted-foreground'}`} />
+                </div>
+                <span className={`text-sm font-medium transition-colors ${
+                  isSelected ? 'text-foreground' : 'text-muted-foreground'
+                }`}>
+                  {mood.name}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Feature cards grid */}
