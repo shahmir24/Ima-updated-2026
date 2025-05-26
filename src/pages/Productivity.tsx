@@ -13,7 +13,8 @@ import {
   Calendar,
   Heart,
   User,
-  Grid3X3
+  Grid3X3,
+  Target
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -33,25 +34,25 @@ const Productivity = () => {
     { 
       name: 'Focus', 
       icon: Clock, 
-      color: 'from-blue-500 to-blue-700',
+      iconColor: '#2F74DB',
       route: '/focus'
     },
     { 
       name: 'Soundscape', 
       icon: Headphones, 
-      color: 'from-teal-500 to-teal-700',
+      iconColor: '#1D8690',
       route: '/soundscape'
     },
     { 
       name: 'Stats', 
       icon: BarChart3, 
-      color: 'from-purple-500 to-purple-700',
+      iconColor: '#7359B8',
       route: '/stats'
     },
     { 
       name: 'Tasks', 
       icon: Check, 
-      color: 'from-blue-600 to-blue-800',
+      iconColor: '#2F74DB',
       route: '/tasks'
     }
   ];
@@ -123,13 +124,16 @@ const Productivity = () => {
                 to={tool.route}
                 className="block"
               >
-                <div className={`bg-gradient-to-br ${tool.color} rounded-3xl p-6 aspect-square flex flex-col justify-between hover:scale-105 transition-transform duration-200`}>
-                  <div className="flex justify-center mb-4">
-                    <IconComponent className="h-12 w-12 text-white" />
+                <div className="bg-[#1F1F1F] rounded-3xl p-6 aspect-square flex flex-col justify-start hover:scale-105 transition-transform duration-200">
+                  <div className="flex items-center gap-4">
+                    <IconComponent 
+                      className="h-8 w-8 flex-shrink-0" 
+                      style={{ color: tool.iconColor }}
+                    />
+                    <h3 className="text-white text-lg font-semibold">
+                      {tool.name}
+                    </h3>
                   </div>
-                  <h3 className="text-white text-lg font-semibold text-center">
-                    {tool.name}
-                  </h3>
                 </div>
               </Link>
             );
@@ -143,19 +147,26 @@ const Productivity = () => {
             className="w-full rounded-3xl p-6 transition-all duration-300 hover:scale-105"
             style={{ backgroundColor: fidgetColor }}
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                  <Gamepad2 className="h-6 w-6 text-white" />
-                </div>
-                <h3 className="text-white text-xl font-bold">FIDGET</h3>
-              </div>
+            <div className="flex items-center gap-4">
+              <Gamepad2 className="h-8 w-8 text-white flex-shrink-0" />
+              <h3 className="text-white text-xl font-bold">FIDGET</h3>
             </div>
           </button>
         </div>
 
-        {/* Empty Card Space */}
+        {/* Goals Card */}
         <div className="grid grid-cols-2 gap-4">
+          <div className="bg-[#1F1F1F] rounded-3xl p-6 aspect-square flex flex-col justify-start hover:scale-105 transition-transform duration-200">
+            <div className="flex items-center gap-4">
+              <Target 
+                className="h-8 w-8 flex-shrink-0" 
+                style={{ color: '#7359B8' }}
+              />
+              <h3 className="text-white text-lg font-semibold">
+                Goals
+              </h3>
+            </div>
+          </div>
           <div className="bg-secondary/50 rounded-3xl p-6 aspect-square border-2 border-dashed border-muted"></div>
         </div>
       </main>
