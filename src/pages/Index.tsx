@@ -1,11 +1,25 @@
+
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Heart, Circle, Clock, Calendar, MessageSquare, Activity, Smile, Frown, Meh, Zap, Brain } from 'lucide-react';
+import { Heart, Circle, Clock, Calendar, MessageSquare, Activity, Smile, Frown, Meh, Zap, Brain, User, Settings, HelpCircle, LogOut, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const Index = () => {
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [tasks, setTasks] = useState([
+    { id: 1, title: "Team meeting", time: "10:00 AM", completed: false },
+    { id: 2, title: "Project proposal", time: "12:30 PM", completed: false },
+    { id: 3, title: "Review designs", time: "3:00 PM", completed: false }
+  ]);
 
   const moods = [
     { name: "Happy", icon: Smile, color: "from-yellow-400 to-orange-400" },
@@ -15,16 +29,20 @@ const Index = () => {
     { name: "Focused", icon: Brain, color: "from-purple-400 to-purple-600" }
   ];
 
+  const toggleTask = (taskId: number) => {
+    setTasks(tasks.map(task => 
+      task.id === taskId ? { ...task, completed: !task.completed } : task
+    ));
+  };
+
+  const completedTasks = tasks.filter(task => task.completed).length;
+  const progressPercentage = (completedTasks / tasks.length) * 100;
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
       {/* Header */}
       <header className="w-full max-w-lg mx-auto p-4 flex items-center justify-between">
-        {/* Centered Title */}
-        <div className="flex-1 flex items-center justify-center">
-          <h1 className="text-3xl font-bold font-morisawa">iMA</h1>
-        </div>
-        
-        {/* Logo in top right */}
+        {/* Logo in top left */}
         <div className="h-12 w-16 flex items-center justify-center">
           <img 
             src="/lovable-uploads/d8549ee1-5d5d-4efb-9c5b-9c1b49629e14.png" 
@@ -32,6 +50,43 @@ const Index = () => {
             className="h-10 w-auto object-contain"
           />
         </div>
+        
+        {/* Centered Title */}
+        <div className="flex-1 flex items-center justify-center">
+          <h1 className="text-3xl font-bold font-morisawa">iMA</h1>
+        </div>
+        
+        {/* Profile dropdown in top right */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-10 w-10 rounded-full p-0">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                <User className="h-4 w-4 text-white" />
+              </div>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56 bg-background border border-border">
+            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>
+              <User className="mr-2 h-4 w-4" />
+              <span>Profile Info</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Settings</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <HelpCircle className="mr-2 h-4 w-4" />
+              <span>Help</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Log Out</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </header>
 
       {/* Main content */}
@@ -115,10 +170,15 @@ const Index = () => {
 
           <Link to="/chatbot" className="col-span-2 rounded-3xl overflow-hidden">
             <div className="bg-gradient-to-br from-cyan-600 to-cyan-900 rounded-3xl p-5 h-full flex flex-col justify-between card-hover">
-              <div>
-                <h3 className="text-lg font-bold mb-1">iMA Chat</h3>
-                <p className="text-sm text-cyan-200">AI Assistant</p>
+              <div className="flex items-center gap-2 mb-1">
+                <img 
+                  src="/lovable-uploads/a89d4002-b0ce-4d98-b91b-70576e972e1f.png" 
+                  alt="AI Chat Logo" 
+                  className="h-5 w-5 object-contain"
+                />
+                <h3 className="text-lg font-bold">iMA Chat</h3>
               </div>
+              <p className="text-sm text-cyan-200 mb-auto">AI Assistant</p>
               <div className="mt-auto flex justify-end">
                 <MessageSquare className="h-7 w-7 text-white/90" />
               </div>
@@ -158,19 +218,21 @@ const Index = () => {
           </div>
           
           <div className="space-y-3">
-            {/* Task cards */}
-            {[
-              { title: "Team meeting", time: "10:00 AM", completed: true },
-              { title: "Project proposal", time: "12:30 PM", completed: false },
-              { title: "Review designs", time: "3:00 PM", completed: false }
-            ].map((task, index) => (
-              <div key={index} className="bg-secondary rounded-2xl p-4 flex items-center justify-between animate-slide-up" style={{ animationDelay: `${index * 100}ms` }}>
+            {tasks.map((task) => (
+              <div key={task.id} className="bg-secondary rounded-2xl p-4 flex items-center justify-between animate-slide-up">
                 <div className="flex items-center gap-3">
-                  <div className={`w-5 h-5 rounded-full ${task.completed ? 'bg-blue-500' : 'border-2 border-muted-foreground'} flex items-center justify-center`}>
-                    {task.completed && <div className="w-2 h-2 bg-white rounded-full"></div>}
-                  </div>
+                  <button 
+                    onClick={() => toggleTask(task.id)}
+                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                      task.completed 
+                        ? 'bg-blue-500 border-blue-500' 
+                        : 'border-muted-foreground hover:border-blue-500'
+                    }`}
+                  >
+                    {task.completed && <Check className="w-4 h-4 text-white" />}
+                  </button>
                   <div>
-                    <h3 className={`text-lg font-medium ${task.completed ? 'line-through text-muted-foreground' : ''}`}>{task.title}</h3>
+                    <h3 className="text-lg font-medium">{task.title}</h3>
                     <p className="text-sm text-muted-foreground">{task.time}</p>
                   </div>
                 </div>
@@ -188,9 +250,12 @@ const Index = () => {
               <p className="text-muted-foreground text-sm mb-3">Daily meditation</p>
               <div className="flex items-center gap-2">
                 <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                  <div className="h-full w-3/4 bg-gradient-to-r from-blue-500 to-teal-400 rounded-full"></div>
+                  <div 
+                    className="h-full bg-gradient-to-r from-blue-500 to-teal-400 rounded-full transition-all duration-300" 
+                    style={{ width: `${progressPercentage}%` }}
+                  ></div>
                 </div>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">75%</span>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">{Math.round(progressPercentage)}%</span>
               </div>
             </div>
             <Button variant="ghost" size="sm" className="rounded-full h-10 w-10 p-2 bg-muted flex items-center justify-center">
@@ -201,27 +266,33 @@ const Index = () => {
       </main>
 
       {/* Bottom navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-lg border-t border-border">
-        <div className="max-w-lg mx-auto flex justify-around items-center p-4">
-          <Button variant="ghost" size="icon" className="flex flex-col items-center">
+      <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-lg border-t border-border">
+        <div className="max-w-lg mx-auto flex justify-around items-center py-2 px-4">
+          <Button variant="ghost" size="icon" className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-2xl min-w-[60px]">
             <Heart className="h-6 w-6" />
+            <span className="text-xs">Wellness</span>
           </Button>
-          <Button variant="ghost" size="icon" className="flex flex-col items-center">
+          <Button variant="ghost" size="icon" className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-2xl min-w-[60px]">
             <Clock className="h-6 w-6" />
+            <span className="text-xs">Focus</span>
           </Button>
-          <Button variant="ghost" size="icon" className="flex flex-col items-center p-2 rounded-full bg-gradient-to-br from-blue-500 to-teal-400 -translate-y-3">
+          <Button variant="ghost" size="icon" className="flex flex-col items-center p-2 rounded-full bg-gradient-to-br from-blue-500 to-teal-400 -translate-y-2 shadow-lg">
             <img 
               src="/lovable-uploads/d8549ee1-5d5d-4efb-9c5b-9c1b49629e14.png" 
               alt="iMA Logo" 
-              className="h-6 w-6 object-contain"
+              className="h-8 w-8 object-contain"
             />
           </Button>
-          <Button variant="ghost" size="icon" className="flex flex-col items-center">
+          <Button variant="ghost" size="icon" className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-2xl min-w-[60px]">
             <Calendar className="h-6 w-6" />
+            <span className="text-xs">Journal</span>
           </Button>
-          <Button variant="ghost" size="icon" className="flex flex-col items-center">
-            <div className="w-6 h-6 rounded-full bg-gray-700"></div>
-          </Button>
+          <Button variant="ghost" size="icon" className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-2xl min-w-[60px]">
+            <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center">
+              <User className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-xs">Profile</span>
+          </span>
         </div>
       </nav>
     </div>
