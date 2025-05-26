@@ -292,7 +292,7 @@ const Index = () => {
               <User className="h-4 w-4 text-white" />
             </div>
             <span className="text-xs">Profile</span>
-          </span>
+          </Button>
         </div>
       </nav>
     </div>
