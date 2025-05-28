@@ -13,10 +13,10 @@ const TimerBox = ({ timeLeft }: TimerBoxProps) => {
   };
 
   return (
-    <div className="relative mb-8">
-      <div className="bg-[#1F1F1F] border-2 border-blue-500 rounded-3xl p-12 shadow-lg">
+    <div className="relative mb-8 w-full max-w-sm">
+      <div className="bg-[#1F1F1F] border-2 border-blue-500 rounded-3xl p-8 shadow-lg">
         <div className="text-center">
-          <div className="text-6xl font-mono text-blue-400 font-light tracking-wider">
+          <div className="text-5xl md:text-6xl font-mono text-blue-400 font-light tracking-wider">
             {formatTime(timeLeft)}
           </div>
         </div>

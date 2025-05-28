@@ -6,12 +6,16 @@ import { Button } from '@/components/ui/button';
 import TimerBox from '@/components/focus/TimerBox';
 import ControlButtons from '@/components/focus/ControlButtons';
 import FloatingSettings from '@/components/focus/FloatingSettings';
+import BottomNavigation from '@/components/productivity/BottomNavigation';
 
 const Focus = () => {
   const navigate = useNavigate();
   const [isPlaying, setIsPlaying] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(0); // in seconds
+  const [timeLeft, setTimeLeft] = useState(1500); // 25 minutes default
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [timeBoxDuration, setTimeBoxDuration] = useState(25);
+  const [intervalDuration, setIntervalDuration] = useState(5);
+  const [numberOfFlows, setNumberOfFlows] = useState(4);
 
   const handlePlayPause = () => {
     setIsPlaying(!isPlaying);
@@ -19,7 +23,22 @@ const Focus = () => {
 
   const handleReset = () => {
     setIsPlaying(false);
-    setTimeLeft(0);
+    setTimeLeft(timeBoxDuration * 60);
+  };
+
+  const handleSettingChange = (setting: string, value: number) => {
+    switch (setting) {
+      case 'timeBox':
+        setTimeBoxDuration(value);
+        setTimeLeft(value * 60);
+        break;
+      case 'interval':
+        setIntervalDuration(value);
+        break;
+      case 'flows':
+        setNumberOfFlows(value);
+        break;
+    }
   };
 
   return (
@@ -56,11 +75,13 @@ const Focus = () => {
           <ArrowLeft className="h-6 w-6 text-white" />
         </Button>
         
+        <h1 className="text-white text-lg font-medium">Focus Timer</h1>
+        
         <div className="w-10"></div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-lg w-full mx-auto px-4 flex flex-col items-center justify-center">
+      <main className="flex-1 max-w-lg w-full mx-auto px-4 flex flex-col items-center justify-center pb-20">
         <TimerBox timeLeft={timeLeft} />
         <ControlButtons 
           isPlaying={isPlaying}
@@ -73,7 +94,14 @@ const Focus = () => {
       <FloatingSettings 
         isOpen={isSettingsOpen}
         onToggle={() => setIsSettingsOpen(!isSettingsOpen)}
+        timeBoxDuration={timeBoxDuration}
+        intervalDuration={intervalDuration}
+        numberOfFlows={numberOfFlows}
+        onSettingChange={handleSettingChange}
       />
+
+      {/* Bottom Navigation */}
+      <BottomNavigation />
     </div>
   );
 };
