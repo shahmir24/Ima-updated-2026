@@ -124,13 +124,13 @@ const Productivity = () => {
                 to={tool.route}
                 className="block"
               >
-                <div className="bg-[#1F1F1F] rounded-3xl p-6 aspect-square flex flex-col justify-start hover:scale-105 transition-transform duration-200">
-                  <div className="flex items-center gap-4">
+                <div className="bg-[#1F1F1F] rounded-3xl p-6 aspect-square flex flex-col justify-center hover:scale-105 transition-transform duration-200">
+                  <div className="flex items-center gap-3">
                     <IconComponent 
-                      className="h-8 w-8 flex-shrink-0" 
+                      className="h-6 w-6 flex-shrink-0" 
                       style={{ color: tool.iconColor }}
                     />
-                    <h3 className="text-white text-lg font-semibold">
+                    <h3 className="text-white text-base font-medium leading-tight">
                       {tool.name}
                     </h3>
                   </div>
@@ -140,33 +140,33 @@ const Productivity = () => {
           })}
         </div>
 
-        {/* Fidget Card */}
+        {/* Fidget Button */}
         <div className="mb-6">
           <button 
             onClick={handleFidgetClick}
-            className="w-full rounded-3xl p-6 transition-all duration-300 hover:scale-105"
+            className="w-full rounded-full py-5 px-6 transition-all duration-300 hover:scale-105"
             style={{ backgroundColor: fidgetColor }}
           >
-            <div className="flex items-center gap-4">
-              <Gamepad2 className="h-8 w-8 text-white flex-shrink-0" />
-              <h3 className="text-white text-xl font-bold">FIDGET</h3>
+            <div className="flex items-center gap-3">
+              <Gamepad2 className="h-6 w-6 text-white flex-shrink-0" />
+              <h3 className="text-white text-base font-semibold">FIDGET</h3>
             </div>
           </button>
         </div>
 
-        {/* Goals Card */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-[#1F1F1F] rounded-3xl p-6 aspect-square flex flex-col justify-start hover:scale-105 transition-transform duration-200">
-            <div className="flex items-center gap-4">
-              <Target 
-                className="h-8 w-8 flex-shrink-0" 
-                style={{ color: '#7359B8' }}
-              />
-              <h3 className="text-white text-lg font-semibold">
-                Goals
-              </h3>
+        {/* Goals Section */}
+        <div className="mb-6">
+          <button className="w-full rounded-full py-5 px-6 transition-all duration-300 hover:scale-105 bg-[#7359B8]">
+            <div className="flex items-center gap-3">
+              <Target className="h-6 w-6 text-white flex-shrink-0" />
+              <h3 className="text-white text-base font-semibold">GOALS</h3>
             </div>
-          </div>
+          </button>
+        </div>
+
+        {/* Empty Card Space */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-secondary/50 rounded-3xl p-6 aspect-square border-2 border-dashed border-muted"></div>
           <div className="bg-secondary/50 rounded-3xl p-6 aspect-square border-2 border-dashed border-muted"></div>
         </div>
       </main>
