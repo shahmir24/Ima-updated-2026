@@ -42,9 +42,9 @@ const Focus = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground">
+    <div className="flex flex-col min-h-screen bg-background text-foreground w-[480px] mx-auto">
       {/* Status Bar */}
-      <div className="w-full max-w-lg mx-auto px-4 pt-2 pb-1">
+      <div className="w-full px-4 pt-2 pb-1">
         <div className="flex justify-between items-center text-white text-sm font-medium">
           <span>09:41</span>
           <div className="flex items-center gap-1">
@@ -65,7 +65,7 @@ const Focus = () => {
       </div>
 
       {/* Header */}
-      <header className="w-full max-w-lg mx-auto p-4 flex items-center justify-between">
+      <header className="w-full p-4 flex items-center justify-between">
         <Button 
           variant="ghost" 
           size="icon" 
@@ -81,7 +81,7 @@ const Focus = () => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-lg w-full mx-auto px-4 flex flex-col items-center justify-center pb-20">
+      <main className="flex-1 w-full px-4 flex flex-col items-center justify-center pb-20">
         <TimerBox timeLeft={timeLeft} />
         <ControlButtons 
           isPlaying={isPlaying}
