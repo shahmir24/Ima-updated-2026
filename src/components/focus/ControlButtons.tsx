@@ -11,25 +11,25 @@ interface ControlButtonsProps {
 
 const ControlButtons = ({ isPlaying, onPlayPause, onReset }: ControlButtonsProps) => {
   return (
-    <div className="flex gap-4 mb-8">
+    <div className="flex gap-6 mb-8">
       {/* Play/Pause Button */}
       <Button
         onClick={onPlayPause}
-        className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg border-0 transition-all duration-200 hover:scale-105"
+        className="w-16 h-16 rounded-2xl bg-white/10 hover:bg-white/20 shadow-lg border border-white/20 backdrop-blur-xl transition-all duration-200 hover:scale-105"
       >
         {isPlaying ? (
-          <Pause className="h-5 w-5 text-white" />
+          <Pause className="h-6 w-6 text-white" />
         ) : (
-          <Play className="h-5 w-5 text-white ml-1" />
+          <Play className="h-6 w-6 text-white ml-1" />
         )}
       </Button>
 
       {/* Reset Button */}
       <Button
         onClick={onReset}
-        className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 shadow-lg border-0 transition-all duration-200 hover:scale-105"
+        className="w-16 h-16 rounded-2xl bg-white/10 hover:bg-white/20 shadow-lg border border-white/20 backdrop-blur-xl transition-all duration-200 hover:scale-105"
       >
-        <RotateCcw className="h-4 w-4 text-white" />
+        <RotateCcw className="h-5 w-5 text-white" />
       </Button>
     </div>
   );

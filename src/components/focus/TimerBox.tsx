@@ -13,16 +13,16 @@ const TimerBox = ({ timeLeft }: TimerBoxProps) => {
   };
 
   return (
-    <div className="relative mb-8 w-full max-w-sm">
-      <div className="bg-[#1F1F1F] border-2 border-blue-500 rounded-3xl p-8 shadow-lg">
+    <div className="relative mb-12 w-full max-w-sm">
+      <div className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-3xl p-12 shadow-2xl">
         <div className="text-center">
-          <div className="text-5xl md:text-6xl font-mono text-blue-400 font-light tracking-wider">
+          <div className="text-6xl md:text-7xl font-thin text-white tracking-wider font-mono">
             {formatTime(timeLeft)}
           </div>
         </div>
       </div>
       {/* Subtle glow effect */}
-      <div className="absolute inset-0 bg-blue-500/10 rounded-3xl blur-xl -z-10"></div>
+      <div className="absolute inset-0 bg-blue-400/5 rounded-3xl blur-2xl -z-10"></div>
     </div>
   );
 };

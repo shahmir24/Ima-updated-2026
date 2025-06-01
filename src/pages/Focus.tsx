@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import TimerBox from '@/components/focus/TimerBox';
 import ControlButtons from '@/components/focus/ControlButtons';
@@ -16,6 +16,22 @@ const Focus = () => {
   const [timeBoxDuration, setTimeBoxDuration] = useState(25);
   const [intervalDuration, setIntervalDuration] = useState(5);
   const [numberOfFlows, setNumberOfFlows] = useState(4);
+  const [isLocked, setIsLocked] = useState(false);
+
+  // Timer functionality
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (isPlaying && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft((prev) => prev - 1);
+      }, 1000);
+    } else if (timeLeft === 0) {
+      setIsPlaying(false);
+    }
+
+    return () => clearInterval(interval);
+  }, [isPlaying, timeLeft]);
 
   const handlePlayPause = () => {
     setIsPlaying(!isPlaying);
@@ -30,7 +46,9 @@ const Focus = () => {
     switch (setting) {
       case 'timeBox':
         setTimeBoxDuration(value);
-        setTimeLeft(value * 60);
+        if (!isPlaying) {
+          setTimeLeft(value * 60);
+        }
         break;
       case 'interval':
         setIntervalDuration(value);
@@ -40,6 +58,27 @@ const Focus = () => {
         break;
     }
   };
+
+  const handleLockToggle = () => {
+    setIsLocked(!isLocked);
+  };
+
+  if (isLocked) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground w-[480px] mx-auto">
+        <div className="text-center">
+          <Lock className="h-16 w-16 text-white/60 mx-auto mb-4" />
+          <h2 className="text-2xl font-light text-white/80 mb-8">Timer Locked</h2>
+          <Button
+            onClick={handleLockToggle}
+            className="px-8 py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-full text-white backdrop-blur-sm"
+          >
+            Unlock
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground w-[480px] mx-auto">
@@ -77,7 +116,14 @@ const Focus = () => {
         
         <h1 className="text-white text-lg font-medium">Focus Timer</h1>
         
-        <div className="w-10"></div>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={handleLockToggle}
+          className="h-10 w-10 rounded-full p-0 hover:bg-white/10"
+        >
+          <Lock className="h-5 w-5 text-white" />
+        </Button>
       </header>
 
       {/* Main Content */}

@@ -59,29 +59,29 @@ const FloatingSettings = ({
   ];
 
   return (
-    <div className="fixed bottom-20 right-4 z-50">
+    <div className="fixed bottom-24 right-4 z-50">
       {/* Settings Cards Stack */}
       {isOpen && (
-        <div className="mb-4 space-y-3 animate-fade-in">
+        <div className="mb-2 space-y-2 animate-fade-in">
           {settingsOptions.map((option, index) => {
             const IconComponent = option.icon;
             return (
               <div
                 key={index}
-                className="bg-gradient-to-r from-blue-500/90 to-purple-600/90 backdrop-blur-lg rounded-full px-6 py-4 shadow-lg border border-white/20 min-w-[280px]"
+                className="bg-white/10 backdrop-blur-xl rounded-2xl px-4 py-3 shadow-lg border border-white/20 min-w-[260px]"
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                   <IconComponent className="h-4 w-4 text-white flex-shrink-0" />
                   <div className="flex-1">
                     <span className="text-white text-sm font-medium">{option.label}</span>
                   </div>
-                  <div className="text-white/80 text-sm min-w-[80px]">
+                  <div className="text-white/80 text-sm min-w-[70px]">
                     {option.setting === 'challenges' ? (
                       <Select 
                         value={option.value} 
                         onValueChange={(value) => console.log('Challenge setting:', value)}
                       >
-                        <SelectTrigger className="h-6 bg-transparent border-white/30 text-white text-xs">
+                        <SelectTrigger className="h-7 bg-white/10 border-white/20 text-white text-xs rounded-lg">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -99,7 +99,7 @@ const FloatingSettings = ({
                                numberOfFlows.toString()} 
                         onValueChange={(value) => onSettingChange(option.setting, parseInt(value))}
                       >
-                        <SelectTrigger className="h-6 bg-transparent border-white/30 text-white text-xs">
+                        <SelectTrigger className="h-7 bg-white/10 border-white/20 text-white text-xs rounded-lg">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -122,9 +122,9 @@ const FloatingSettings = ({
       {/* Floating Settings Button */}
       <Button
         onClick={onToggle}
-        className="w-14 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg border-0 transition-all duration-200 hover:scale-105"
+        className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 shadow-lg border border-white/20 backdrop-blur-xl transition-all duration-200 hover:scale-105"
       >
-        <Settings className="h-4 w-4 text-white" />
+        <Settings className="h-5 w-5 text-white" />
       </Button>
     </div>
   );
