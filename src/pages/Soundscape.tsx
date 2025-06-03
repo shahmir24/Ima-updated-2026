@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Pause } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Droplets, Waves, Zap, Sparkles, Wind } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const Soundscape = () => {
@@ -9,12 +9,12 @@ const Soundscape = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedSound, setSelectedSound] = useState<string | null>(null);
 
-  const soundscapes = [
-    { id: 'deep-focus', name: 'Deep Focus', description: 'Ambient tones for concentration' },
-    { id: 'flow-rain', name: 'Flow Rain', description: 'Gentle rainfall sounds' },
-    { id: 'white-noise', name: 'White Noise', description: 'Pure focus frequency' },
-    { id: 'forest-calm', name: 'Forest Calm', description: 'Nature\'s whispers' },
-    { id: 'ocean-waves', name: 'Ocean Waves', description: 'Rhythmic wave patterns' }
+  const soundOptions = [
+    { id: 'rain', icon: Droplets, name: 'Rain' },
+    { id: 'waves', icon: Waves, name: 'Ocean' },
+    { id: 'white-noise', icon: Zap, name: 'White Noise' },
+    { id: 'ambient', icon: Sparkles, name: 'Ambient' },
+    { id: 'wind', icon: Wind, name: 'Wind' }
   ];
 
   const handlePlayPause = () => {
@@ -23,7 +23,6 @@ const Soundscape = () => {
 
   const handleSoundSelect = (soundId: string) => {
     setSelectedSound(soundId);
-    setIsPlaying(false);
   };
 
   return (
@@ -66,9 +65,9 @@ const Soundscape = () => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 w-full px-4 flex flex-col items-center justify-center pb-20">
+      <main className="flex-1 w-full px-4 flex items-center justify-center relative">
         {/* Central Play Button */}
-        <div className="relative mb-16">
+        <div className="relative flex items-center justify-center">
           <div className="relative">
             {/* Outer pulsing ring when playing */}
             {isPlaying && (
@@ -83,7 +82,7 @@ const Soundscape = () => {
             {/* Main button */}
             <Button
               onClick={handlePlayPause}
-              className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 shadow-2xl transition-all duration-300 hover:scale-105 relative z-10"
+              className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 relative z-10"
             >
               {isPlaying ? (
                 <Pause className="h-12 w-12 text-white" />
@@ -92,47 +91,32 @@ const Soundscape = () => {
               )}
             </Button>
           </div>
-          
-          {/* Status text */}
-          <div className="text-center mt-6">
-            <p className="text-white text-lg font-light">
-              {isPlaying ? 'Playing' : 'Tap to start'}
-            </p>
-            {selectedSound && (
-              <p className="text-white/60 text-sm mt-1">
-                {soundscapes.find(s => s.id === selectedSound)?.name}
-              </p>
-            )}
-          </div>
         </div>
 
-        {/* Soundscape Options */}
-        <div className="w-full max-w-sm space-y-3">
-          <h2 className="text-white/80 text-sm font-medium mb-4 text-center">Choose your soundscape</h2>
-          
-          {soundscapes.map((soundscape) => (
-            <button
-              key={soundscape.id}
-              onClick={() => handleSoundSelect(soundscape.id)}
-              className={`w-full p-4 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 text-left transition-all duration-200 hover:bg-white/10 ${
-                selectedSound === soundscape.id 
-                  ? 'ring-2 ring-blue-400/50 bg-white/10' 
-                  : ''
-              }`}
-            >
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="text-white font-medium text-sm">{soundscape.name}</h3>
-                  <p className="text-white/60 text-xs mt-1">{soundscape.description}</p>
-                </div>
-                <div className={`w-3 h-3 rounded-full border-2 ${
-                  selectedSound === soundscape.id 
-                    ? 'bg-blue-400 border-blue-400' 
-                    : 'border-white/40'
-                }`}></div>
-              </div>
-            </button>
-          ))}
+        {/* Sound Selector - Vertical ellipses on the right */}
+        <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex flex-col items-center space-y-6">
+          {soundOptions.map((sound) => {
+            const IconComponent = sound.icon;
+            const isSelected = selectedSound === sound.id;
+            
+            return (
+              <button
+                key={sound.id}
+                onClick={() => handleSoundSelect(sound.id)}
+                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${
+                  isSelected 
+                    ? 'bg-white/20 shadow-lg ring-2 ring-white/40 scale-110' 
+                    : 'bg-white/10 hover:bg-white/15 hover:scale-105'
+                }`}
+              >
+                <IconComponent 
+                  className={`h-5 w-5 transition-colors duration-300 ${
+                    isSelected ? 'text-white' : 'text-white/70'
+                  }`} 
+                />
+              </button>
+            );
+          })}
         </div>
       </main>
     </div>
