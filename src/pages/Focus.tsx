@@ -160,11 +160,22 @@ const Focus = () => {
       <div className="w-full px-4 mb-4">
         <div className="text-center">
           <div className="text-white/60 text-sm mb-1">
-            Flows this session: {flowsCompleted}/{numberOfFlows}
+            {flowsCompleted}/{numberOfFlows}
           </div>
-          <div className="text-white/80 text-xs font-light">
-            {getAffirmationMessage()}
-          </div>
+          {!isPlaying && (
+            <>
+              {flowsCompleted === 0 && (
+                <div className="text-white/80 text-xs font-light">
+                  {getAffirmationMessage()}
+                </div>
+              )}
+              {flowsCompleted > 0 && (
+                <div className="text-white/80 text-xs font-light">
+                  {getAffirmationMessage()}
+                </div>
+              )}
+            </>
+          )}
           {currentPhase === 'break' && (
             <div className="text-orange-300/80 text-xs mt-1">
               Break time - recharge for your next flow
