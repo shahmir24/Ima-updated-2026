@@ -53,7 +53,7 @@ const Soundscape = () => {
         <Button 
           variant="ghost" 
           size="icon" 
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/productivity')}
           className="h-10 w-10 rounded-full p-0 hover:bg-white/10"
         >
           <ArrowLeft className="h-6 w-6 text-white" />
@@ -65,9 +65,9 @@ const Soundscape = () => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 w-full px-4 flex items-center justify-center relative">
+      <main className="flex-1 w-full px-4 flex flex-col items-center justify-center">
         {/* Central Play Button */}
-        <div className="relative flex items-center justify-center">
+        <div className="relative flex items-center justify-center mb-16">
           <div className="relative">
             {/* Outer pulsing ring when playing */}
             {isPlaying && (
@@ -93,8 +93,8 @@ const Soundscape = () => {
           </div>
         </div>
 
-        {/* Sound Selector - Vertical ellipses on the right */}
-        <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex flex-col items-center space-y-6">
+        {/* Sound Selector - Horizontal line below play button */}
+        <div className="flex items-center space-x-8">
           {soundOptions.map((sound) => {
             const IconComponent = sound.icon;
             const isSelected = selectedSound === sound.id;
@@ -103,17 +103,28 @@ const Soundscape = () => {
               <button
                 key={sound.id}
                 onClick={() => handleSoundSelect(sound.id)}
-                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${
-                  isSelected 
-                    ? 'bg-white/20 shadow-lg ring-2 ring-white/40 scale-110' 
-                    : 'bg-white/10 hover:bg-white/15 hover:scale-105'
-                }`}
+                className="flex flex-col items-center space-y-2 transition-all duration-300"
               >
-                <IconComponent 
-                  className={`h-5 w-5 transition-colors duration-300 ${
+                <div
+                  className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${
+                    isSelected 
+                      ? 'bg-white/20 shadow-lg ring-2 ring-white/40 scale-110' 
+                      : 'bg-white/10 hover:bg-white/15 hover:scale-105'
+                  }`}
+                >
+                  <IconComponent 
+                    className={`h-5 w-5 transition-colors duration-300 ${
+                      isSelected ? 'text-white' : 'text-white/70'
+                    }`} 
+                  />
+                </div>
+                <span 
+                  className={`text-xs transition-colors duration-300 ${
                     isSelected ? 'text-white' : 'text-white/70'
-                  }`} 
-                />
+                  }`}
+                >
+                  {sound.name}
+                </span>
               </button>
             );
           })}
