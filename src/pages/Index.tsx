@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, Circle, Clock, Calendar, MessageSquare, Activity, Smile, Frown, Meh, Zap, Brain, User, Settings, HelpCircle, LogOut, Check } from 'lucide-react';
@@ -197,7 +196,24 @@ const Index = () => {
             </div>
           </Link>
           
-          <Link to="/journal" className="col-span-3 rounded-3xl overflow-hidden">
+          <Link to="/soundscape" className="col-span-3 rounded-3xl overflow-hidden">
+            <div className="bg-gradient-to-br from-indigo-600 to-indigo-900 rounded-3xl p-5 h-full flex flex-col justify-between card-hover">
+              <div>
+                <h3 className="text-lg font-bold mb-1">Soundscaping</h3>
+                <p className="text-sm text-indigo-200">Focus sounds</p>
+              </div>
+              <div className="mt-auto flex justify-end">
+                <div className="relative">
+                  <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
+                    <div className="w-3 h-3 rounded-full bg-white/80"></div>
+                  </div>
+                  <div className="absolute inset-0 w-7 h-7 rounded-full bg-white/10 animate-ping"></div>
+                </div>
+              </div>
+            </div>
+          </Link>
+          
+          <Link to="/journal" className="col-span-6 rounded-3xl overflow-hidden">
             <div className="bg-gradient-to-br from-teal-600 to-teal-900 rounded-3xl p-5 h-full flex flex-col justify-between card-hover">
               <div>
                 <h3 className="text-lg font-bold mb-1">Daily journal</h3>
