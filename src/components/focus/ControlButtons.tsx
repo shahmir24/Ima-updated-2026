@@ -7,15 +7,17 @@ interface ControlButtonsProps {
   isPlaying: boolean;
   onPlayPause: () => void;
   onReset: () => void;
+  disabled?: boolean;
 }
 
-const ControlButtons = ({ isPlaying, onPlayPause, onReset }: ControlButtonsProps) => {
+const ControlButtons = ({ isPlaying, onPlayPause, onReset, disabled = false }: ControlButtonsProps) => {
   return (
     <div className="flex gap-6 mb-8">
       {/* Play/Pause Button */}
       <Button
         onClick={onPlayPause}
-        className="w-16 h-16 rounded-2xl bg-white/10 hover:bg-white/20 shadow-lg border border-white/20 backdrop-blur-xl transition-all duration-200 hover:scale-105"
+        disabled={disabled}
+        className="w-16 h-16 rounded-2xl bg-white/10 hover:bg-white/20 shadow-lg border border-white/20 backdrop-blur-xl transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
       >
         {isPlaying ? (
           <Pause className="h-6 w-6 text-white" />
@@ -27,7 +29,8 @@ const ControlButtons = ({ isPlaying, onPlayPause, onReset }: ControlButtonsProps
       {/* Reset Button */}
       <Button
         onClick={onReset}
-        className="w-16 h-16 rounded-2xl bg-white/10 hover:bg-white/20 shadow-lg border border-white/20 backdrop-blur-xl transition-all duration-200 hover:scale-105"
+        disabled={disabled}
+        className="w-16 h-16 rounded-2xl bg-white/10 hover:bg-white/20 shadow-lg border border-white/20 backdrop-blur-xl transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
       >
         <RotateCcw className="h-5 w-5 text-white" />
       </Button>
