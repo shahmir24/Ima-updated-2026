@@ -113,7 +113,8 @@ const Tasks = () => {
           <div className="flex items-center gap-3">
             <Button 
               onClick={() => setShowMeetingModal(true)}
-              className="bg-[#6B7B47] hover:bg-[#5a6b3a] text-white rounded-full px-4 py-2 flex items-center gap-2"
+              style={{ backgroundColor: '#2f74db' }}
+              className="hover:opacity-90 text-white rounded-full px-4 py-2 flex items-center gap-2"
             >
               <Plus className="h-4 w-4" />
               New Task
@@ -130,9 +131,10 @@ const Tasks = () => {
             onClick={() => setActiveTab('all')}
             className={`rounded-full px-6 py-2 flex items-center gap-2 ${
               activeTab === 'all' 
-                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white' 
+                ? 'text-white' 
                 : 'bg-gray-600 text-white hover:bg-gray-500'
             }`}
+            style={activeTab === 'all' ? { background: 'linear-gradient(to right, #2f74db, #2f74db)' } : {}}
           >
             All
             <Badge variant="secondary" className="bg-white/20 text-white text-xs">
@@ -143,9 +145,10 @@ const Tasks = () => {
             onClick={() => setActiveTab('completed')}
             className={`rounded-full px-6 py-2 flex items-center gap-2 ${
               activeTab === 'completed' 
-                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white' 
+                ? 'text-white' 
                 : 'bg-gray-600 text-white hover:bg-gray-500'
             }`}
+            style={activeTab === 'completed' ? { background: 'linear-gradient(to right, #2f74db, #2f74db)' } : {}}
           >
             Completed
             <Badge variant="secondary" className="bg-white/20 text-white text-xs">

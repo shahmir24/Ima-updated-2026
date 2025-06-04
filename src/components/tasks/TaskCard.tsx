@@ -32,8 +32,18 @@ const TaskCard = ({ task, onComplete }: TaskCardProps) => {
     }
   };
 
+  const getCardBackground = () => {
+    if (task.completed) {
+      return '#1d8690';
+    }
+    return '#1f1f1f';
+  };
+
   return (
-    <div className={`bg-[#6B7B47] rounded-3xl p-6 ${task.completed ? 'opacity-70' : ''}`}>
+    <div 
+      className={`rounded-3xl p-6 ${task.completed ? 'opacity-70' : ''}`}
+      style={{ backgroundColor: getCardBackground() }}
+    >
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
@@ -61,8 +71,9 @@ const TaskCard = ({ task, onComplete }: TaskCardProps) => {
               className={`h-12 w-12 rounded-full ${
                 task.completed 
                   ? 'bg-green-500 hover:bg-green-600' 
-                  : 'bg-blue-500 hover:bg-blue-600'
+                  : 'hover:opacity-90'
               } flex items-center justify-center`}
+              style={!task.completed ? { backgroundColor: '#2f74db' } : {}}
             >
               {task.completed ? (
                 <Check className="h-6 w-6 text-white" />
