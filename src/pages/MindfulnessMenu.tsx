@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, Scan, Walking } from 'lucide-react';
+import { Heart, Scan, Footprints } from 'lucide-react';
 import WellnessHeader from '@/components/wellness/WellnessHeader';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
 
@@ -31,7 +31,7 @@ const mindfulnessOptions: MindfulnessOption[] = [
   {
     id: 'mindful-walking',
     title: 'Mindful Walking',
-    icon: <Walking className="h-8 w-8" />,
+    icon: <Footprints className="h-8 w-8" />,
     description: 'Walking meditation and movement practices',
     color: 'bg-green-500/20 text-green-300'
   }
