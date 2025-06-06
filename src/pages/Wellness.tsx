@@ -72,6 +72,13 @@ const Wellness = () => {
     );
   }, [searchTerm]);
 
+  const handleToolClick = (toolId: string) => {
+    if (toolId === 'mindfulness') {
+      navigate('/wellness/inner-menu');
+    }
+    // Add more navigation logic for other tools later
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
       {/* Status Bar */}
@@ -100,7 +107,7 @@ const Wellness = () => {
         <Button 
           variant="ghost" 
           size="icon" 
-          onClick={() => navigate('/productivity')}
+          onClick={() => navigate('/')}
           className="h-10 w-10 rounded-full p-0 hover:bg-white/10"
         >
           <ArrowLeft className="h-6 w-6 text-white" />
@@ -137,6 +144,7 @@ const Wellness = () => {
           {filteredTools.slice(0, 4).map((tool) => (
             <div
               key={tool.id}
+              onClick={() => handleToolClick(tool.id)}
               className="bg-secondary/50 rounded-3xl p-6 aspect-square flex flex-col items-center justify-center space-y-4 hover:bg-secondary/70 transition-colors cursor-pointer"
             >
               {tool.icon}
@@ -148,7 +156,10 @@ const Wellness = () => {
         {/* Additional Tool */}
         {filteredTools.length > 4 && (
           <div className="grid grid-cols-1 gap-4 mb-8">
-            <div className="bg-secondary/50 rounded-3xl p-6 flex items-center justify-center space-x-4 hover:bg-secondary/70 transition-colors cursor-pointer">
+            <div 
+              onClick={() => handleToolClick(filteredTools[4].id)}
+              className="bg-secondary/50 rounded-3xl p-6 flex items-center justify-center space-x-4 hover:bg-secondary/70 transition-colors cursor-pointer"
+            >
               {filteredTools[4].icon}
               <span className="text-white font-medium">{filteredTools[4].name}</span>
             </div>

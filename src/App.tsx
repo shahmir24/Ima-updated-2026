@@ -11,6 +11,7 @@ import Soundscape from "./pages/Soundscape";
 import Stats from "./pages/Stats";
 import Tasks from "./pages/Tasks";
 import Wellness from "./pages/Wellness";
+import WellnessInnerMenu from "./pages/WellnessInnerMenu";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/stats" element={<Stats />} />
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/wellness" element={<Wellness />} />
+          <Route path="/wellness/inner-menu" element={<WellnessInnerMenu />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
