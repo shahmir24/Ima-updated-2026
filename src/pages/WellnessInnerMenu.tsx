@@ -11,6 +11,7 @@ interface WellnessMenuItem {
   icon: React.ReactNode;
   description: string;
   color: string;
+  route: string;
 }
 
 const wellnessMenuItems: WellnessMenuItem[] = [
@@ -19,37 +20,40 @@ const wellnessMenuItems: WellnessMenuItem[] = [
     title: 'Mindfulness',
     icon: <Heart className="h-8 w-8" />,
     description: 'Guided meditation and awareness practices',
-    color: 'bg-purple-500/20 text-purple-300'
+    color: 'bg-purple-500/20 text-purple-300',
+    route: '/wellness/mindfulness'
   },
   {
     id: 'breathing',
     title: 'Breathing',
     icon: <Wind className="h-8 w-8" />,
     description: 'Breathing exercises for relaxation',
-    color: 'bg-cyan-500/20 text-cyan-300'
+    color: 'bg-cyan-500/20 text-cyan-300',
+    route: '/wellness/breathing'
   },
   {
     id: 'journaling',
     title: 'Journaling',
     icon: <BookOpen className="h-8 w-8" />,
     description: 'Reflect and express your thoughts',
-    color: 'bg-blue-500/20 text-blue-300'
+    color: 'bg-blue-500/20 text-blue-300',
+    route: '/wellness/journaling'
   },
   {
     id: 'safe-space',
     title: 'Safe Space',
     icon: <Shield className="h-8 w-8" />,
     description: 'Panic attack guidance and support',
-    color: 'bg-green-500/20 text-green-300'
+    color: 'bg-green-500/20 text-green-300',
+    route: '/wellness/safe-space'
   }
 ];
 
 const WellnessInnerMenu = () => {
   const navigate = useNavigate();
 
-  const handleMenuItemClick = (itemId: string) => {
-    // Navigation logic for each wellness module will be added later
-    console.log(`Navigating to ${itemId}`);
+  const handleMenuItemClick = (route: string) => {
+    navigate(route);
   };
 
   return (
@@ -96,7 +100,7 @@ const WellnessInnerMenu = () => {
         {wellnessMenuItems.map((item, index) => (
           <div
             key={item.id}
-            onClick={() => handleMenuItemClick(item.id)}
+            onClick={() => handleMenuItemClick(item.route)}
             className="bg-secondary/40 rounded-3xl p-6 hover:bg-secondary/60 transition-all duration-300 cursor-pointer card-hover animate-fade-in"
             style={{ animationDelay: `${index * 0.1}s` }}
           >

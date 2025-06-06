@@ -12,6 +12,10 @@ import Stats from "./pages/Stats";
 import Tasks from "./pages/Tasks";
 import Wellness from "./pages/Wellness";
 import WellnessInnerMenu from "./pages/WellnessInnerMenu";
+import MindfulnessMenu from "./pages/MindfulnessMenu";
+import BreathingMenu from "./pages/BreathingMenu";
+import JournalingMenu from "./pages/JournalingMenu";
+import SafeSpaceMenu from "./pages/SafeSpaceMenu";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +35,10 @@ const App = () => (
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/wellness" element={<Wellness />} />
           <Route path="/wellness/inner-menu" element={<WellnessInnerMenu />} />
+          <Route path="/wellness/mindfulness" element={<MindfulnessMenu />} />
+          <Route path="/wellness/breathing" element={<BreathingMenu />} />
+          <Route path="/wellness/journaling" element={<JournalingMenu />} />
+          <Route path="/wellness/safe-space" element={<SafeSpaceMenu />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
