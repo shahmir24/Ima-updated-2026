@@ -11,6 +11,7 @@ interface MindfulnessOption {
   icon: React.ReactNode;
   description: string;
   color: string;
+  route: string;
 }
 
 const mindfulnessOptions: MindfulnessOption[] = [
@@ -19,30 +20,33 @@ const mindfulnessOptions: MindfulnessOption[] = [
     title: 'Meditation',
     icon: <Heart className="h-8 w-8" />,
     description: 'Guided meditation sessions for focus and calm',
-    color: 'bg-purple-500/20 text-purple-300'
+    color: 'bg-purple-500/20 text-purple-300',
+    route: '/mindfulness/meditation'
   },
   {
     id: 'body-scans',
     title: 'Body Scans',
     icon: <Scan className="h-8 w-8" />,
     description: 'Progressive relaxation and body awareness',
-    color: 'bg-blue-500/20 text-blue-300'
+    color: 'bg-blue-500/20 text-blue-300',
+    route: '/mindfulness/body-scan'
   },
   {
     id: 'mindful-walking',
     title: 'Mindful Walking',
     icon: <Footprints className="h-8 w-8" />,
     description: 'Walking meditation and movement practices',
-    color: 'bg-green-500/20 text-green-300'
+    color: 'bg-green-500/20 text-green-300',
+    route: '/mindfulness/walking'
   }
 ];
 
 const MindfulnessMenu = () => {
   const navigate = useNavigate();
 
-  const handleOptionClick = (optionId: string) => {
-    console.log(`Navigating to mindfulness/${optionId}`);
-    // Future navigation: navigate(`/mindfulness/${optionId}`);
+  const handleOptionClick = (route: string) => {
+    console.log(`Navigating to ${route}`);
+    navigate(route);
   };
 
   return (
@@ -53,7 +57,7 @@ const MindfulnessMenu = () => {
         {mindfulnessOptions.map((option, index) => (
           <div
             key={option.id}
-            onClick={() => handleOptionClick(option.id)}
+            onClick={() => handleOptionClick(option.route)}
             className="bg-secondary/40 rounded-3xl p-6 hover:bg-secondary/60 transition-all duration-300 cursor-pointer card-hover animate-fade-in"
             style={{ animationDelay: `${index * 0.1}s` }}
           >

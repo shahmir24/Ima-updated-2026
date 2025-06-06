@@ -16,6 +16,8 @@ import MindfulnessMenu from "./pages/MindfulnessMenu";
 import BreathingMenu from "./pages/BreathingMenu";
 import JournalingMenu from "./pages/JournalingMenu";
 import SafeSpaceMenu from "./pages/SafeSpaceMenu";
+import BodyScanIntro from "./pages/BodyScanIntro";
+import BodyScanSession from "./pages/BodyScanSession";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +41,8 @@ const App = () => (
           <Route path="/wellness/breathing" element={<BreathingMenu />} />
           <Route path="/wellness/journaling" element={<JournalingMenu />} />
           <Route path="/wellness/safe-space" element={<SafeSpaceMenu />} />
+          <Route path="/mindfulness/body-scan" element={<BodyScanIntro />} />
+          <Route path="/mindfulness/body-scan/session" element={<BodyScanSession />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
