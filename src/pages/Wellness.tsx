@@ -74,7 +74,7 @@ const Wellness = () => {
 
   const handleToolClick = (toolId: string) => {
     if (toolId === 'mindfulness') {
-      navigate('/wellness/inner-menu');
+      navigate('/wellness/mindfulness');
     }
     // Add more navigation logic for other tools later
   };

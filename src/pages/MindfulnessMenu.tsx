@@ -51,7 +51,7 @@ const MindfulnessMenu = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
-      <WellnessHeader title="Mindfulness" />
+      <WellnessHeader title="Mindfulness" backPath="/wellness" />
 
       <main className="flex-1 max-w-lg w-full mx-auto px-4 space-y-4">
         {mindfulnessOptions.map((option, index) => (

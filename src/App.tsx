@@ -11,7 +11,6 @@ import Soundscape from "./pages/Soundscape";
 import Stats from "./pages/Stats";
 import Tasks from "./pages/Tasks";
 import Wellness from "./pages/Wellness";
-import WellnessInnerMenu from "./pages/WellnessInnerMenu";
 import MindfulnessMenu from "./pages/MindfulnessMenu";
 import BreathingMenu from "./pages/BreathingMenu";
 import JournalingMenu from "./pages/JournalingMenu";
@@ -36,7 +35,6 @@ const App = () => (
           <Route path="/stats" element={<Stats />} />
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/wellness" element={<Wellness />} />
-          <Route path="/wellness/inner-menu" element={<WellnessInnerMenu />} />
           <Route path="/wellness/mindfulness" element={<MindfulnessMenu />} />
           <Route path="/wellness/breathing" element={<BreathingMenu />} />
           <Route path="/wellness/journaling" element={<JournalingMenu />} />
