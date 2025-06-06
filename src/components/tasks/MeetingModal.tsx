@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
 import { ArrowLeft, ChevronRight, Calendar as CalendarIcon, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,6 +14,7 @@ interface MeetingModalProps {
 }
 
 const MeetingModal = ({ isOpen, onClose }: MeetingModalProps) => {
+  const [taskTitle, setTaskTitle] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string>('14:00');
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -80,21 +81,25 @@ const MeetingModal = ({ isOpen, onClose }: MeetingModalProps) => {
           </Button>
           
           <div className="text-center">
-            <h1 className="text-xl font-bold text-white">Set a meeting with David</h1>
+            <h1 className="text-xl font-bold text-white">Create New Task</h1>
           </div>
           
           <div className="w-10"></div>
         </header>
 
-        {/* Subtitle */}
-        <div className="px-4 mb-8">
-          <p className="text-white/70 text-sm text-center">
-            get in touch with david @ 4 to set up investor meeting
-          </p>
-        </div>
-
-        {/* Meeting Details */}
+        {/* Task Details */}
         <div className="flex-1 px-4 space-y-4">
+          {/* Task Title Input */}
+          <div className="bg-secondary/30 rounded-2xl p-4">
+            <h3 className="text-white font-semibold text-lg mb-3">Task Title</h3>
+            <Input
+              value={taskTitle}
+              onChange={(e) => setTaskTitle(e.target.value)}
+              placeholder="Enter task title..."
+              className="bg-white/10 border-white/20 text-white placeholder:text-white/60 rounded-xl"
+            />
+          </div>
+
           {/* Date Selection */}
           <div className="bg-secondary/30 rounded-2xl p-4">
             <Popover open={showDatePicker} onOpenChange={setShowDatePicker}>
@@ -168,9 +173,10 @@ const MeetingModal = ({ isOpen, onClose }: MeetingModalProps) => {
         <div className="p-4 pb-8">
           <Button 
             onClick={onClose}
-            className="w-full bg-[#6B7B47] hover:bg-[#5a6b3a] text-white rounded-2xl py-4 text-lg font-semibold"
+            style={{ backgroundColor: '#2f74db' }}
+            className="w-full hover:opacity-90 text-white rounded-2xl py-4 text-lg font-semibold"
           >
-            Save Meeting
+            Save Task
           </Button>
         </div>
       </div>
