@@ -20,6 +20,9 @@ import NotFound from "./pages/NotFound";
 import MeditationMenu from "./pages/MeditationMenu";
 import FocusReset from "./pages/FocusReset";
 import AnchorGrounding from "./pages/AnchorGrounding";
+import BreathSyncWalk from "./pages/BreathSyncWalk";
+import BreakLoopWalk from "./pages/BreakLoopWalk";
+import MindfulWalkingMenu from "./pages/MindfulWalkingMenu";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +46,9 @@ const App = () => (
           <Route path="/meditation/anchor" element={<AnchorGrounding />} />
           <Route path="/mindfulness/body-scan" element={<BodyScanIntro />} />
           <Route path="/mindfulness/body-scan/session" element={<BodyScanSession />} />
+          <Route path="/mindfulness/walking" element={<MindfulWalkingMenu />} />
+          <Route path="/mindfulness/walking/breath-sync" element={<BreathSyncWalk />} />
+          <Route path="/mindfulness/walking/break-loop" element={<BreakLoopWalk />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
