@@ -13,6 +13,7 @@ interface BreathingOption {
   description: string;
   flow: string;
   color: string;
+  route: string;
 }
 
 const breathingOptions: BreathingOption[] = [
@@ -22,7 +23,8 @@ const breathingOptions: BreathingOption[] = [
     icon: <Wind className="h-8 w-8" />,
     description: 'For focus, calm control',
     flow: 'Inhale 4 → Hold 4 → Exhale 4 → Hold 4',
-    color: 'bg-cyan-500/20 text-cyan-300'
+    color: 'bg-cyan-500/20 text-cyan-300',
+    route: '/breathing/steady-square'
   },
   {
     id: 'triangle-calm',
@@ -30,7 +32,8 @@ const breathingOptions: BreathingOption[] = [
     icon: <Timer className="h-8 w-8" />,
     description: 'For transitioning, softening, letting go',
     flow: 'Inhale 4 → Hold 4 → Exhale 6',
-    color: 'bg-blue-500/20 text-blue-300'
+    color: 'bg-blue-500/20 text-blue-300',
+    route: '/breathing/triangle-calm'
   },
   {
     id: 'deep-reset',
@@ -38,7 +41,8 @@ const breathingOptions: BreathingOption[] = [
     icon: <Zap className="h-8 w-8" />,
     description: 'For ADHD loops, emotional regulation',
     flow: 'Inhale 4 → Hold 4 → Exhale 8 → Hold 4',
-    color: 'bg-yellow-500/20 text-yellow-300'
+    color: 'bg-yellow-500/20 text-yellow-300',
+    route: '/breathing/deep-reset'
   },
   {
     id: 'sleep-switch',
@@ -46,7 +50,8 @@ const breathingOptions: BreathingOption[] = [
     icon: <Moon className="h-8 w-8" />,
     description: 'For wind-down, bedtime, post-trigger calm',
     flow: 'Inhale 4 → Hold 7 → Exhale 8',
-    color: 'bg-indigo-500/20 text-indigo-300'
+    color: 'bg-indigo-500/20 text-indigo-300',
+    route: '/breathing/sleep-switch'
   },
   {
     id: 'ride-wave',
@@ -54,16 +59,16 @@ const breathingOptions: BreathingOption[] = [
     icon: <Heart className="h-8 w-8" />,
     description: 'For gentle calm, no structure, just presence',
     flow: 'Inhale slow → Exhale longer',
-    color: 'bg-purple-500/20 text-purple-300'
+    color: 'bg-purple-500/20 text-purple-300',
+    route: '/breathing/ride-the-wave'
   }
 ];
 
 const BreathingMenu = () => {
   const navigate = useNavigate();
 
-  const handleOptionClick = (optionId: string) => {
-    console.log(`Navigating to breathing/${optionId}`);
-    // Future navigation: navigate(`/breathing/${optionId}`);
+  const handleOptionClick = (route: string) => {
+    navigate(route);
   };
 
   return (
@@ -83,7 +88,7 @@ const BreathingMenu = () => {
         {breathingOptions.map((option, index) => (
           <div
             key={option.id}
-            onClick={() => handleOptionClick(option.id)}
+            onClick={() => handleOptionClick(option.route)}
             className="bg-secondary/40 rounded-3xl p-6 hover:bg-secondary/60 transition-all duration-300 cursor-pointer card-hover animate-fade-in"
             style={{ animationDelay: `${index * 0.1}s` }}
           >
