@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -18,6 +17,9 @@ import SafeSpaceMenu from "./pages/SafeSpaceMenu";
 import BodyScanIntro from "./pages/BodyScanIntro";
 import BodyScanSession from "./pages/BodyScanSession";
 import NotFound from "./pages/NotFound";
+import MeditationMenu from "./pages/MeditationMenu";
+import FocusReset from "./pages/FocusReset";
+import AnchorGrounding from "./pages/AnchorGrounding";
 
 const queryClient = new QueryClient();
 
@@ -36,12 +38,11 @@ const App = () => (
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/wellness" element={<Wellness />} />
           <Route path="/wellness/mindfulness" element={<MindfulnessMenu />} />
-          <Route path="/wellness/breathing" element={<BreathingMenu />} />
-          <Route path="/wellness/journaling" element={<JournalingMenu />} />
-          <Route path="/wellness/safe-space" element={<SafeSpaceMenu />} />
+          <Route path="/meditation" element={<MeditationMenu />} />
+          <Route path="/meditation/focus-reset" element={<FocusReset />} />
+          <Route path="/meditation/anchor" element={<AnchorGrounding />} />
           <Route path="/mindfulness/body-scan" element={<BodyScanIntro />} />
           <Route path="/mindfulness/body-scan/session" element={<BodyScanSession />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
