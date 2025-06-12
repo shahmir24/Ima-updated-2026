@@ -48,6 +48,7 @@ const App = () => (
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/wellness" element={<Wellness />} />
           <Route path="/wellness/mindfulness" element={<MindfulnessMenu />} />
+          <Route path="/breathing" element={<BreathingMenu />} />
           <Route path="/meditation" element={<MeditationMenu />} />
           <Route path="/meditation/focus-reset" element={<FocusReset />} />
           <Route path="/meditation/anchor" element={<AnchorGrounding />} />

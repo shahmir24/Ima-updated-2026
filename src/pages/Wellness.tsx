@@ -77,6 +77,8 @@ const Wellness = () => {
       navigate('/wellness/mindfulness');
     } else if (toolId === 'journal') {
       navigate('/journaling');
+    } else if (toolId === 'breath-easy') {
+      navigate('/breathing');
     }
     // Add more navigation logic for other tools later
   };
