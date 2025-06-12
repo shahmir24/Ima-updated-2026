@@ -20,6 +20,7 @@ import SleepSwitch from "./pages/breathing/SleepSwitch";
 import RideTheWave from "./pages/breathing/RideTheWave";
 import JournalingMenu from "./pages/JournalingMenu";
 import SafeSpaceMenu from "./pages/SafeSpaceMenu";
+import SafeSpaceChat from "./pages/SafeSpaceChat";
 import BodyScanIntro from "./pages/BodyScanIntro";
 import BodyScanSession from "./pages/BodyScanSession";
 import NotFound from "./pages/NotFound";
