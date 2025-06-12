@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, Hand, Ear, Sniff, Zap } from 'lucide-react';
+import { Eye, Hand, Ear, Wind, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import WellnessHeader from '@/components/wellness/WellnessHeader';
 
@@ -40,7 +41,7 @@ const groundingSteps: GroundingStep[] = [
   },
   {
     id: 'smell',
-    icon: <Sniff className="h-8 w-8" />,
+    icon: <Wind className="h-8 w-8" />,
     title: 'Breathe deep',
     instruction: 'Notice 2 things you can smell.',
     count: 2,
