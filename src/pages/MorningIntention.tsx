@@ -15,12 +15,12 @@ const MorningIntention = () => {
   const handleSave = () => {
     console.log('Saving morning intention:', intention);
     // Future: Save to local storage or database
-    navigate('/wellness');
+    navigate('/journaling');
   };
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
-      <WellnessHeader title="Set the Tone" backPath="/wellness" />
+      <WellnessHeader title="Set the Tone" backPath="/journaling" />
 
       <main className="flex-1 max-w-lg w-full mx-auto px-4 space-y-6">
         <Card className="bg-secondary/40 border-0">

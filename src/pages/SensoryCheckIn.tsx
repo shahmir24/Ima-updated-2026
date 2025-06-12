@@ -16,12 +16,12 @@ const SensoryCheckIn = () => {
 
   const handleSave = () => {
     console.log('Saving sensory check-in:', { sensations, bodyAwareness, softenSpot });
-    navigate('/wellness');
+    navigate('/journaling');
   };
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
-      <WellnessHeader title="Come Back to Your Body" backPath="/wellness" />
+      <WellnessHeader title="Come Back to Your Body" backPath="/journaling" />
 
       <main className="flex-1 max-w-lg w-full mx-auto px-4 space-y-6">
         <Card className="bg-secondary/40 border-0">

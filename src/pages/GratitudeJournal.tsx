@@ -15,12 +15,12 @@ const GratitudeJournal = () => {
 
   const handleSave = () => {
     console.log('Saving gratitude journal:', { smile, warmth });
-    navigate('/wellness');
+    navigate('/journaling');
   };
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
-      <WellnessHeader title="Tiny Wins, Soft Joys" backPath="/wellness" />
+      <WellnessHeader title="Tiny Wins, Soft Joys" backPath="/journaling" />
 
       <main className="flex-1 max-w-lg w-full mx-auto px-4 space-y-6">
         <Card className="bg-secondary/40 border-0">
