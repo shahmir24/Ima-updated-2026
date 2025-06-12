@@ -54,6 +54,11 @@ const App = () => (
           <Route path="/wellness" element={<Wellness />} />
           <Route path="/wellness/mindfulness" element={<MindfulnessMenu />} />
           <Route path="/breathing" element={<BreathingMenu />} />
+          <Route path="/breathing/steady-square" element={<SteadySquare />} />
+          <Route path="/breathing/triangle-calm" element={<TriangleCalm />} />
+          <Route path="/breathing/deep-reset" element={<DeepReset />} />
+          <Route path="/breathing/sleep-switch" element={<SleepSwitch />} />
+          <Route path="/breathing/ride-the-wave" element={<RideTheWave />} />
           <Route path="/meditation" element={<MeditationMenu />} />
           <Route path="/meditation/focus-reset" element={<FocusReset />} />
           <Route path="/meditation/anchor" element={<AnchorGrounding />} />
