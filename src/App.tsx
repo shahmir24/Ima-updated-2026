@@ -74,6 +74,8 @@ const App = () => (
           <Route path="/journaling/focus-reset" element={<FocusResetJournal />} />
           <Route path="/journaling/gratitude" element={<GratitudeJournal />} />
           <Route path="/journaling/sensory-checkin" element={<SensoryCheckIn />} />
+          <Route path="/safe-space" element={<SafeSpaceMenu />} />
+          <Route path="/safe-space/chat" element={<SafeSpaceChat />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

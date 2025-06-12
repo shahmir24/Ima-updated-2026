@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Phone, MessageCircle, Heart, Wind, Users } from 'lucide-react';
+import { Shield, Phone, MessageCircle, Heart, Wind, Users, Bot } from 'lucide-react';
 import WellnessHeader from '@/components/wellness/WellnessHeader';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
 
@@ -12,65 +12,81 @@ interface SafeSpaceOption {
   description: string;
   color: string;
   priority?: boolean;
+  route: string;
 }
 
 const safeSpaceOptions: SafeSpaceOption[] = [
+  {
+    id: 'safe-chat',
+    title: 'Talk to Your AI Friend',
+    icon: <Bot className="h-8 w-8" />,
+    description: 'Gentle, supportive AI chat that feels like a caring friend',
+    color: 'bg-blue-500/20 text-blue-300',
+    priority: true,
+    route: '/safe-space/chat'
+  },
   {
     id: 'immediate-help',
     title: 'I Need Help Now',
     icon: <Phone className="h-8 w-8" />,
     description: 'Crisis hotlines and emergency contacts',
     color: 'bg-red-500/20 text-red-300',
-    priority: true
+    priority: true,
+    route: '/safe-space/emergency'
   },
   {
     id: 'panic-guide',
     title: 'Panic Attack Guide',
     icon: <Shield className="h-8 w-8" />,
     description: 'Step-by-step guidance for panic attacks',
-    color: 'bg-blue-500/20 text-blue-300'
+    color: 'bg-blue-500/20 text-blue-300',
+    route: '/safe-space/panic-guide'
   },
   {
     id: 'grounding-exercises',
     title: 'Grounding Exercises',
     icon: <Heart className="h-8 w-8" />,
     description: '5-4-3-2-1 and other grounding techniques',
-    color: 'bg-green-500/20 text-green-300'
+    color: 'bg-green-500/20 text-green-300',
+    route: '/safe-space/grounding'
   },
   {
     id: 'breathing-sos',
     title: 'Emergency Breathing',
     icon: <Wind className="h-8 w-8" />,
     description: 'Quick breathing exercises for anxiety relief',
-    color: 'bg-cyan-500/20 text-cyan-300'
+    color: 'bg-cyan-500/20 text-cyan-300',
+    route: '/breathing'
   },
   {
     id: 'safe-contacts',
     title: 'Safe Contacts',
     icon: <Users className="h-8 w-8" />,
     description: 'Your trusted people and support network',
-    color: 'bg-purple-500/20 text-purple-300'
+    color: 'bg-purple-500/20 text-purple-300',
+    route: '/safe-space/contacts'
   },
   {
     id: 'self-talk',
     title: 'Calming Self-Talk',
     icon: <MessageCircle className="h-8 w-8" />,
     description: 'Positive affirmations and calming phrases',
-    color: 'bg-yellow-500/20 text-yellow-300'
+    color: 'bg-yellow-500/20 text-yellow-300',
+    route: '/safe-space/self-talk'
   }
 ];
 
 const SafeSpaceMenu = () => {
   const navigate = useNavigate();
 
-  const handleOptionClick = (optionId: string) => {
-    console.log(`Navigating to safe-space/${optionId}`);
-    // Future navigation: navigate(`/safe-space/${optionId}`);
+  const handleOptionClick = (route: string) => {
+    console.log(`Navigating to ${route}`);
+    navigate(route);
   };
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
-      <WellnessHeader title="Safe Space" />
+      <WellnessHeader title="Safe Space" backPath="/wellness" />
 
       <main className="flex-1 max-w-lg w-full mx-auto px-4 space-y-4">
         {/* Emergency Notice */}
@@ -83,9 +99,9 @@ const SafeSpaceMenu = () => {
         {safeSpaceOptions.map((option, index) => (
           <div
             key={option.id}
-            onClick={() => handleOptionClick(option.id)}
+            onClick={() => handleOptionClick(option.route)}
             className={`bg-secondary/40 rounded-3xl p-6 hover:bg-secondary/60 transition-all duration-300 cursor-pointer card-hover animate-fade-in ${
-              option.priority ? 'ring-2 ring-red-500/50' : ''
+              option.priority ? 'ring-2 ring-blue-500/50' : ''
             }`}
             style={{ animationDelay: `${index * 0.1}s` }}
           >
