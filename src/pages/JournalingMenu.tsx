@@ -11,59 +11,66 @@ interface JournalingOption {
   icon: React.ReactNode;
   description: string;
   color: string;
+  route: string;
 }
 
 const journalingOptions: JournalingOption[] = [
   {
-    id: 'brain-dump',
-    title: "What's on my mind?",
-    icon: <Brain className="h-8 w-8" />,
-    description: 'Quick brain dump to clear your thoughts',
-    color: 'bg-purple-500/20 text-purple-300'
+    id: 'morning-intention',
+    title: "Set the Tone",
+    icon: <Sun className="h-8 w-8" />,
+    description: 'Morning intention setting to anchor your day',
+    color: 'bg-orange-500/20 text-orange-300',
+    route: '/journaling/morning-intention'
   },
   {
     id: 'daily-journal',
-    title: 'Daily Journal',
+    title: 'Where Am I, Really?',
     icon: <BookOpen className="h-8 w-8" />,
-    description: 'Reflect on your day and experiences',
-    color: 'bg-blue-500/20 text-blue-300'
+    description: 'Daily check-in with yourself',
+    color: 'bg-blue-500/20 text-blue-300',
+    route: '/journaling/daily-journal'
   },
   {
-    id: 'emotion-tracker',
-    title: 'Emotion Tracker',
+    id: 'post-panic',
+    title: 'Name It to Tame It',
     icon: <Heart className="h-8 w-8" />,
-    description: 'Track and understand your feelings',
-    color: 'bg-pink-500/20 text-pink-300'
+    description: 'Post-overwhelm reflection and grounding',
+    color: 'bg-blue-500/20 text-blue-300',
+    route: '/journaling/post-panic'
   },
   {
-    id: 'goals-blocks',
-    title: 'Goals & Blocks',
+    id: 'focus-reset',
+    title: 'Zoom In',
     icon: <Target className="h-8 w-8" />,
-    description: 'Set goals and identify obstacles',
-    color: 'bg-green-500/20 text-green-300'
-  },
-  {
-    id: 'needs-today',
-    title: 'What do I need today?',
-    icon: <Sparkles className="h-8 w-8" />,
-    description: 'Identify your daily needs and priorities',
-    color: 'bg-yellow-500/20 text-yellow-300'
+    description: 'Clarify priorities when feeling scattered',
+    color: 'bg-green-500/20 text-green-300',
+    route: '/journaling/focus-reset'
   },
   {
     id: 'gratitude',
-    title: 'Gratitude Check-In',
+    title: 'Tiny Wins, Soft Joys',
     icon: <Sun className="h-8 w-8" />,
-    description: 'Practice gratitude and positive reflection',
-    color: 'bg-orange-500/20 text-orange-300'
+    description: 'Gratitude practice without pressure',
+    color: 'bg-yellow-500/20 text-yellow-300',
+    route: '/journaling/gratitude'
+  },
+  {
+    id: 'sensory-checkin',
+    title: 'Come Back to Your Body',
+    icon: <Heart className="h-8 w-8" />,
+    description: 'Sensory awareness and body connection',
+    color: 'bg-pink-500/20 text-pink-300',
+    route: '/journaling/sensory-checkin'
   }
 ];
 
 const JournalingMenu = () => {
   const navigate = useNavigate();
 
-  const handleOptionClick = (optionId: string) => {
-    console.log(`Navigating to journaling/${optionId}`);
-    // Future navigation: navigate(`/journaling/${optionId}`);
+  const handleOptionClick = (route: string) => {
+    console.log(`Navigating to ${route}`);
+    navigate(route);
   };
 
   return (
@@ -74,7 +81,7 @@ const JournalingMenu = () => {
         {journalingOptions.map((option, index) => (
           <div
             key={option.id}
-            onClick={() => handleOptionClick(option.id)}
+            onClick={() => handleOptionClick(option.route)}
             className="bg-secondary/40 rounded-3xl p-6 hover:bg-secondary/60 transition-all duration-300 cursor-pointer card-hover animate-fade-in"
             style={{ animationDelay: `${index * 0.1}s` }}
           >

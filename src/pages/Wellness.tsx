@@ -75,6 +75,8 @@ const Wellness = () => {
   const handleToolClick = (toolId: string) => {
     if (toolId === 'mindfulness') {
       navigate('/wellness/mindfulness');
+    } else if (toolId === 'journal') {
+      navigate('/journaling');
     }
     // Add more navigation logic for other tools later
   };

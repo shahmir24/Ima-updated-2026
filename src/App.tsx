@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -23,6 +24,12 @@ import AnchorGrounding from "./pages/AnchorGrounding";
 import BreathSyncWalk from "./pages/BreathSyncWalk";
 import BreakLoopWalk from "./pages/BreakLoopWalk";
 import MindfulWalkingMenu from "./pages/MindfulWalkingMenu";
+import MorningIntention from "./pages/MorningIntention";
+import PostPanicJournal from "./pages/PostPanicJournal";
+import FocusResetJournal from "./pages/FocusResetJournal";
+import GratitudeJournal from "./pages/GratitudeJournal";
+import SensoryCheckIn from "./pages/SensoryCheckIn";
+import DailyJournal from "./pages/DailyJournal";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +56,13 @@ const App = () => (
           <Route path="/mindfulness/walking" element={<MindfulWalkingMenu />} />
           <Route path="/mindfulness/walking/breath-sync" element={<BreathSyncWalk />} />
           <Route path="/mindfulness/walking/break-loop" element={<BreakLoopWalk />} />
+          <Route path="/journaling" element={<JournalingMenu />} />
+          <Route path="/journaling/morning-intention" element={<MorningIntention />} />
+          <Route path="/journaling/daily-journal" element={<DailyJournal />} />
+          <Route path="/journaling/post-panic" element={<PostPanicJournal />} />
+          <Route path="/journaling/focus-reset" element={<FocusResetJournal />} />
+          <Route path="/journaling/gratitude" element={<GratitudeJournal />} />
+          <Route path="/journaling/sensory-checkin" element={<SensoryCheckIn />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
