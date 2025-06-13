@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, Heart, Wind, Edit3, Phone } from 'lucide-react';
+import { ArrowLeft, Send, Heart, Wind, Edit3, Phone, Mic, MicOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
@@ -26,6 +26,8 @@ const SafeSpaceChat = () => {
   ]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const suggestedPrompts = [
@@ -130,6 +132,51 @@ const SafeSpaceChat = () => {
     }, 1500);
   };
 
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      
+      recorder.onstart = () => {
+        setIsRecording(true);
+      };
+      
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          // Here you would typically send the audio data to a speech-to-text service
+          // For now, we'll simulate voice input
+          const simulatedText = "I'm feeling anxious and need some support right now.";
+          handleSendMessage(simulatedText);
+        }
+      };
+      
+      recorder.onstop = () => {
+        setIsRecording(false);
+        stream.getTracks().forEach(track => track.stop());
+      };
+      
+      setMediaRecorder(recorder);
+      recorder.start();
+      
+      // Auto-stop after 10 seconds
+      setTimeout(() => {
+        if (recorder.state === 'recording') {
+          recorder.stop();
+        }
+      }, 10000);
+      
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      alert('Unable to access microphone. Please check your permissions.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+    }
+  };
+
   const handlePromptClick = (promptText: string) => {
     handleSendMessage(promptText);
   };
@@ -209,16 +256,16 @@ const SafeSpaceChat = () => {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate('/wellness')}
+          onClick={() => navigate('/safe-space')}
           className="text-white/80 hover:text-white"
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="text-center">
-          <h1 className="text-lg font-semibold text-white">Safe Space</h1>
+          <h1 className="responsive-subtitle font-semibold text-white">Safe Space</h1>
           <p className="text-xs text-white/60">Your gentle AI companion</p>
         </div>
-        <div className="w-10" /> {/* Spacer */}
+        <div className="w-10" />
       </div>
 
       {/* Messages */}
@@ -233,7 +280,7 @@ const SafeSpaceChat = () => {
                     : 'bg-secondary/40 text-white mr-4'
                 }`}
               >
-                <p className="text-sm leading-relaxed">{message.text}</p>
+                <p className="responsive-body leading-relaxed">{message.text}</p>
               </div>
               {!message.isUser && renderActionCard(message.actionCard)}
             </div>
@@ -257,7 +304,7 @@ const SafeSpaceChat = () => {
       {/* Suggested Prompts */}
       {messages.length <= 1 && (
         <div className="px-4 pb-2">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {suggestedPrompts.map((prompt, index) => (
               <Button
                 key={index}
@@ -289,6 +336,19 @@ const SafeSpaceChat = () => {
               className="w-full bg-secondary/40 border border-secondary/40 rounded-full px-4 py-3 text-white placeholder:text-white/50 focus:outline-none focus:border-blue-500/50"
             />
           </div>
+          
+          <Button
+            onClick={isRecording ? stopRecording : startRecording}
+            size="icon"
+            className={`rounded-full ${
+              isRecording 
+                ? 'bg-red-500 hover:bg-red-600 animate-pulse' 
+                : 'bg-green-500 hover:bg-green-600'
+            }`}
+          >
+            {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+          </Button>
+          
           <Button
             onClick={() => handleSendMessage(inputText)}
             disabled={!inputText.trim()}
@@ -306,3 +366,4 @@ const SafeSpaceChat = () => {
 };
 
 export default SafeSpaceChat;
+

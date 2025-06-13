@@ -55,11 +55,11 @@ const SteadySquare = () => {
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
       <WellnessHeader title="Steady Square" backPath="/breathing" />
 
-      <main className="flex-1 max-w-lg w-full mx-auto px-4 flex flex-col items-center justify-center space-y-8">
+      <main className="flex-1 responsive-container flex flex-col items-center justify-center space-y-6 sm:space-y-8">
         {/* Breathing Animation */}
         <div className="relative flex items-center justify-center">
           <div 
-            className={`w-48 h-48 border-4 border-cyan-400 rounded-lg transition-all duration-1000 ${
+            className={`w-40 h-40 sm:w-48 sm:h-48 border-4 border-cyan-400 rounded-lg transition-all duration-1000 ${
               isActive ? 'shadow-lg shadow-cyan-400/50 scale-110' : ''
             }`}
             style={{
@@ -71,28 +71,28 @@ const SteadySquare = () => {
             }}
           >
             {/* Corner indicators */}
-            <div className={`absolute -top-2 -left-2 w-4 h-4 rounded-full bg-cyan-400 transition-opacity duration-300 ${phase === 0 ? 'opacity-100 animate-pulse' : 'opacity-40'}`} />
-            <div className={`absolute -top-2 -right-2 w-4 h-4 rounded-full bg-cyan-400 transition-opacity duration-300 ${phase === 1 ? 'opacity-100 animate-pulse' : 'opacity-40'}`} />
-            <div className={`absolute -bottom-2 -right-2 w-4 h-4 rounded-full bg-cyan-400 transition-opacity duration-300 ${phase === 2 ? 'opacity-100 animate-pulse' : 'opacity-40'}`} />
-            <div className={`absolute -bottom-2 -left-2 w-4 h-4 rounded-full bg-cyan-400 transition-opacity duration-300 ${phase === 3 ? 'opacity-100 animate-pulse' : 'opacity-40'}`} />
+            <div className={`absolute -top-2 -left-2 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-cyan-400 transition-opacity duration-300 ${phase === 0 ? 'opacity-100 animate-pulse' : 'opacity-40'}`} />
+            <div className={`absolute -top-2 -right-2 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-cyan-400 transition-opacity duration-300 ${phase === 1 ? 'opacity-100 animate-pulse' : 'opacity-40'}`} />
+            <div className={`absolute -bottom-2 -right-2 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-cyan-400 transition-opacity duration-300 ${phase === 2 ? 'opacity-100 animate-pulse' : 'opacity-40'}`} />
+            <div className={`absolute -bottom-2 -left-2 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-cyan-400 transition-opacity duration-300 ${phase === 3 ? 'opacity-100 animate-pulse' : 'opacity-40'}`} />
             
             {/* Center content */}
             <div className="w-full h-full flex flex-col items-center justify-center">
-              <div className="text-6xl font-bold text-cyan-400 mb-2">{count}</div>
-              <div className="text-xl text-white/80">{phases[phase]}</div>
+              <div className="text-4xl sm:text-6xl font-bold text-cyan-400 mb-2">{count}</div>
+              <div className="responsive-subtitle text-white/80">{phases[phase]}</div>
             </div>
           </div>
         </div>
 
         {/* Instructions */}
         <div className="text-center space-y-4">
-          <p className="text-white/80 text-lg">
+          <p className="text-white/80 responsive-subtitle">
             Trace the edges. One breath per side.
           </p>
-          <p className="text-white/60 text-sm">
+          <p className="text-white/60 responsive-body">
             Let your mind find structure.
           </p>
-          <div className="text-white/60 text-sm">
+          <div className="text-white/60 responsive-body">
             Cycles completed: {cycles}
           </div>
         </div>
@@ -101,27 +101,27 @@ const SteadySquare = () => {
         <div className="flex items-center space-x-6">
           <Button
             onClick={toggleBreathing}
-            className="w-16 h-16 rounded-full bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/50"
+            className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/50"
           >
             {isActive ? (
-              <Pause className="h-8 w-8 text-cyan-400" />
+              <Pause className="h-6 w-6 sm:h-8 sm:w-8 text-cyan-400" />
             ) : (
-              <Play className="h-8 w-8 text-cyan-400" />
+              <Play className="h-6 w-6 sm:h-8 sm:w-8 text-cyan-400" />
             )}
           </Button>
           
           <Button
             onClick={resetBreathing}
             variant="ghost"
-            className="w-12 h-12 rounded-full hover:bg-white/10"
+            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full hover:bg-white/10"
           >
-            <RotateCcw className="h-6 w-6 text-white/60" />
+            <RotateCcw className="h-5 w-5 sm:h-6 sm:w-6 text-white/60" />
           </Button>
         </div>
 
         {/* Guidance */}
-        <div className="bg-secondary/40 rounded-3xl p-6 text-center">
-          <p className="text-white/70 text-sm">
+        <div className="bg-secondary/40 rounded-3xl p-4 sm:p-6 text-center">
+          <p className="text-white/70 responsive-body">
             Focus on each edge of the square. Four counts per side. 
             Feel your breath create structure and calm.
           </p>
@@ -134,3 +134,4 @@ const SteadySquare = () => {
 };
 
 export default SteadySquare;
+

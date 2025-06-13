@@ -73,14 +73,14 @@ const BreathingMenu = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
-      <WellnessHeader title="Pick Your Rhythm" />
+      <WellnessHeader title="Pick Your Rhythm" backPath="/wellness" />
 
-      <main className="flex-1 max-w-lg w-full mx-auto px-4 space-y-6">
+      <main className="flex-1 responsive-container space-y-4 sm:space-y-6">
         <Card className="bg-secondary/40 border-0">
-          <CardContent className="pt-6">
-            <div className="text-white/80 space-y-3 text-center mb-6">
-              <p>"You don't need to feel better all at once. You just need a rhythm your body can follow. Let's start there."</p>
-              <p className="text-sm">Take a moment. Pick the kind of breath your body's asking for right now:</p>
+          <CardContent className="pt-4 sm:pt-6">
+            <div className="text-white/80 space-y-3 text-center mb-4 sm:mb-6">
+              <p className="responsive-body">"You don't need to feel better all at once. You just need a rhythm your body can follow. Let's start there."</p>
+              <p className="responsive-body">Take a moment. Pick the kind of breath your body's asking for right now:</p>
             </div>
           </CardContent>
         </Card>
@@ -89,42 +89,42 @@ const BreathingMenu = () => {
           <div
             key={option.id}
             onClick={() => handleOptionClick(option.route)}
-            className="bg-secondary/40 rounded-3xl p-6 hover:bg-secondary/60 transition-all duration-300 cursor-pointer card-hover animate-fade-in"
+            className="bg-secondary/40 rounded-3xl p-4 sm:p-6 hover:bg-secondary/60 transition-all duration-300 cursor-pointer card-hover animate-fade-in"
             style={{ animationDelay: `${index * 0.1}s` }}
           >
-            <div className="flex items-start space-x-4">
-              <div className={`w-16 h-16 rounded-2xl ${option.color} flex items-center justify-center flex-shrink-0`}>
+            <div className="flex items-start space-x-3 sm:space-x-4">
+              <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl ${option.color} flex items-center justify-center flex-shrink-0`}>
                 {option.icon}
               </div>
               <div className="flex-1">
-                <h3 className="text-xl font-semibold text-white mb-1">{option.title}</h3>
-                <p className="text-white/70 text-sm mb-2">{option.description}</p>
-                <p className="text-white/60 text-xs font-mono bg-black/20 px-2 py-1 rounded">
+                <h3 className="responsive-subtitle font-semibold text-white mb-1">{option.title}</h3>
+                <p className="text-white/70 responsive-body mb-2">{option.description}</p>
+                <p className="text-white/60 text-xs sm:text-sm font-mono bg-black/20 px-2 py-1 rounded">
                   {option.flow}
                 </p>
                 {option.id === 'steady-square' && (
-                  <p className="text-white/50 text-xs mt-1 italic">Trace the edges. One breath per side. Let your mind find structure.</p>
+                  <p className="text-white/50 text-xs sm:text-sm mt-1 italic">Trace the edges. One breath per side. Let your mind find structure.</p>
                 )}
                 {option.id === 'triangle-calm' && (
-                  <p className="text-white/50 text-xs mt-1 italic">Breathe down the triangle. Loosen your grip on what's next.</p>
+                  <p className="text-white/50 text-xs sm:text-sm mt-1 italic">Breathe down the triangle. Loosen your grip on what's next.</p>
                 )}
                 {option.id === 'deep-reset' && (
-                  <p className="text-white/50 text-xs mt-1 italic">Longer out-breaths to signal safety. You're steadying, not rushing.</p>
+                  <p className="text-white/50 text-xs sm:text-sm mt-1 italic">Longer out-breaths to signal safety. You're steadying, not rushing.</p>
                 )}
                 {option.id === 'sleep-switch' && (
-                  <p className="text-white/50 text-xs mt-1 italic">The lights are dimming. Breathe like you're already resting.</p>
+                  <p className="text-white/50 text-xs sm:text-sm mt-1 italic">The lights are dimming. Breathe like you're already resting.</p>
                 )}
                 {option.id === 'ride-wave' && (
-                  <p className="text-white/50 text-xs mt-1 italic">No counts, no pressure. Just let the wave move through you.</p>
+                  <p className="text-white/50 text-xs sm:text-sm mt-1 italic">No counts, no pressure. Just let the wave move through you.</p>
                 )}
               </div>
             </div>
           </div>
         ))}
 
-        <div className="mt-8 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-3xl p-6">
+        <div className="mt-6 sm:mt-8 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-3xl p-4 sm:p-6">
           <div className="text-center">
-            <p className="text-white/80 text-lg mb-2">
+            <p className="text-white/80 responsive-subtitle mb-2">
               ✨ Tap to begin. No pressure. Just one breath at a time. That's enough.
             </p>
           </div>
@@ -137,3 +137,4 @@ const BreathingMenu = () => {
 };
 
 export default BreathingMenu;
+
