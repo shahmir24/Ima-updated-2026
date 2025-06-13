@@ -36,11 +36,11 @@ const safeSpaceOptions: SafeSpaceOption[] = [
   },
   {
     id: 'grounding-exercises',
-    title: 'Grounding Exercises',
+    title: 'Grounding Techniques',
     icon: <Heart className="h-6 w-6 sm:h-8 sm:w-8" />,
     description: '5-4-3-2-1 and other grounding techniques',
     color: 'bg-green-500/20 text-green-300',
-    route: '/safe-space/grounding'
+    route: '/meditation/anchor?from=safe-space'
   },
   {
     id: 'breathing-sos',
@@ -67,7 +67,6 @@ const SafeSpaceMenu = () => {
     console.log(`Navigating to ${route}`);
     
     if (route === '/safe-space/emergency') {
-      // Trigger emergency call functionality
       handleEmergencyCall();
       return;
     }
@@ -76,22 +75,17 @@ const SafeSpaceMenu = () => {
   };
 
   const handleEmergencyCall = () => {
-    // Emergency numbers by country - you can expand this
     const emergencyNumbers = {
       US: '911',
       UK: '999',
       EU: '112',
-      // Add more countries as needed
     };
     
-    // Detect user's country or default to US
-    const emergencyNumber = emergencyNumbers.US; // Default to US
+    const emergencyNumber = emergencyNumbers.US;
     
-    // Try to make the call
     try {
       window.location.href = `tel:${emergencyNumber}`;
     } catch (error) {
-      // Fallback: show emergency numbers
       alert(`Emergency Numbers:\nUS: 911\nUK: 999\nEU: 112\n\nIf you're in immediate danger, please call your local emergency services.`);
     }
   };
@@ -150,4 +144,3 @@ const SafeSpaceMenu = () => {
 };
 
 export default SafeSpaceMenu;
-

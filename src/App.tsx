@@ -21,6 +21,7 @@ import RideTheWave from "./pages/breathing/RideTheWave";
 import JournalingMenu from "./pages/JournalingMenu";
 import SafeSpaceMenu from "./pages/SafeSpaceMenu";
 import SafeSpaceChat from "./pages/SafeSpaceChat";
+import SafeContacts from "./pages/SafeContacts";
 import BodyScanIntro from "./pages/BodyScanIntro";
 import BodyScanSession from "./pages/BodyScanSession";
 import NotFound from "./pages/NotFound";
@@ -77,6 +78,7 @@ const App = () => (
           <Route path="/journaling/sensory-checkin" element={<SensoryCheckIn />} />
           <Route path="/safe-space" element={<SafeSpaceMenu />} />
           <Route path="/safe-space/chat" element={<SafeSpaceChat />} />
+          <Route path="/safe-space/contacts" element={<SafeContacts />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
