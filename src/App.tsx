@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -37,6 +36,7 @@ import FocusResetJournal from "./pages/FocusResetJournal";
 import GratitudeJournal from "./pages/GratitudeJournal";
 import SensoryCheckIn from "./pages/SensoryCheckIn";
 import DailyJournal from "./pages/DailyJournal";
+import BodyDouble from "./pages/BodyDouble";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +50,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/productivity" element={<Productivity />} />
           <Route path="/focus" element={<Focus />} />
+          <Route path="/body-double" element={<BodyDouble />} />
           <Route path="/soundscape" element={<Soundscape />} />
           <Route path="/stats" element={<Stats />} />
           <Route path="/tasks" element={<Tasks />} />
