@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Pause, RotateCcw, MessageCircle, Heart, Droplets, Coffee, Zap, Brain, Meh, Smile, Frown, Sun, Moon, CheckCircle, Edit3, BreathIcon as Lung } from 'lucide-react';
+import { ArrowLeft, Play, Pause, RotateCcw, MessageCircle, Heart, Droplets, Coffee, Zap, Brain, Meh, Smile, Frown, Sun, Moon, CheckCircle, Edit3, Wind } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
@@ -352,7 +351,7 @@ const BodyDouble = () => {
                   variant="outline"
                   className="border-purple-400/50 text-purple-300 hover:bg-purple-500/20"
                 >
-                  <Lung className="h-4 w-4 mr-2" />
+                  <Wind className="h-4 w-4 mr-2" />
                   Quick Breath First
                 </Button>
               </div>
@@ -618,7 +617,7 @@ const BodyDouble = () => {
                 onClick={() => setShowDistraction(false)}
                 className="bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/50 text-blue-300"
               >
-                <Lung className="h-4 w-4 mr-2" />
+                <Wind className="h-4 w-4 mr-2" />
                 Quick breath
               </Button>
               
