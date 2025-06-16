@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, Circle, Clock, Calendar, MessageSquare, Activity, Smile, Frown, Meh, Zap, Brain, User, Settings, HelpCircle, LogOut, Check } from 'lucide-react';
@@ -44,7 +45,7 @@ const Index = () => {
         {/* Logo in top left */}
         <div className="h-12 w-16 flex items-center justify-center">
           <img 
-            src="/lovable-uploads/d8549ee1-5d5d-4efb-9c5b-9c1b49629e14.png" 
+            src="/lovable-uploads/d8549ee1-5d5d-4efb-9c1b49629e14.png" 
             alt="iMA Logo" 
             className="h-10 w-auto object-contain"
           />
@@ -167,7 +168,7 @@ const Index = () => {
             </div>
           </Link>
 
-          <Link to="/chatbot" className="col-span-2 rounded-3xl overflow-hidden">
+          <Link to="/body-double" className="col-span-2 rounded-3xl overflow-hidden">
             <div className="bg-gradient-to-br from-cyan-600 to-cyan-900 rounded-3xl p-5 h-full flex flex-col justify-between card-hover">
               <div className="flex items-center gap-2 mb-1">
                 <img 
