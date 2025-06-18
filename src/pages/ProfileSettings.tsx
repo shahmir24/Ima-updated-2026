@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { ArrowLeft, Camera, Upload, Smile, User, Settings, Moon, Sun, Volume2, Zap, Clock, Shield, MessageSquare, HelpCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 
 const ProfileSettings = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'profile';
+  
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
   const [useEmojiProfile, setUseEmojiProfile] = useState(false);
   const [selectedEmoji, setSelectedEmoji] = useState('😊');
@@ -46,27 +50,42 @@ const ProfileSettings = () => {
     }
   };
 
+  const handleBackClick = () => {
+    navigate('/');
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
       <header className="w-full max-w-lg mx-auto p-4 flex items-center justify-between border-b border-border/20">
-        <Link to="/">
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-        </Link>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="rounded-full"
+          onClick={handleBackClick}
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
         <h1 className="text-xl font-semibold">Profile & Settings</h1>
         <div className="w-10" />
       </header>
 
       <div className="max-w-lg mx-auto px-4 py-6">
-        <Tabs defaultValue="profile" className="w-full">
+        <Tabs value={initialTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-8 bg-secondary/50 rounded-2xl p-1">
-            <TabsTrigger value="profile" className="rounded-xl font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <TabsTrigger 
+              value="profile" 
+              className="rounded-xl font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              onClick={() => navigate('/profile-settings?tab=profile')}
+            >
               <User className="h-4 w-4 mr-2" />
               Profile Info
             </TabsTrigger>
-            <TabsTrigger value="settings" className="rounded-xl font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <TabsTrigger 
+              value="settings" 
+              className="rounded-xl font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              onClick={() => navigate('/profile-settings?tab=settings')}
+            >
               <Settings className="h-4 w-4 mr-2" />
               App Settings
             </TabsTrigger>
