@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Heart, Circle, Clock, Calendar, MessageSquare, Activity, Smile, Frown, Meh, Zap, Brain, User, Settings, HelpCircle, LogOut, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -13,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 const Index = () => {
+  const navigate = useNavigate();
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
   const [tasks, setTasks] = useState([
     { id: 1, title: "Team meeting", time: "10:00 AM", completed: false },
@@ -67,17 +69,13 @@ const Index = () => {
           <DropdownMenuContent align="end" className="w-56 bg-background border border-border">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link to="/profile-settings?tab=profile" className="flex items-center">
-                <User className="mr-2 h-4 w-4" />
-                <span>Profile Info</span>
-              </Link>
+            <DropdownMenuItem onClick={() => navigate('/profile-settings?tab=profile')}>
+              <User className="mr-2 h-4 w-4" />
+              <span>Profile Info</span>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link to="/profile-settings?tab=settings" className="flex items-center">
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
-              </Link>
+            <DropdownMenuItem onClick={() => navigate('/profile-settings?tab=settings')}>
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Settings</span>
             </DropdownMenuItem>
             <DropdownMenuItem>
               <HelpCircle className="mr-2 h-4 w-4" />
