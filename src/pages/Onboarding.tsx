@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -76,6 +75,7 @@ const Onboarding = () => {
       type: "radio",
       field: "adhdStatus",
       options: [
+        "Yes",
         "Diagnosed",
         "Suspect I have it",
         "No",

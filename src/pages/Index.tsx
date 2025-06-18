@@ -125,103 +125,103 @@ const Index = () => {
           })}
         </div>
 
-        {/* Feature cards grid */}
-        <div className="grid grid-cols-6 gap-4">
-          <Link to="/breathe" className="col-span-6 rounded-3xl overflow-hidden">
-            <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-3xl p-6 aspect-[2/1] flex flex-col justify-between card-hover glow relative">
+        {/* Feature cards grid - Updated for better mobile responsiveness */}
+        <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 sm:gap-4">
+          <Link to="/breathe" className="col-span-2 sm:col-span-6 rounded-3xl overflow-hidden">
+            <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-3xl p-4 sm:p-6 aspect-[2/1] flex flex-col justify-between card-hover glow relative">
               <div className="absolute inset-0 flex items-center justify-center opacity-30">
-                <div className="w-40 h-40 rounded-full bg-blue-400/20 animate-breathe"></div>
-                <div className="w-32 h-32 rounded-full bg-teal-400/30 absolute animate-breathe" style={{ animationDelay: '1s' }}></div>
+                <div className="w-32 sm:w-40 h-32 sm:h-40 rounded-full bg-blue-400/20 animate-breathe"></div>
+                <div className="w-24 sm:w-32 h-24 sm:h-32 rounded-full bg-teal-400/30 absolute animate-breathe" style={{ animationDelay: '1s' }}></div>
               </div>
               <div className="z-10">
-                <span className="text-blue-200 text-sm">Feeling anxious?</span>
-                <h3 className="text-xl font-bold">Quick breathing exercise</h3>
+                <span className="text-blue-200 text-xs sm:text-sm">Feeling anxious?</span>
+                <h3 className="text-lg sm:text-xl font-bold">Quick breathing exercise</h3>
               </div>
               <div className="flex items-end justify-between z-10">
-                <span className="text-blue-200 text-sm">2 min</span>
-                <Circle className="h-8 w-8 text-white" />
+                <span className="text-blue-200 text-xs sm:text-sm">2 min</span>
+                <Circle className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
               </div>
             </div>
           </Link>
           
-          <Link to="/productivity" className="col-span-2 rounded-3xl overflow-hidden">
-            <div className="bg-gradient-to-br from-amber-600 to-amber-900 rounded-3xl p-5 h-full flex flex-col justify-between card-hover">
+          <Link to="/productivity" className="col-span-1 sm:col-span-2 rounded-3xl overflow-hidden">
+            <div className="bg-gradient-to-br from-amber-600 to-amber-900 rounded-3xl p-3 sm:p-5 h-32 sm:h-auto flex flex-col justify-between card-hover">
               <div>
-                <h3 className="text-lg font-bold mb-1">Productivity</h3>
-                <p className="text-sm text-amber-200">Tasks</p>
+                <h3 className="text-sm sm:text-lg font-bold mb-1">Productivity</h3>
+                <p className="text-xs sm:text-sm text-amber-200">Tasks</p>
               </div>
               <div className="mt-auto flex justify-end">
-                <Activity className="h-7 w-7 text-white/90" />
+                <Activity className="h-5 w-5 sm:h-7 sm:w-7 text-white/90" />
               </div>
             </div>
           </Link>
 
-          <Link to="/wellness" className="col-span-2 rounded-3xl overflow-hidden">
-            <div className="bg-gradient-to-br from-emerald-600 to-emerald-900 rounded-3xl p-5 h-full flex flex-col justify-between card-hover">
+          <Link to="/wellness" className="col-span-1 sm:col-span-2 rounded-3xl overflow-hidden">
+            <div className="bg-gradient-to-br from-emerald-600 to-emerald-900 rounded-3xl p-3 sm:p-5 h-32 sm:h-auto flex flex-col justify-between card-hover">
               <div>
-                <h3 className="text-lg font-bold mb-1">Wellness</h3>
-                <p className="text-sm text-emerald-200">Health</p>
+                <h3 className="text-sm sm:text-lg font-bold mb-1">Wellness</h3>
+                <p className="text-xs sm:text-sm text-emerald-200">Health</p>
               </div>
               <div className="mt-auto flex justify-end">
-                <Heart className="h-7 w-7 text-white/90" />
+                <Heart className="h-5 w-5 sm:h-7 sm:w-7 text-white/90" />
               </div>
             </div>
           </Link>
 
-          <Link to="/body-double" className="col-span-2 rounded-3xl overflow-hidden">
-            <div className="bg-gradient-to-br from-cyan-600 to-cyan-900 rounded-3xl p-5 h-full flex flex-col justify-between card-hover">
+          <Link to="/body-double" className="col-span-2 sm:col-span-2 rounded-3xl overflow-hidden">
+            <div className="bg-gradient-to-br from-cyan-600 to-cyan-900 rounded-3xl p-3 sm:p-5 h-32 sm:h-auto flex flex-col justify-between card-hover">
               <div className="flex items-center gap-2 mb-1">
                 <img 
                   src="/lovable-uploads/a89d4002-b0ce-4d98-b91b-70576e972e1f.png" 
                   alt="AI Chat Logo" 
-                  className="h-5 w-5 object-contain"
+                  className="h-4 w-4 sm:h-5 sm:w-5 object-contain"
                 />
-                <h3 className="text-lg font-bold">iMA Chat</h3>
+                <h3 className="text-sm sm:text-lg font-bold">iMA Chat</h3>
               </div>
-              <p className="text-sm text-cyan-200 mb-auto">AI Assistant</p>
+              <p className="text-xs sm:text-sm text-cyan-200 mb-auto">AI Assistant</p>
               <div className="mt-auto flex justify-end">
-                <MessageSquare className="h-7 w-7 text-white/90" />
+                <MessageSquare className="h-5 w-5 sm:h-7 sm:w-7 text-white/90" />
               </div>
             </div>
           </Link>
           
-          <Link to="/focus" className="col-span-3 rounded-3xl overflow-hidden">
-            <div className="bg-gradient-to-br from-purple-600 to-purple-900 rounded-3xl p-5 h-full flex flex-col justify-between card-hover">
+          <Link to="/focus" className="col-span-1 sm:col-span-3 rounded-3xl overflow-hidden">
+            <div className="bg-gradient-to-br from-purple-600 to-purple-900 rounded-3xl p-3 sm:p-5 h-32 sm:h-auto flex flex-col justify-between card-hover">
               <div>
-                <h3 className="text-lg font-bold mb-1">Focus time</h3>
-                <p className="text-sm text-purple-200">Pomodoro</p>
+                <h3 className="text-sm sm:text-lg font-bold mb-1">Focus time</h3>
+                <p className="text-xs sm:text-sm text-purple-200">Pomodoro</p>
               </div>
               <div className="mt-auto flex justify-end">
-                <Clock className="h-7 w-7 text-white/90" />
+                <Clock className="h-5 w-5 sm:h-7 sm:w-7 text-white/90" />
               </div>
             </div>
           </Link>
           
-          <Link to="/soundscape" className="col-span-3 rounded-3xl overflow-hidden">
-            <div className="bg-gradient-to-br from-indigo-600 to-indigo-900 rounded-3xl p-5 h-full flex flex-col justify-between card-hover">
+          <Link to="/soundscape" className="col-span-1 sm:col-span-3 rounded-3xl overflow-hidden">
+            <div className="bg-gradient-to-br from-indigo-600 to-indigo-900 rounded-3xl p-3 sm:p-5 h-32 sm:h-auto flex flex-col justify-between card-hover">
               <div>
-                <h3 className="text-lg font-bold mb-1">Soundscaping</h3>
-                <p className="text-sm text-indigo-200">Focus sounds</p>
+                <h3 className="text-sm sm:text-lg font-bold mb-1">Soundscaping</h3>
+                <p className="text-xs sm:text-sm text-indigo-200">Focus sounds</p>
               </div>
               <div className="mt-auto flex justify-end">
                 <div className="relative">
-                  <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
-                    <div className="w-3 h-3 rounded-full bg-white/80"></div>
+                  <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-full bg-white/20 flex items-center justify-center">
+                    <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-white/80"></div>
                   </div>
-                  <div className="absolute inset-0 w-7 h-7 rounded-full bg-white/10 animate-ping"></div>
+                  <div className="absolute inset-0 w-5 h-5 sm:w-7 sm:h-7 rounded-full bg-white/10 animate-ping"></div>
                 </div>
               </div>
             </div>
           </Link>
           
-          <Link to="/journal" className="col-span-6 rounded-3xl overflow-hidden">
-            <div className="bg-gradient-to-br from-teal-600 to-teal-900 rounded-3xl p-5 h-full flex flex-col justify-between card-hover">
+          <Link to="/journal" className="col-span-2 sm:col-span-6 rounded-3xl overflow-hidden">
+            <div className="bg-gradient-to-br from-teal-600 to-teal-900 rounded-3xl p-3 sm:p-5 h-32 sm:h-auto flex flex-col justify-between card-hover">
               <div>
-                <h3 className="text-lg font-bold mb-1">Daily journal</h3>
-                <p className="text-sm text-teal-200">Check in</p>
+                <h3 className="text-sm sm:text-lg font-bold mb-1">Daily journal</h3>
+                <p className="text-xs sm:text-sm text-teal-200">Check in</p>
               </div>
               <div className="mt-auto flex justify-end">
-                <Heart className="h-7 w-7 text-white/90" />
+                <Heart className="h-5 w-5 sm:h-7 sm:w-7 text-white/90" />
               </div>
             </div>
           </Link>
