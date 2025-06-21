@@ -9,7 +9,39 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      onboarding_responses: {
+        Row: {
+          adhd_challenges: string | null
+          created_at: string
+          id: string
+          stress_level: number | null
+          support_preferences: string | null
+          updated_at: string
+          user_id: string
+          wellness_goals: string[] | null
+        }
+        Insert: {
+          adhd_challenges?: string | null
+          created_at?: string
+          id?: string
+          stress_level?: number | null
+          support_preferences?: string | null
+          updated_at?: string
+          user_id: string
+          wellness_goals?: string[] | null
+        }
+        Update: {
+          adhd_challenges?: string | null
+          created_at?: string
+          id?: string
+          stress_level?: number | null
+          support_preferences?: string | null
+          updated_at?: string
+          user_id?: string
+          wellness_goals?: string[] | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

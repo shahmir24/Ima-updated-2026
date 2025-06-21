@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface OnboardingData {
   reason: string;
@@ -19,7 +21,10 @@ interface OnboardingData {
 
 const Onboarding = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState(null);
   const [data, setData] = useState<OnboardingData>({
     reason: '',
     dailyFeeling: '',
@@ -30,6 +35,20 @@ const Onboarding = () => {
     supportStyle: [],
     additionalInfo: ''
   });
+
+  // Check if user is authenticated
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate('/auth');
+        return;
+      }
+      setUser(user);
+    };
+    
+    checkAuth();
+  }, [navigate]);
 
   const questions = [
     {
@@ -128,13 +147,89 @@ const Onboarding = () => {
     }
   ];
 
-  const handleNext = () => {
+  const saveOnboardingData = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to save your onboarding data.",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    setLoading(true);
+    
+    try {
+      // Map onboarding data to database fields
+      const onboardingResponse = {
+        user_id: user.id,
+        adhd_challenges: `Status: ${data.adhdStatus}. Struggles: ${data.struggles.join(', ')}. Additional: ${data.additionalInfo}`,
+        stress_level: getStressLevelFromResponses(),
+        wellness_goals: data.struggles.concat([data.firstHelp]),
+        support_preferences: data.supportStyle.join(', ')
+      };
+
+      const { error } = await supabase
+        .from('onboarding_responses')
+        .insert([onboardingResponse]);
+
+      if (error) throw error;
+
+      // Also store in localStorage for backward compatibility
+      localStorage.setItem('onboardingData', JSON.stringify(data));
+      
+      toast({
+        title: "Welcome to iMA! 🌿",
+        description: "Your onboarding responses have been saved."
+      });
+      
+      return true;
+    } catch (error: any) {
+      console.error('Error saving onboarding data:', error);
+      toast({
+        title: "Something went wrong",
+        description: error.message || "Failed to save your responses. Please try again.",
+        variant: "destructive"
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStressLevelFromResponses = () => {
+    // Map responses to stress levels (1-10 scale)
+    const stressIndicators = {
+      'I shut down': 8,
+      'I overcommit': 7,
+      'I forget things': 6,
+      'I get restless': 7,
+      'I power through': 6,
+      'Not sure': 5,
+      'Overwhelmed': 8,
+      'Anxious': 7,
+      'Lost': 6,
+      'Tired': 5,
+      'Calm': 2,
+      'Motivated': 3
+    };
+
+    const responses = [data.overwhelmedResponse, data.reason, data.dailyFeeling];
+    const levels = responses
+      .map(response => stressIndicators[response] || 5)
+      .filter(level => level > 0);
+
+    return levels.length > 0 ? Math.round(levels.reduce((a, b) => a + b) / levels.length) : 5;
+  };
+
+  const handleNext = async () => {
     if (currentStep < questions.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      // Store onboarding data in localStorage
-      localStorage.setItem('onboardingData', JSON.stringify(data));
-      navigate('/auth');
+      const success = await saveOnboardingData();
+      if (success) {
+        navigate('/');
+      }
     }
   };
 
@@ -271,10 +366,14 @@ const Onboarding = () => {
 
           <Button
             onClick={handleNext}
-            disabled={!isStepValid() && currentQuestion.type !== 'text'}
+            disabled={(!isStepValid() && currentQuestion.type !== 'text') || loading}
             className="w-full py-6 text-lg font-semibold bg-gradient-to-r from-blue-500 to-teal-400 hover:from-blue-600 hover:to-teal-500 disabled:opacity-50"
           >
-            {currentStep < questions.length - 1 ? 'Next →' : 'Complete →'}
+            {loading ? (
+              currentStep < questions.length - 1 ? 'Next →' : 'Saving...'
+            ) : (
+              currentStep < questions.length - 1 ? 'Next →' : 'Complete →'
+            )}
           </Button>
         </div>
       </div>
