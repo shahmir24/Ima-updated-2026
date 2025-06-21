@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,8 +14,30 @@ const Auth = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Check if user is already authenticated
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        navigate('/');
+      }
+    };
+    
+    checkAuth();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        navigate('/');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,6 +51,15 @@ const Auth = () => {
       return;
     }
 
+    if (isSignUp && password.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -37,7 +68,10 @@ const Auth = () => {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/`
+            emailRedirectTo: `${window.location.origin}/`,
+            data: {
+              full_name: fullName
+            }
           }
         });
         
@@ -45,8 +79,14 @@ const Auth = () => {
         
         toast({
           title: "Welcome to iMA! 🌿",
-          description: "Please check your email to verify your account."
+          description: "Please check your email to verify your account before signing in."
         });
+        
+        // Switch to sign in mode after successful signup
+        setIsSignUp(false);
+        setPassword('');
+        setConfirmPassword('');
+        setFullName('');
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -59,13 +99,22 @@ const Auth = () => {
           title: "Welcome back! 🌿",
           description: "You're successfully signed in."
         });
-        
-        navigate('/');
       }
     } catch (error: any) {
+      let errorMessage = error.message;
+      
+      // Handle common auth errors with user-friendly messages
+      if (error.message.includes('Invalid login credentials')) {
+        errorMessage = "Invalid email or password. Please check your credentials and try again.";
+      } else if (error.message.includes('User already registered')) {
+        errorMessage = "An account with this email already exists. Please sign in instead.";
+      } else if (error.message.includes('Email not confirmed')) {
+        errorMessage = "Please check your email and click the confirmation link before signing in.";
+      }
+      
       toast({
-        title: "Something went wrong",
-        description: error.message,
+        title: "Authentication Error",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -111,13 +160,28 @@ const Auth = () => {
               </CardTitle>
               <CardDescription className="text-center">
                 {isSignUp 
-                  ? "Enter your email and password to create your account"
+                  ? "Enter your details to create your account"
                   : "Enter your email and password to access your account"
                 }
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleAuth} className="space-y-4">
+                {isSignUp && (
+                  <div className="space-y-2">
+                    <Label htmlFor="fullName">Full Name</Label>
+                    <Input
+                      id="fullName"
+                      type="text"
+                      placeholder="Enter your full name"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      required
+                      className="h-12"
+                    />
+                  </div>
+                )}
+                
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -140,6 +204,7 @@ const Auth = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    minLength={6}
                     className="h-12"
                   />
                 </div>
@@ -154,6 +219,7 @@ const Auth = () => {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
+                      minLength={6}
                       className="h-12"
                     />
                   </div>
@@ -170,8 +236,14 @@ const Auth = () => {
 
               <div className="mt-6 text-center">
                 <button
-                  onClick={() => setIsSignUp(!isSignUp)}
+                  onClick={() => {
+                    setIsSignUp(!isSignUp);
+                    setPassword('');
+                    setConfirmPassword('');
+                    setFullName('');
+                  }}
                   className="text-sm text-primary hover:underline"
+                  disabled={loading}
                 >
                   {isSignUp 
                     ? "Already have an account? Sign in" 
