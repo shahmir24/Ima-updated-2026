@@ -26,18 +26,15 @@
 --   * an exercises catalogue — the content ships in the bundle
 --
 -- -----------------------------------------------------------------------------
--- PREREQUISITE — read before applying
+-- History
 -- -----------------------------------------------------------------------------
--- The two legacy files in this directory (20250621103046-… and 20250621103924-…)
--- belong to the OLD Supabase project. They create public.users,
--- public.onboarding_responses, handle_new_user() and the on_auth_user_created
--- trigger — all of which collide with this file.
---
--- Applying all three via `supabase db push` WILL FAIL on
--- "relation onboarding_responses already exists".
---
--- Either delete those two files first, or apply this one on its own through the
--- Supabase SQL editor.
+-- This is the first migration for the new project, and the only one in this
+-- directory. Two Lovable-era files (20250621103046-… and 20250621103924-…)
+-- defined the previous project's schema — public.users, an earlier
+-- onboarding_responses, handle_new_user() and the on_auth_user_created trigger.
+-- That project has been deleted, and those files collided with this one on
+-- `supabase db push`, so they were removed in the same commit as this note.
+-- They remain in git history if you ever need to read them.
 -- =============================================================================
 
 
