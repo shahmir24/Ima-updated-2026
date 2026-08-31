@@ -719,37 +719,74 @@ revoke all on public.safe_contacts        from anon;
 -- above, but it does NOT remove the avatar object — storage has no foreign key
 -- back to these tables. The deletion Edge Function must call
 -- storage.from('avatars').remove([...]) explicitly, or the file is orphaned.
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values (
-  'avatars',
-  'avatars',
-  false,
-  5242880,                                                   -- 5 MB
-  array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-)
-on conflict (id) do nothing;
+-- -----------------------------------------------------------------------------
+-- Why this section is wrapped in DO blocks
+-- -----------------------------------------------------------------------------
+-- storage.buckets and storage.objects are owned by `supabase_storage_admin`,
+-- not by `postgres`. PostgreSQL requires table OWNERSHIP to CREATE POLICY
+-- (unlike CREATE TRIGGER, which only needs the TRIGGER privilege — which is why
+-- the auth.users trigger in section 5 is fine).
+--
+-- The Supabase SQL Editor runs with enough privilege for these to succeed. An
+-- external connection as `postgres` — `supabase db push`, psql, Flyway, pgAdmin,
+-- CI — hits: ERROR 42501 "must be owner of table objects".
+--
+-- Unwrapped, that error aborts the whole migration: the SQL Editor sends the
+-- file as a single implicit transaction, so four failures at the end would roll
+-- back all nine tables. These blocks trap the privilege error and downgrade it
+-- to a NOTICE, so the schema always lands and you are told what to finish by
+-- hand. Re-running is safe: an already-created policy is also caught.
+do $storage$
+begin
+  insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values (
+    'avatars',
+    'avatars',
+    false,
+    5242880,                                                 -- 5 MB
+    array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+  )
+  on conflict (id) do nothing;
+  raise notice 'iMA: `avatars` bucket ready (private, 5 MB, images only).';
+exception
+  when insufficient_privilege then
+    raise notice 'iMA: could not create the `avatars` bucket (insufficient privilege). Create it in Dashboard > Storage: name "avatars", Public OFF, 5 MB limit, MIME types image/jpeg,image/png,image/webp,image/gif.';
+end
+$storage$;
 
-create policy "avatars_select_own" on storage.objects
-  for select to authenticated
-  using (bucket_id = 'avatars'
-         and (storage.foldername(name))[1] = (select auth.uid())::text);
 
-create policy "avatars_insert_own" on storage.objects
-  for insert to authenticated
-  with check (bucket_id = 'avatars'
-              and (storage.foldername(name))[1] = (select auth.uid())::text);
+do $storage$
+begin
+  create policy "avatars_select_own" on storage.objects
+    for select to authenticated
+    using (bucket_id = 'avatars'
+           and (storage.foldername(name))[1] = (select auth.uid())::text);
 
-create policy "avatars_update_own" on storage.objects
-  for update to authenticated
-  using (bucket_id = 'avatars'
-         and (storage.foldername(name))[1] = (select auth.uid())::text)
-  with check (bucket_id = 'avatars'
-              and (storage.foldername(name))[1] = (select auth.uid())::text);
+  create policy "avatars_insert_own" on storage.objects
+    for insert to authenticated
+    with check (bucket_id = 'avatars'
+                and (storage.foldername(name))[1] = (select auth.uid())::text);
 
-create policy "avatars_delete_own" on storage.objects
-  for delete to authenticated
-  using (bucket_id = 'avatars'
-         and (storage.foldername(name))[1] = (select auth.uid())::text);
+  create policy "avatars_update_own" on storage.objects
+    for update to authenticated
+    using (bucket_id = 'avatars'
+           and (storage.foldername(name))[1] = (select auth.uid())::text)
+    with check (bucket_id = 'avatars'
+                and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+  create policy "avatars_delete_own" on storage.objects
+    for delete to authenticated
+    using (bucket_id = 'avatars'
+           and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+  raise notice 'iMA: 4 avatars policies created on storage.objects.';
+exception
+  when insufficient_privilege then
+    raise notice 'iMA: SKIPPED the 4 avatars policies on storage.objects — this connection does not own that table (expected outside the Supabase SQL Editor). Everything else in this migration applied. Add them in Dashboard > Storage > avatars > Policies, for role `authenticated`, each using:  bucket_id = ''avatars'' AND (storage.foldername(name))[1] = (select auth.uid())::text  — one policy each for SELECT, INSERT, UPDATE, DELETE.';
+  when duplicate_object then
+    raise notice 'iMA: avatars policies already exist — left unchanged.';
+end
+$storage$;
 
 
 -- =============================================================================
