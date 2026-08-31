@@ -9,40 +9,70 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      onboarding_responses: {
+      focus_sessions: {
         Row: {
-          adhd_challenges: string | null
-          created_at: string
+          breaks_taken: number
+          ended_at: string | null
+          end_mood: string | null
+          flows_completed: number
+          focus_seconds: number
           id: string
-          stress_level: number | null
-          support_preferences: string | null
-          updated_at: string
+          intention: string | null
+          planned_block_minutes: number | null
+          planned_break_minutes: number | null
+          planned_flows: number | null
+          reflection_did_well: string | null
+          reflection_to_improve: string | null
+          source: string
+          started_at: string
+          start_mood: string | null
+          start_type: string | null
+          status: string
           user_id: string
-          wellness_goals: string[] | null
         }
         Insert: {
-          adhd_challenges?: string | null
-          created_at?: string
+          breaks_taken?: number
+          ended_at?: string | null
+          end_mood?: string | null
+          flows_completed?: number
+          focus_seconds?: number
           id?: string
-          stress_level?: number | null
-          support_preferences?: string | null
-          updated_at?: string
+          intention?: string | null
+          planned_block_minutes?: number | null
+          planned_break_minutes?: number | null
+          planned_flows?: number | null
+          reflection_did_well?: string | null
+          reflection_to_improve?: string | null
+          source: string
+          started_at?: string
+          start_mood?: string | null
+          start_type?: string | null
+          status?: string
           user_id: string
-          wellness_goals?: string[] | null
         }
         Update: {
-          adhd_challenges?: string | null
-          created_at?: string
+          breaks_taken?: number
+          ended_at?: string | null
+          end_mood?: string | null
+          flows_completed?: number
+          focus_seconds?: number
           id?: string
-          stress_level?: number | null
-          support_preferences?: string | null
-          updated_at?: string
+          intention?: string | null
+          planned_block_minutes?: number | null
+          planned_break_minutes?: number | null
+          planned_flows?: number | null
+          reflection_did_well?: string | null
+          reflection_to_improve?: string | null
+          source?: string
+          started_at?: string
+          start_mood?: string | null
+          start_type?: string | null
+          status?: string
           user_id?: string
-          wellness_goals?: string[] | null
         }
         Relationships: [
           {
-            foreignKeyName: "onboarding_responses_user_id_fkey"
+            foreignKeyName: "focus_sessions_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
@@ -50,29 +80,396 @@ export type Database = {
           },
         ]
       }
-      users: {
+      journal_entries: {
         Row: {
           created_at: string
-          email: string
-          full_name: string | null
+          entry_type: string
           id: string
+          responses: Json
           updated_at: string
+          user_id: string
         }
         Insert: {
           created_at?: string
-          email: string
-          full_name?: string | null
-          id: string
+          entry_type: string
+          id?: string
+          responses: Json
           updated_at?: string
+          user_id: string
         }
         Update: {
           created_at?: string
-          email?: string
+          entry_type?: string
+          id?: string
+          responses?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mood_checkins: {
+        Row: {
+          created_at: string
+          id: string
+          mood: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mood: string
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mood?: string
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mood_checkins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_responses: {
+        Row: {
+          additional_info: string | null
+          adhd_status: string | null
+          created_at: string
+          daily_feeling: string | null
+          first_help: string | null
+          id: string
+          overwhelmed_response: string | null
+          reason: string | null
+          stress_level: number | null
+          struggles: string[] | null
+          support_style: string[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          additional_info?: string | null
+          adhd_status?: string | null
+          created_at?: string
+          daily_feeling?: string | null
+          first_help?: string | null
+          id?: string
+          overwhelmed_response?: string | null
+          reason?: string | null
+          stress_level?: number | null
+          struggles?: string[] | null
+          support_style?: string[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          additional_info?: string | null
+          adhd_status?: string | null
+          created_at?: string
+          daily_feeling?: string | null
+          first_help?: string | null
+          id?: string
+          overwhelmed_response?: string | null
+          reason?: string | null
+          stress_level?: number | null
+          struggles?: string[] | null
+          support_style?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_responses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_emoji: string | null
+          avatar_url: string | null
+          created_at: string
+          date_of_birth: string | null
+          first_name: string | null
+          focus_goal: string | null
+          full_name: string | null
+          id: string
+          mood_checkin_frequency: string | null
+          onboarding_completed_at: string | null
+          preferred_mode: string | null
+          pronouns: string | null
+          updated_at: string
+          use_emoji_avatar: boolean
+        }
+        Insert: {
+          avatar_emoji?: string | null
+          avatar_url?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          first_name?: string | null
+          focus_goal?: string | null
+          full_name?: string | null
+          id: string
+          mood_checkin_frequency?: string | null
+          onboarding_completed_at?: string | null
+          preferred_mode?: string | null
+          pronouns?: string | null
+          updated_at?: string
+          use_emoji_avatar?: boolean
+        }
+        Update: {
+          avatar_emoji?: string | null
+          avatar_url?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          first_name?: string | null
+          focus_goal?: string | null
           full_name?: string | null
           id?: string
+          mood_checkin_frequency?: string | null
+          onboarding_completed_at?: string | null
+          preferred_mode?: string | null
+          pronouns?: string | null
           updated_at?: string
+          use_emoji_avatar?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      safe_contacts: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          instagram: string | null
+          label: string
+          name: string
+          note: string | null
+          phone: string | null
+          position: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          instagram?: string | null
+          label?: string
+          name: string
+          note?: string | null
+          phone?: string | null
+          position?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          instagram?: string | null
+          label?: string
+          name?: string
+          note?: string | null
+          phone?: string | null
+          position?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "safe_contacts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          completed: boolean
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          end_time: string | null
+          id: string
+          scheduled_date: string
+          start_time: string | null
+          tag: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          end_time?: string | null
+          id?: string
+          scheduled_date?: string
+          start_time?: string | null
+          tag?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          end_time?: string | null
+          id?: string
+          scheduled_date?: string
+          start_time?: string | null
+          tag?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_settings: {
+        Row: {
+          adhd_mode: boolean
+          ai_companion_name: string | null
+          animation_speed: string
+          buffer_minutes: number
+          created_at: string
+          daily_focus_goal: string | null
+          default_flows: number
+          encouragement: boolean
+          focus_block_minutes: number
+          sound_volume: number
+          theme: string
+          timeboxing_style: string | null
+          timezone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          adhd_mode?: boolean
+          ai_companion_name?: string | null
+          animation_speed?: string
+          buffer_minutes?: number
+          created_at?: string
+          daily_focus_goal?: string | null
+          default_flows?: number
+          encouragement?: boolean
+          focus_block_minutes?: number
+          sound_volume?: number
+          theme?: string
+          timeboxing_style?: string | null
+          timezone?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          adhd_mode?: boolean
+          ai_companion_name?: string | null
+          animation_speed?: string
+          buffer_minutes?: number
+          created_at?: string
+          daily_focus_goal?: string | null
+          default_flows?: number
+          encouragement?: boolean
+          focus_block_minutes?: number
+          sound_volume?: number
+          theme?: string
+          timeboxing_style?: string | null
+          timezone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wellness_sessions: {
+        Row: {
+          category: string
+          completed: boolean
+          cycles_completed: number | null
+          duration_seconds: number
+          ended_at: string | null
+          exercise_slug: string
+          id: string
+          started_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          completed?: boolean
+          cycles_completed?: number | null
+          duration_seconds?: number
+          ended_at?: string | null
+          exercise_slug: string
+          id?: string
+          started_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          completed?: boolean
+          cycles_completed?: number | null
+          duration_seconds?: number
+          ended_at?: string | null
+          exercise_slug?: string
+          id?: string
+          started_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wellness_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

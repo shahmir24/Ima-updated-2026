@@ -688,6 +688,32 @@ create policy "safe_contacts_delete_own" on public.safe_contacts
 
 
 -- -----------------------------------------------------------------------------
+-- Explicit grants for the API role.
+-- -----------------------------------------------------------------------------
+-- Supabase's default privileges normally grant new public tables to
+-- `authenticated` automatically — but default privileges are attached to the
+-- role that CREATES the object. Applied by a different admin role, or into a
+-- project whose defaults have been altered, `authenticated` would end up with
+-- no access and every query in the app would fail with "permission denied for
+-- table ...", even though RLS is correct.
+--
+-- Granting explicitly makes the outcome identical however this file is applied.
+-- RLS still decides which ROWS are visible; these grants only decide that the
+-- role may touch the table at all.
+grant usage on schema public to authenticated;
+
+grant select, insert, update, delete on public.profiles             to authenticated;
+grant select, insert, update, delete on public.user_settings        to authenticated;
+grant select, insert, update, delete on public.onboarding_responses to authenticated;
+grant select, insert, update, delete on public.mood_checkins        to authenticated;
+grant select, insert, update, delete on public.journal_entries      to authenticated;
+grant select, insert, update, delete on public.tasks                to authenticated;
+grant select, insert, update, delete on public.focus_sessions       to authenticated;
+grant select, insert, update, delete on public.wellness_sessions    to authenticated;
+grant select, insert, update, delete on public.safe_contacts        to authenticated;
+
+
+-- -----------------------------------------------------------------------------
 -- Defence in depth: take the tables away from `anon` entirely.
 -- -----------------------------------------------------------------------------
 -- RLS already returns zero rows to a signed-out client, but revoking the grant
