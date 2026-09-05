@@ -158,46 +158,6 @@ const Onboarding = () => {
     }
   ];
 
-  const ensureUserExists = async (userId: string, email: string, fullName?: string) => {
-    try {
-      // Check if user already exists in the users table
-      const { data: existingUser, error: checkError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('id', userId)
-        .single();
-
-      if (checkError && checkError.code !== 'PGRST116') {
-        // PGRST116 is "not found" error, which is expected if user doesn't exist
-        console.error('Error checking user existence:', checkError);
-        return false;
-      }
-
-      if (!existingUser) {
-        // User doesn't exist, create them
-        console.log('Creating user record for:', userId);
-        const { error: insertError } = await supabase
-          .from('users')
-          .insert([{
-            id: userId,
-            email: email,
-            full_name: fullName || ''
-          }]);
-
-        if (insertError) {
-          console.error('Error creating user record:', insertError);
-          return false;
-        }
-        console.log('User record created successfully');
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error in ensureUserExists:', error);
-      return false;
-    }
-  };
-
   const saveOnboardingData = async () => {
     if (!user) {
       toast({
@@ -209,44 +169,46 @@ const Onboarding = () => {
     }
 
     setLoading(true);
-    
+
     try {
-      // First, ensure the user exists in the users table
-      const userExists = await ensureUserExists(
-        user.id, 
-        user.email || '', 
-        user.user_metadata?.full_name || ''
-      );
-
-      if (!userExists) {
-        throw new Error('Failed to create or verify user record');
-      }
-
-      // Map onboarding data to database fields
-      const onboardingResponse = {
-        user_id: user.id,
-        adhd_challenges: `Status: ${data.adhdStatus}. Struggles: ${data.struggles.join(', ')}. Additional: ${data.additionalInfo}`,
-        stress_level: getStressLevelFromResponses(),
-        wellness_goals: data.struggles.concat([data.firstHelp]),
-        support_preferences: data.supportStyle.join(', ')
-      };
-
-      console.log('Saving onboarding response:', onboardingResponse);
-
-      const { error } = await supabase
+      // One column per question, and an upsert keyed on user_id so re-running
+      // onboarding updates the answers instead of creating a second row.
+      //
+      // There is no user record to create first: the on_auth_user_created
+      // trigger seeds profiles and user_settings the moment the account exists.
+      const { error: responseError } = await supabase
         .from('onboarding_responses')
-        .insert([onboardingResponse]);
+        .upsert(
+          {
+            user_id: user.id,
+            reason: data.reason || null,
+            daily_feeling: data.dailyFeeling || null,
+            struggles: data.struggles,
+            adhd_status: data.adhdStatus || null,
+            overwhelmed_response: data.overwhelmedResponse || null,
+            first_help: data.firstHelp || null,
+            support_style: data.supportStyle,
+            additional_info: data.additionalInfo.trim() || null,
+            stress_level: getStressLevelFromResponses()
+          },
+          { onConflict: 'user_id' }
+        );
 
-      if (error) throw error;
+      if (responseError) throw responseError;
 
-      // Also store in localStorage for backward compatibility
-      localStorage.setItem('onboardingData', JSON.stringify(data));
-      
+      // Stamps onboarding as done, so the app can send returning users past it.
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ onboarding_completed_at: new Date().toISOString() })
+        .eq('id', user.id);
+
+      if (profileError) throw profileError;
+
       toast({
         title: "Welcome to iMA! 🌿",
         description: "Your onboarding responses have been saved."
       });
-      
+
       return true;
     } catch (error: any) {
       console.error('Error saving onboarding data:', error);
