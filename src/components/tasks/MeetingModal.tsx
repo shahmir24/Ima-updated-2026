@@ -8,19 +8,54 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
+interface CreateTaskInput {
+  title: string;
+  scheduled_date: string;
+  start_time: string;
+}
+
 interface MeetingModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onCreate: (input: CreateTaskInput) => Promise<void>;
+  isSaving?: boolean;
 }
 
-const MeetingModal = ({ isOpen, onClose }: MeetingModalProps) => {
+const MeetingModal = ({ isOpen, onClose, onCreate, isSaving = false }: MeetingModalProps) => {
   const [taskTitle, setTaskTitle] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string>('14:00');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  const handleSave = async () => {
+    const title = taskTitle.trim();
+    if (!title) {
+      setSaveError('Give the task a title first.');
+      return;
+    }
+
+    setSaveError(null);
+    try {
+      await onCreate({
+        title,
+        // Local date, not toISOString(): that converts to UTC and can shift the
+        // task to the previous or next day depending on the timezone.
+        scheduled_date: format(selectedDate, 'yyyy-MM-dd'),
+        start_time: selectedTime
+      });
+      // Reset only after a confirmed write, so a failure keeps the input.
+      setTaskTitle('');
+      setSelectedDate(new Date());
+      setSelectedTime('14:00');
+      onClose();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Could not save the task.');
+    }
+  };
 
   const timeOptions = [];
   for (let hour = 0; hour < 24; hour++) {
@@ -171,12 +206,16 @@ const MeetingModal = ({ isOpen, onClose }: MeetingModalProps) => {
 
         {/* Save Button */}
         <div className="p-4 pb-8">
-          <Button 
-            onClick={onClose}
+          {saveError && (
+            <p className="text-red-300 text-sm mb-3 text-center">{saveError}</p>
+          )}
+          <Button
+            onClick={handleSave}
+            disabled={isSaving}
             style={{ backgroundColor: '#2f74db' }}
-            className="w-full hover:opacity-90 text-white rounded-2xl py-4 text-lg font-semibold"
+            className="w-full hover:opacity-90 text-white rounded-2xl py-4 text-lg font-semibold disabled:opacity-60"
           >
-            Save Task
+            {isSaving ? 'Saving…' : 'Save Task'}
           </Button>
         </div>
       </div>

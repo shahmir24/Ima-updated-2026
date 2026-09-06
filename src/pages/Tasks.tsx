@@ -7,15 +7,46 @@ import { Badge } from '@/components/ui/badge';
 import TaskCard from '@/components/tasks/TaskCard';
 import MeetingModal from '@/components/tasks/MeetingModal';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import {
+  useTasks,
+  useCreateTask,
+  useDeleteTask,
+  useToggleTaskCompleted,
+  type TaskRow
+} from '@/hooks/use-tasks';
 
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  time: string;
-  tag: string;
-  completed: boolean;
-}
+/** '14:00:00' -> '2:00 PM'. Empty string when no time is set. */
+const formatTime = (value: string | null) => {
+  if (!value) return '';
+  const [hours, minutes] = value.split(':');
+  return new Date(2000, 0, 1, Number(hours), Number(minutes)).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
+/** Local YYYY-MM-DD, so "today" matches the user's calendar, not UTC. */
+const toLocalISODate = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+const describeDate = (scheduledDate: string) => {
+  if (scheduledDate === toLocalISODate(new Date())) return 'Today';
+  return new Date(`${scheduledDate}T00:00:00`).toLocaleDateString('en-US', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short'
+  });
+};
+
+const describeTimeRange = (task: TaskRow) => {
+  const start = formatTime(task.start_time);
+  const end = formatTime(task.end_time);
+  if (start && end) return `${start} - ${end}`;
+  return start || 'No time set';
+};
+
+const toTitleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
 const Tasks = () => {
   const navigate = useNavigate();
@@ -30,42 +61,24 @@ const Tasks = () => {
     year: 'numeric' 
   });
 
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: '1',
-      title: 'Set a meeting',
-      description: 'Schedule a meeting to align on goals and next steps seamlessly',
-      time: '9:15 AM - 10:15 AM',
-      tag: 'Flow',
-      completed: false
-    },
-    {
-      id: '2',
-      title: 'Oil Change',
-      description: 'Call the workshop',
-      time: '9:15 AM - 10:15 AM', 
-      tag: 'Break',
-      completed: false
-    },
-    {
-      id: '3',
-      title: 'Review Documents',
-      description: 'Go through project requirements',
-      time: '2:00 PM - 3:00 PM',
-      tag: 'Focus',
-      completed: true
-    }
-  ]);
+  const { data: tasks = [], isPending, isError, error, refetch } = useTasks();
+  const createTask = useCreateTask();
+  const deleteTask = useDeleteTask();
+  const toggleCompleted = useToggleTaskCompleted();
 
-  const filteredTasks = tasks.filter(task => 
+  const filteredTasks = tasks.filter(task =>
     activeTab === 'all' ? true : task.completed
   );
 
-  const handleCompleteTask = (taskId: string) => {
-    setTasks(tasks.map(task => 
-      task.id === taskId ? { ...task, completed: !task.completed } : task
-    ));
+  const handleCompleteTask = (task: TaskRow) => {
+    toggleCompleted.toggle(task).catch(() => { /* surfaced by mutation state */ });
   };
+
+  const handleDeleteTask = (taskId: string) => {
+    deleteTask.mutate(taskId);
+  };
+
+  const mutationError = createTask.error || deleteTask.error || toggleCompleted.error;
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
@@ -160,19 +173,66 @@ const Tasks = () => {
 
       {/* Task Cards */}
       <main className="flex-1 max-w-lg w-full mx-auto px-4 space-y-4">
+        {mutationError && (
+          <p className="text-red-300 text-sm text-center py-2">
+            {(mutationError as Error).message}
+          </p>
+        )}
+
+        {isPending && (
+          <p className="text-white/60 text-sm text-center py-8">Loading your tasks…</p>
+        )}
+
+        {isError && (
+          <div className="text-center py-8 space-y-3">
+            <p className="text-red-300 text-sm">
+              {(error as Error)?.message || 'Could not load your tasks.'}
+            </p>
+            <Button
+              onClick={() => refetch()}
+              className="rounded-full px-6 py-2 text-white"
+              style={{ backgroundColor: '#2f74db' }}
+            >
+              Try again
+            </Button>
+          </div>
+        )}
+
+        {!isPending && !isError && filteredTasks.length === 0 && (
+          <p className="text-white/60 text-sm text-center py-8">
+            {activeTab === 'completed'
+              ? 'Nothing completed yet.'
+              : 'No tasks yet. Tap “New Task” to add one.'}
+          </p>
+        )}
+
         {filteredTasks.map((task) => (
-          <TaskCard 
-            key={task.id} 
-            task={task} 
-            onComplete={() => handleCompleteTask(task.id)} 
+          <TaskCard
+            key={task.id}
+            task={{
+              id: task.id,
+              title: task.title,
+              description: task.description ?? '',
+              time: describeTimeRange(task),
+              dateLabel: describeDate(task.scheduled_date),
+              tag: toTitleCase(task.tag),
+              completed: task.completed
+            }}
+            busy={toggleCompleted.isPending || deleteTask.isPending}
+            onComplete={() => handleCompleteTask(task)}
+            onDelete={() => handleDeleteTask(task.id)}
           />
         ))}
       </main>
 
       {/* Meeting Modal */}
-      <MeetingModal 
-        isOpen={showMeetingModal} 
-        onClose={() => setShowMeetingModal(false)} 
+      <MeetingModal
+        isOpen={showMeetingModal}
+        onClose={() => setShowMeetingModal(false)}
+        onCreate={async (input) => {
+          await createTask.mutateAsync(input);
+        }}
+        isSaving={createTask.isPending}
       />
 
       <BottomNavigation />
