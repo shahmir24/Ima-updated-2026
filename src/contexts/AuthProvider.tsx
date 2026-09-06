@@ -55,21 +55,34 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   const readOnboardingStatus = useCallback(async (id: string): Promise<boolean | null> => {
-    // maybeSingle(), not single(): the profile row is created by the
-    // on_auth_user_created trigger, and a missing row should read as "not
-    // onboarded" rather than throw.
+    // Three states have to be told apart, and only the third means "onboarded":
+    //   no row at all                     -> false (trigger may not have run)
+    //   row, onboarding_completed_at NULL -> false
+    //   row, onboarding_completed_at set  -> true
+    //
+    // limit(1) rather than maybeSingle(): maybeSingle unwraps the array only on
+    // a GET, and only inside a version-specific workaround in postgrest-js. If
+    // that unwrapping ever stops applying, `data` is an array and reading
+    // .onboarding_completed_at off it silently yields undefined — every user
+    // would read as not-onboarded forever. Handling the array ourselves removes
+    // that dependency.
     const { data, error } = await supabase
       .from('profiles')
       .select('onboarding_completed_at')
       .eq('id', id)
-      .maybeSingle();
+      .limit(1);
 
     if (error) {
+      // Unknown, not "onboarded". The guards send null to onboarding, which is
+      // the safe direction: re-answering is an upsert, being wrongly let in is not.
       console.error('Could not read onboarding status:', error);
       return null;
     }
 
-    return Boolean(data?.onboarding_completed_at);
+    const rows = Array.isArray(data) ? data : data ? [data] : [];
+    if (rows.length === 0) return false;
+
+    return Boolean(rows[0]?.onboarding_completed_at);
   }, []);
 
   // Load onboarding status whenever the signed-in user changes.

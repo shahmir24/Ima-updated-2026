@@ -176,10 +176,22 @@ const Onboarding = () => {
       if (responseError) throw responseError;
 
       // Stamps onboarding as done, so the app can send returning users past it.
+      //
+      // upsert, not update: an UPDATE that matches zero rows is a SUCCESS in
+      // PostgREST, so if the on_auth_user_created trigger never created this
+      // user's profile row, .update() reported success while writing nothing —
+      // the stamp never landed, and the user was bounced back to /welcome on
+      // every attempt, unable to ever finish onboarding. Upserting creates the
+      // row when it is missing and updates it when it is not.
+      //
+      // Only these two columns are sent, so an existing row keeps whatever else
+      // it holds.
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ onboarding_completed_at: new Date().toISOString() })
-        .eq('id', user.id);
+        .upsert(
+          { id: user.id, onboarding_completed_at: new Date().toISOString() },
+          { onConflict: 'id' }
+        );
 
       if (profileError) throw profileError;
 
