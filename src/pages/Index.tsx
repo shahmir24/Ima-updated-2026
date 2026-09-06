@@ -12,9 +12,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useAuth } from '@/contexts/auth-context';
 
 const Index = () => {
   const navigate = useNavigate();
+  const { signOut } = useAuth();
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
   const [tasks, setTasks] = useState([
     { id: 1, title: "Team meeting", time: "10:00 AM", completed: false },
@@ -82,7 +84,7 @@ const Index = () => {
               <span>Help</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={signOut}>
               <LogOut className="mr-2 h-4 w-4" />
               <span>Log Out</span>
             </DropdownMenuItem>

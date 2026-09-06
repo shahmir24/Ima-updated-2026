@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/auth-context';
 
 interface OnboardingData {
   reason: string;
@@ -24,7 +25,7 @@ const Onboarding = () => {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState(null);
+  const { user, refreshOnboardingStatus } = useAuth();
   const [data, setData] = useState<OnboardingData>({
     reason: '',
     dailyFeeling: '',
@@ -36,30 +37,8 @@ const Onboarding = () => {
     additionalInfo: ''
   });
 
-  // Check if user is authenticated
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        navigate('/auth');
-        return;
-      }
-      setUser(user);
-    };
-    
-    checkAuth();
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT') {
-        navigate('/auth');
-      } else if (event === 'SIGNED_IN' && session?.user) {
-        setUser(session.user);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+  // <OnboardingRoute> guarantees there is a session before this renders and
+  // sends signed-out visitors to /auth, so no auth check is needed here.
 
   const questions = [
     {
@@ -254,7 +233,10 @@ const Onboarding = () => {
     } else {
       const success = await saveOnboardingData();
       if (success) {
-        navigate('/');
+        // Must land before navigating: ProtectedRoute reads this value and
+        // would bounce back to /welcome if it were still stale.
+        await refreshOnboardingStatus();
+        navigate('/', { replace: true });
       }
     }
   };
