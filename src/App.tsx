@@ -4,6 +4,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthProvider";
+import { ProtectedRoute, OnboardingRoute, PublicOnlyRoute } from "./components/auth/RouteGuards";
 import Index from "./pages/Index";
 import Welcome from "./pages/Welcome";
 import Onboarding from "./pages/Onboarding";
@@ -47,52 +49,66 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/welcome" element={<Welcome />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/" element={<Index />} />
-          <Route path="/profile-settings" element={<ProfileSettings />} />
-          <Route path="/productivity" element={<Productivity />} />
-          <Route path="/focus" element={<Focus />} />
-          <Route path="/body-double" element={<BodyDouble />} />
-          <Route path="/soundscape" element={<Soundscape />} />
-          <Route path="/stats" element={<Stats />} />
-          <Route path="/tasks" element={<Tasks />} />
-          <Route path="/wellness" element={<Wellness />} />
-          <Route path="/wellness/mindfulness" element={<MindfulnessMenu />} />
-          <Route path="/breathing" element={<BreathingMenu />} />
-          <Route path="/breathing/steady-square" element={<SteadySquare />} />
-          <Route path="/breathing/triangle-calm" element={<TriangleCalm />} />
-          <Route path="/breathing/deep-reset" element={<DeepReset />} />
-          <Route path="/breathing/sleep-switch" element={<SleepSwitch />} />
-          <Route path="/breathing/ride-the-wave" element={<RideTheWave />} />
-          <Route path="/meditation" element={<MeditationMenu />} />
-          <Route path="/meditation/focus-reset" element={<FocusReset />} />
-          <Route path="/meditation/anchor" element={<AnchorGrounding />} />
-          <Route path="/mindfulness/body-scan" element={<BodyScanIntro />} />
-          <Route path="/mindfulness/body-scan/session" element={<BodyScanSession />} />
-          <Route path="/mindfulness/walking" element={<MindfulWalkingMenu />} />
-          <Route path="/mindfulness/walking/breath-sync" element={<BreathSyncWalk />} />
-          <Route path="/mindfulness/walking/break-loop" element={<BreakLoopWalk />} />
-          <Route path="/journaling" element={<JournalingMenu />} />
-          <Route path="/journaling/morning-intention" element={<MorningIntention />} />
-          <Route path="/journaling/daily-journal" element={<DailyJournal />} />
-          <Route path="/journaling/post-panic" element={<PostPanicJournal />} />
-          <Route path="/journaling/focus-reset" element={<FocusResetJournal />} />
-          <Route path="/journaling/gratitude" element={<GratitudeJournal />} />
-          <Route path="/journaling/sensory-checkin" element={<SensoryCheckIn />} />
-          <Route path="/safe-space" element={<SafeSpaceMenu />} />
-          <Route path="/safe-space/chat" element={<SafeSpaceChat />} />
-          <Route path="/safe-space/contacts" element={<SafeContacts />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            {/* Signed out only */}
+            <Route element={<PublicOnlyRoute />}>
+              <Route path="/auth" element={<Auth />} />
+            </Route>
+
+            {/* Signed in, onboarding not yet completed */}
+            <Route element={<OnboardingRoute />}>
+              <Route path="/welcome" element={<Welcome />} />
+              <Route path="/onboarding" element={<Onboarding />} />
+            </Route>
+
+            {/* Signed in and onboarded — the app itself */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<Index />} />
+              <Route path="/profile-settings" element={<ProfileSettings />} />
+              <Route path="/productivity" element={<Productivity />} />
+              <Route path="/focus" element={<Focus />} />
+              <Route path="/body-double" element={<BodyDouble />} />
+              <Route path="/soundscape" element={<Soundscape />} />
+              <Route path="/stats" element={<Stats />} />
+              <Route path="/tasks" element={<Tasks />} />
+              <Route path="/wellness" element={<Wellness />} />
+              <Route path="/wellness/mindfulness" element={<MindfulnessMenu />} />
+              <Route path="/breathing" element={<BreathingMenu />} />
+              <Route path="/breathing/steady-square" element={<SteadySquare />} />
+              <Route path="/breathing/triangle-calm" element={<TriangleCalm />} />
+              <Route path="/breathing/deep-reset" element={<DeepReset />} />
+              <Route path="/breathing/sleep-switch" element={<SleepSwitch />} />
+              <Route path="/breathing/ride-the-wave" element={<RideTheWave />} />
+              <Route path="/meditation" element={<MeditationMenu />} />
+              <Route path="/meditation/focus-reset" element={<FocusReset />} />
+              <Route path="/meditation/anchor" element={<AnchorGrounding />} />
+              <Route path="/mindfulness/body-scan" element={<BodyScanIntro />} />
+              <Route path="/mindfulness/body-scan/session" element={<BodyScanSession />} />
+              <Route path="/mindfulness/walking" element={<MindfulWalkingMenu />} />
+              <Route path="/mindfulness/walking/breath-sync" element={<BreathSyncWalk />} />
+              <Route path="/mindfulness/walking/break-loop" element={<BreakLoopWalk />} />
+              <Route path="/journaling" element={<JournalingMenu />} />
+              <Route path="/journaling/morning-intention" element={<MorningIntention />} />
+              <Route path="/journaling/daily-journal" element={<DailyJournal />} />
+              <Route path="/journaling/post-panic" element={<PostPanicJournal />} />
+              <Route path="/journaling/focus-reset" element={<FocusResetJournal />} />
+              <Route path="/journaling/gratitude" element={<GratitudeJournal />} />
+              <Route path="/journaling/sensory-checkin" element={<SensoryCheckIn />} />
+              <Route path="/safe-space" element={<SafeSpaceMenu />} />
+              <Route path="/safe-space/chat" element={<SafeSpaceChat />} />
+              <Route path="/safe-space/contacts" element={<SafeContacts />} />
+            </Route>
+
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
