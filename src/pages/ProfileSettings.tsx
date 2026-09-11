@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Camera, Upload, Smile, User, Settings, Moon, Sun, Volume2, Zap, Clock, Shield, MessageSquare, HelpCircle } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -13,21 +13,90 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { useAutoSave } from '@/hooks/use-autosave';
+import { useProfile, useUpdateProfile, type ProfilePatch } from '@/hooks/use-profile';
+import { useUserSettings, useUpdateUserSettings, type UserSettingsPatch } from '@/hooks/use-user-settings';
+
+/** Local YYYY-MM-DD, so "today" is the user's calendar day. */
+const toLocalISODate = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+/**
+ * The profiles_dob_sane CHECK requires a date after 1900-01-01 and strictly
+ * before today. Validating here keeps a mistyped year out of the request
+ * instead of surfacing a raw constraint violation.
+ */
+const isStorableDateOfBirth = (value: string) =>
+  value > '1900-01-01' && value < toLocalISODate(new Date());
 
 const ProfileSettings = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') || 'profile';
   
+  const { toast } = useToast();
+
+  // --- persistence -------------------------------------------------------
+  // This screen has no Save button, so every control writes its own column as
+  // it changes. Saves are fired from the change handlers rather than from an
+  // effect, so hydrating the form below can never write over what was loaded.
+  const { data: profile, isError: profileFailed, error: profileError } = useProfile();
+  const { data: settings, isError: settingsFailed, error: settingsError } = useUserSettings();
+  const updateProfile = useUpdateProfile();
+  const updateSettings = useUpdateUserSettings();
+
+  const reportSaveFailure = (what: string, error: unknown) => {
+    toast({
+      title: `Could not save your ${what}`,
+      description: error instanceof Error ? error.message : 'Please try again.',
+      variant: 'destructive'
+    });
+  };
+
+  const profileSave = useAutoSave<ProfilePatch>(async (patch) => {
+    try {
+      await updateProfile.mutateAsync(patch);
+    } catch (error) {
+      reportSaveFailure('profile', error);
+    }
+  });
+
+  const settingsSave = useAutoSave<UserSettingsPatch>(async (patch) => {
+    try {
+      await updateSettings.mutateAsync(patch);
+    } catch (error) {
+      reportSaveFailure('settings', error);
+    }
+  });
+
+  // --- profile fields ----------------------------------------------------
+  // Local only: the column stores a Storage object path in the private
+  // `avatars` bucket, not an image, and this page has no upload pipeline.
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
   const [useEmojiProfile, setUseEmojiProfile] = useState(false);
   const [selectedEmoji, setSelectedEmoji] = useState('😊');
-  const [darkMode, setDarkMode] = useState(false);
+  const [firstName, setFirstName] = useState('');
+  const [pronouns, setPronouns] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [moodFrequency, setMoodFrequency] = useState('');
+  const [focusGoal, setFocusGoal] = useState('');
+
+  // --- settings fields ---------------------------------------------------
+  // Defaults match the schema's, so a user whose settings row is somehow
+  // missing sees what the database would actually give them. The app's
+  // palette is dark (--background is near-black) and user_settings.theme
+  // defaults to 'dark'; useState(false) claimed light and matched neither.
+  const [darkMode, setDarkMode] = useState(true);
   const [adhdMode, setAdhdMode] = useState(false);
+  const [encouragement, setEncouragement] = useState(true);
   const [soundVolume, setSoundVolume] = useState([75]);
   const [animationSpeed, setAnimationSpeed] = useState('normal');
+  const [aiCompanionName, setAiCompanionName] = useState('');
   const [focusBlockLength, setFocusBlockLength] = useState('25');
   const [bufferTime, setBufferTime] = useState('5');
+  const [timeboxingStyle, setTimeboxingStyle] = useState('');
+  const [dailyFocusGoal, setDailyFocusGoal] = useState('');
 
   const moodEmojis = ['😊', '🥰', '😌', '🤗', '✨', '🌈', '🦋', '🌸'];
   const preferredModes = [
@@ -37,6 +106,75 @@ const ProfileSettings = () => {
   ];
 
   const [selectedMode, setSelectedMode] = useState('calm');
+
+  // Fill the form from the saved row, once. Re-applying it on a later render
+  // would overwrite whatever the user has changed since.
+  const profileHydrated = useRef(false);
+  useEffect(() => {
+    if (profileHydrated.current || !profile) return;
+    profileHydrated.current = true;
+
+    setFirstName(profile.first_name ?? '');
+    setPronouns(profile.pronouns ?? '');
+    setDateOfBirth(profile.date_of_birth ?? '');
+    setMoodFrequency(profile.mood_checkin_frequency ?? '');
+    setFocusGoal(profile.focus_goal ?? '');
+    setUseEmojiProfile(profile.use_emoji_avatar);
+    if (profile.avatar_emoji) setSelectedEmoji(profile.avatar_emoji);
+    if (profile.preferred_mode) setSelectedMode(profile.preferred_mode);
+  }, [profile]);
+
+  const settingsHydrated = useRef(false);
+  useEffect(() => {
+    if (settingsHydrated.current || !settings) return;
+    settingsHydrated.current = true;
+
+    setDarkMode(settings.theme === 'dark');
+    setAdhdMode(settings.adhd_mode);
+    setEncouragement(settings.encouragement);
+    setSoundVolume([settings.sound_volume]);
+    setAnimationSpeed(settings.animation_speed);
+    setAiCompanionName(settings.ai_companion_name ?? '');
+    setFocusBlockLength(String(settings.focus_block_minutes));
+    setBufferTime(String(settings.buffer_minutes));
+    setTimeboxingStyle(settings.timeboxing_style ?? '');
+    setDailyFocusGoal(settings.daily_focus_goal ?? '');
+  }, [settings]);
+
+  const loadFailureShown = useRef(false);
+  useEffect(() => {
+    if (loadFailureShown.current || (!profileFailed && !settingsFailed)) return;
+    loadFailureShown.current = true;
+    const cause = profileFailed ? profileError : settingsError;
+    toast({
+      title: 'Could not load your profile',
+      description:
+        cause instanceof Error
+          ? cause.message
+          : 'Showing defaults. Changes you make can still be saved.',
+      variant: 'destructive'
+    });
+  }, [profileFailed, settingsFailed, profileError, settingsError, toast]);
+
+  const handleDateOfBirthChange = (value: string) => {
+    setDateOfBirth(value);
+
+    if (!value) {
+      profileSave.saveSoon({ date_of_birth: null });
+      return;
+    }
+
+    if (isStorableDateOfBirth(value)) {
+      profileSave.saveSoon({ date_of_birth: value });
+    } else if (value.length === 10) {
+      // Only complain about a complete date, not about one mid-entry.
+      toast({
+        title: 'Check that date of birth',
+        description: 'It needs to be a past date after 1900.',
+        variant: 'destructive'
+      });
+    }
+  };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -135,6 +273,11 @@ const ProfileSettings = () => {
                         onCheckedChange={(checked) => {
                           setUseEmojiProfile(checked);
                           if (checked) setProfilePicture(null);
+                          profileSave.saveNow(
+                            checked
+                              ? { use_emoji_avatar: true, avatar_emoji: selectedEmoji }
+                              : { use_emoji_avatar: false }
+                          );
                         }}
                       />
                       <Label className="text-sm">Use my favorite mood emoji instead</Label>
@@ -145,7 +288,10 @@ const ProfileSettings = () => {
                         {moodEmojis.map((emoji) => (
                           <button
                             key={emoji}
-                            onClick={() => setSelectedEmoji(emoji)}
+                            onClick={() => {
+                              setSelectedEmoji(emoji);
+                              profileSave.saveNow({ avatar_emoji: emoji, use_emoji_avatar: true });
+                            }}
                             className={`text-2xl p-2 rounded-full transition-all ${
                               selectedEmoji === emoji ? 'bg-primary/20 scale-110' : 'hover:bg-secondary'
                             }`}
@@ -169,12 +315,27 @@ const ProfileSettings = () => {
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="firstName">First Name</Label>
-                  <Input id="firstName" placeholder="e.g. Zara" className="mt-1 rounded-xl" />
+                  <Input
+                    id="firstName"
+                    placeholder="e.g. Zara"
+                    className="mt-1 rounded-xl"
+                    value={firstName}
+                    onChange={(e) => {
+                      setFirstName(e.target.value);
+                      profileSave.saveSoon({ first_name: e.target.value.trim() || null });
+                    }}
+                  />
                 </div>
                 
                 <div>
                   <Label htmlFor="pronouns">Pronouns</Label>
-                  <Select>
+                  <Select
+                    value={pronouns || undefined}
+                    onValueChange={(value) => {
+                      setPronouns(value);
+                      profileSave.saveNow({ pronouns: value });
+                    }}
+                  >
                     <SelectTrigger className="mt-1 rounded-xl">
                       <SelectValue placeholder="Select pronouns" />
                     </SelectTrigger>
@@ -189,12 +350,24 @@ const ProfileSettings = () => {
 
                 <div>
                   <Label htmlFor="dob">Date of Birth</Label>
-                  <Input id="dob" type="date" className="mt-1 rounded-xl" />
+                  <Input
+                    id="dob"
+                    type="date"
+                    className="mt-1 rounded-xl"
+                    value={dateOfBirth}
+                    onChange={(e) => handleDateOfBirthChange(e.target.value)}
+                  />
                 </div>
 
                 <div>
                   <Label>Mood Check-in Frequency</Label>
-                  <Select>
+                  <Select
+                    value={moodFrequency || undefined}
+                    onValueChange={(value) => {
+                      setMoodFrequency(value);
+                      profileSave.saveNow({ mood_checkin_frequency: value });
+                    }}
+                  >
                     <SelectTrigger className="mt-1 rounded-xl">
                       <SelectValue placeholder="How often?" />
                     </SelectTrigger>
@@ -208,7 +381,16 @@ const ProfileSettings = () => {
 
                 <div>
                   <Label htmlFor="focusGoals">Focus Goals</Label>
-                  <Input id="focusGoals" placeholder="✨ reduce overwhelm" className="mt-1 rounded-xl" />
+                  <Input
+                    id="focusGoals"
+                    placeholder="✨ reduce overwhelm"
+                    className="mt-1 rounded-xl"
+                    value={focusGoal}
+                    onChange={(e) => {
+                      setFocusGoal(e.target.value);
+                      profileSave.saveSoon({ focus_goal: e.target.value.trim() || null });
+                    }}
+                  />
                 </div>
 
                 <div>
@@ -217,7 +399,10 @@ const ProfileSettings = () => {
                     {preferredModes.map((mode) => (
                       <button
                         key={mode.id}
-                        onClick={() => setSelectedMode(mode.id)}
+                        onClick={() => {
+                          setSelectedMode(mode.id);
+                          profileSave.saveNow({ preferred_mode: mode.id });
+                        }}
                         className={`p-4 rounded-2xl border-2 transition-all ${
                           selectedMode === mode.id
                             ? 'border-primary bg-primary/10'
@@ -287,7 +472,13 @@ const ProfileSettings = () => {
                   </div>
                   <div className="flex items-center space-x-2">
                     <Sun className="h-4 w-4" />
-                    <Switch checked={darkMode} onCheckedChange={setDarkMode} />
+                    <Switch
+                      checked={darkMode}
+                      onCheckedChange={(checked) => {
+                        setDarkMode(checked);
+                        settingsSave.saveNow({ theme: checked ? 'dark' : 'light' });
+                      }}
+                    />
                     <Moon className="h-4 w-4" />
                   </div>
                 </div>
@@ -300,6 +491,7 @@ const ProfileSettings = () => {
                   <Slider
                     value={soundVolume}
                     onValueChange={setSoundVolume}
+                    onValueCommit={(value) => settingsSave.saveNow({ sound_volume: value[0] })}
                     max={100}
                     step={1}
                     className="w-full"
@@ -309,7 +501,13 @@ const ProfileSettings = () => {
 
                 <div>
                   <Label>Animation Speed</Label>
-                  <Select value={animationSpeed} onValueChange={setAnimationSpeed}>
+                  <Select
+                    value={animationSpeed}
+                    onValueChange={(value) => {
+                      setAnimationSpeed(value);
+                      settingsSave.saveNow({ animation_speed: value });
+                    }}
+                  >
                     <SelectTrigger className="mt-1 rounded-xl">
                       <SelectValue />
                     </SelectTrigger>
@@ -334,7 +532,13 @@ const ProfileSettings = () => {
                     <Label>ADHD Mode</Label>
                     <p className="text-sm text-muted-foreground">Adds focus nudges & reminders</p>
                   </div>
-                  <Switch checked={adhdMode} onCheckedChange={setAdhdMode} />
+                  <Switch
+                    checked={adhdMode}
+                    onCheckedChange={(checked) => {
+                      setAdhdMode(checked);
+                      settingsSave.saveNow({ adhd_mode: checked });
+                    }}
+                  />
                 </div>
 
                 <div>
@@ -347,7 +551,16 @@ const ProfileSettings = () => {
 
                 <div>
                   <Label htmlFor="aiName">AI Body Double Name</Label>
-                  <Input id="aiName" placeholder="e.g. Zoe" className="mt-1 rounded-xl" />
+                  <Input
+                    id="aiName"
+                    placeholder="e.g. Zoe"
+                    className="mt-1 rounded-xl"
+                    value={aiCompanionName}
+                    onChange={(e) => {
+                      setAiCompanionName(e.target.value);
+                      settingsSave.saveSoon({ ai_companion_name: e.target.value.trim() || null });
+                    }}
+                  />
                   <p className="text-xs text-muted-foreground mt-1">Personalize your AI companion</p>
                 </div>
               </div>
@@ -362,7 +575,13 @@ const ProfileSettings = () => {
               <div className="space-y-4">
                 <div>
                   <Label>Default Block Length</Label>
-                  <Select value={focusBlockLength} onValueChange={setFocusBlockLength}>
+                  <Select
+                    value={focusBlockLength}
+                    onValueChange={(value) => {
+                      setFocusBlockLength(value);
+                      settingsSave.saveNow({ focus_block_minutes: Number(value) });
+                    }}
+                  >
                     <SelectTrigger className="mt-1 rounded-xl">
                       <SelectValue />
                     </SelectTrigger>
@@ -376,7 +595,13 @@ const ProfileSettings = () => {
 
                 <div>
                   <Label>Buffer Time Between Blocks</Label>
-                  <Select value={bufferTime} onValueChange={setBufferTime}>
+                  <Select
+                    value={bufferTime}
+                    onValueChange={(value) => {
+                      setBufferTime(value);
+                      settingsSave.saveNow({ buffer_minutes: Number(value) });
+                    }}
+                  >
                     <SelectTrigger className="mt-1 rounded-xl">
                       <SelectValue />
                     </SelectTrigger>
@@ -390,24 +615,37 @@ const ProfileSettings = () => {
                 <div>
                   <Label>Timeboxing Style</Label>
                   <div className="grid grid-cols-3 gap-2 mt-2">
-                    <Button variant="outline" className="rounded-xl text-xs">
-                      🍅 Pomodoro
-                    </Button>
-                    <Button variant="outline" className="rounded-xl text-xs">
-                      🌊 Deep Dive
-                    </Button>
-                    <Button variant="outline" className="rounded-xl text-xs">
-                      🧠 Custom
-                    </Button>
+                    {[
+                      { id: 'pomodoro', label: '🍅 Pomodoro' },
+                      { id: 'deep-dive', label: '🌊 Deep Dive' },
+                      { id: 'custom', label: '🧠 Custom' }
+                    ].map((style) => (
+                      <Button
+                        key={style.id}
+                        variant={timeboxingStyle === style.id ? 'default' : 'outline'}
+                        className="rounded-xl text-xs"
+                        onClick={() => {
+                          setTimeboxingStyle(style.id);
+                          settingsSave.saveNow({ timeboxing_style: style.id });
+                        }}
+                      >
+                        {style.label}
+                      </Button>
+                    ))}
                   </div>
                 </div>
 
                 <div>
                   <Label htmlFor="dailyGoal">Daily Focus Goal</Label>
-                  <Input 
-                    id="dailyGoal" 
-                    placeholder="How much work do you want to aim for today?" 
-                    className="mt-1 rounded-xl" 
+                  <Input
+                    id="dailyGoal"
+                    placeholder="How much work do you want to aim for today?"
+                    className="mt-1 rounded-xl"
+                    value={dailyFocusGoal}
+                    onChange={(e) => {
+                      setDailyFocusGoal(e.target.value);
+                      settingsSave.saveSoon({ daily_focus_goal: e.target.value.trim() || null });
+                    }}
                   />
                 </div>
 
@@ -416,7 +654,13 @@ const ProfileSettings = () => {
                     <Label>Encouragement</Label>
                     <p className="text-sm text-muted-foreground">Send me a little boost before I begin</p>
                   </div>
-                  <Switch />
+                  <Switch
+                    checked={encouragement}
+                    onCheckedChange={(checked) => {
+                      setEncouragement(checked);
+                      settingsSave.saveNow({ encouragement: checked });
+                    }}
+                  />
                 </div>
               </div>
             </Card>
