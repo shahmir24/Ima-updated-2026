@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sun, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,15 +7,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import WellnessHeader from '@/components/wellness/WellnessHeader';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import { useJournalEntryForm } from '@/hooks/use-journal';
 
 const MorningIntention = () => {
   const navigate = useNavigate();
-  const [intention, setIntention] = useState('');
+  // Today's entry for this journal type, loaded from Supabase so the
+  // writing comes back after a refresh. The shape below is exactly what
+  // journal_entries.responses stores for 'morning-intention'.
+  const journal = useJournalEntryForm('morning-intention', { intention: '' });
+  const { intention } = journal.values;
 
-  const handleSave = () => {
-    console.log('Saving morning intention:', intention);
-    // Future: Save to local storage or database
-    navigate('/journaling');
+  const handleSave = async () => {
+    // Navigate only once the write has landed, so a failure leaves the
+    // page (and what was written) intact instead of discarding it.
+    if ((await journal.save()) === 'saved') navigate('/journaling');
   };
 
   return (
@@ -45,17 +50,18 @@ const MorningIntention = () => {
 
             <Textarea
               value={intention}
-              onChange={(e) => setIntention(e.target.value)}
+              onChange={(e) => journal.setValue('intention', e.target.value)}
               placeholder="Write your intention for today..."
               className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50 min-h-[120px]"
             />
 
             <Button
               onClick={handleSave}
+              disabled={journal.isBusy}
               className="w-full bg-orange-500 hover:bg-orange-600 text-white"
             >
               <Save className="h-4 w-4 mr-2" />
-              Save Intention
+              {journal.isSaving ? 'Saving…' : 'Save Intention'}
             </Button>
           </CardContent>
         </Card>

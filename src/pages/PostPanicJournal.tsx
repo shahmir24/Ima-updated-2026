@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Heart, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,16 +7,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import WellnessHeader from '@/components/wellness/WellnessHeader';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import { useJournalEntryForm } from '@/hooks/use-journal';
 
 const PostPanicJournal = () => {
   const navigate = useNavigate();
-  const [whatHappened, setWhatHappened] = useState('');
-  const [howItFelt, setHowItFelt] = useState('');
-  const [whatNeeded, setWhatNeeded] = useState('');
+  // Today's entry for this journal type, loaded from Supabase so the
+  // writing comes back after a refresh. The shape below is exactly what
+  // journal_entries.responses stores for 'post-panic'.
+  const journal = useJournalEntryForm('post-panic', { whatHappened: '', howItFelt: '', whatNeeded: '' });
+  const { whatHappened, howItFelt, whatNeeded } = journal.values;
 
-  const handleSave = () => {
-    console.log('Saving post-panic journal:', { whatHappened, howItFelt, whatNeeded });
-    navigate('/journaling');
+  const handleSave = async () => {
+    // Navigate only once the write has landed, so a failure leaves the
+    // page (and what was written) intact instead of discarding it.
+    if ((await journal.save()) === 'saved') navigate('/journaling');
   };
 
   return (
@@ -42,7 +46,7 @@ const PostPanicJournal = () => {
                 <label className="text-white/90 text-sm block mb-2">✍️ What just happened?</label>
                 <Textarea
                   value={whatHappened}
-                  onChange={(e) => setWhatHappened(e.target.value)}
+                  onChange={(e) => journal.setValue('whatHappened', e.target.value)}
                   placeholder="Describe what happened..."
                   className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50"
                 />
@@ -52,7 +56,7 @@ const PostPanicJournal = () => {
                 <label className="text-white/90 text-sm block mb-2">✍️ How did it make you feel — really?</label>
                 <Textarea
                   value={howItFelt}
-                  onChange={(e) => setHowItFelt(e.target.value)}
+                  onChange={(e) => journal.setValue('howItFelt', e.target.value)}
                   placeholder="Name your feelings..."
                   className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50"
                 />
@@ -62,7 +66,7 @@ const PostPanicJournal = () => {
                 <label className="text-white/90 text-sm block mb-2">✍️ What do you need right now?</label>
                 <Textarea
                   value={whatNeeded}
-                  onChange={(e) => setWhatNeeded(e.target.value)}
+                  onChange={(e) => journal.setValue('whatNeeded', e.target.value)}
                   placeholder="What would help you right now..."
                   className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50"
                 />
@@ -75,10 +79,11 @@ const PostPanicJournal = () => {
 
             <Button
               onClick={handleSave}
+              disabled={journal.isBusy}
               className="w-full bg-blue-500 hover:bg-blue-600 text-white"
             >
               <Save className="h-4 w-4 mr-2" />
-              Save Reflection
+              {journal.isSaving ? 'Saving…' : 'Save Reflection'}
             </Button>
           </CardContent>
         </Card>

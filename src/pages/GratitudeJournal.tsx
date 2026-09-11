@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sun, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,15 +7,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import WellnessHeader from '@/components/wellness/WellnessHeader';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import { useJournalEntryForm } from '@/hooks/use-journal';
 
 const GratitudeJournal = () => {
   const navigate = useNavigate();
-  const [smile, setSmile] = useState('');
-  const [warmth, setWarmth] = useState('');
+  // Today's entry for this journal type, loaded from Supabase so the
+  // writing comes back after a refresh. The shape below is exactly what
+  // journal_entries.responses stores for 'gratitude'.
+  const journal = useJournalEntryForm('gratitude', { smile: '', warmth: '' });
+  const { smile, warmth } = journal.values;
 
-  const handleSave = () => {
-    console.log('Saving gratitude journal:', { smile, warmth });
-    navigate('/journaling');
+  const handleSave = async () => {
+    // Navigate only once the write has landed, so a failure leaves the
+    // page (and what was written) intact instead of discarding it.
+    if ((await journal.save()) === 'saved') navigate('/journaling');
   };
 
   return (
@@ -41,7 +46,7 @@ const GratitudeJournal = () => {
                 <label className="text-white/90 text-sm block mb-2">✍️ What made you smile, even a little?</label>
                 <Textarea
                   value={smile}
-                  onChange={(e) => setSmile(e.target.value)}
+                  onChange={(e) => journal.setValue('smile', e.target.value)}
                   placeholder="A moment that brought a smile..."
                   className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50"
                 />
@@ -51,7 +56,7 @@ const GratitudeJournal = () => {
                 <label className="text-white/90 text-sm block mb-2">✍️ What felt safe, sweet, or warm today?</label>
                 <Textarea
                   value={warmth}
-                  onChange={(e) => setWarmth(e.target.value)}
+                  onChange={(e) => journal.setValue('warmth', e.target.value)}
                   placeholder="Something that felt good..."
                   className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50"
                 />
@@ -64,10 +69,11 @@ const GratitudeJournal = () => {
 
             <Button
               onClick={handleSave}
+              disabled={journal.isBusy}
               className="w-full bg-yellow-500 hover:bg-yellow-600 text-white"
             >
               <Save className="h-4 w-4 mr-2" />
-              Save Gratitude
+              {journal.isSaving ? 'Saving…' : 'Save Gratitude'}
             </Button>
           </CardContent>
         </Card>

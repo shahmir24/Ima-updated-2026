@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Heart, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,16 +7,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import WellnessHeader from '@/components/wellness/WellnessHeader';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import { useJournalEntryForm } from '@/hooks/use-journal';
 
 const SensoryCheckIn = () => {
   const navigate = useNavigate();
-  const [sensations, setSensations] = useState('');
-  const [bodyAwareness, setBodyAwareness] = useState('');
-  const [softenSpot, setSoftenSpot] = useState('');
+  // Today's entry for this journal type, loaded from Supabase so the
+  // writing comes back after a refresh. The shape below is exactly what
+  // journal_entries.responses stores for 'sensory-checkin'.
+  const journal = useJournalEntryForm('sensory-checkin', { sensations: '', bodyAwareness: '', softenSpot: '' });
+  const { sensations, bodyAwareness, softenSpot } = journal.values;
 
-  const handleSave = () => {
-    console.log('Saving sensory check-in:', { sensations, bodyAwareness, softenSpot });
-    navigate('/journaling');
+  const handleSave = async () => {
+    // Navigate only once the write has landed, so a failure leaves the
+    // page (and what was written) intact instead of discarding it.
+    if ((await journal.save()) === 'saved') navigate('/journaling');
   };
 
   return (
@@ -42,7 +46,7 @@ const SensoryCheckIn = () => {
                 <label className="text-white/90 text-sm block mb-2">✍️ What sensations are you noticing right now?</label>
                 <Textarea
                   value={sensations}
-                  onChange={(e) => setSensations(e.target.value)}
+                  onChange={(e) => journal.setValue('sensations', e.target.value)}
                   placeholder="Notice what you're feeling in your body..."
                   className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50"
                 />
@@ -52,7 +56,7 @@ const SensoryCheckIn = () => {
                 <label className="text-white/90 text-sm block mb-2">✍️ Where do you feel tight, light, heavy, warm, or buzzy?</label>
                 <Textarea
                   value={bodyAwareness}
-                  onChange={(e) => setBodyAwareness(e.target.value)}
+                  onChange={(e) => journal.setValue('bodyAwareness', e.target.value)}
                   placeholder="Map your body's sensations..."
                   className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50"
                 />
@@ -62,7 +66,7 @@ const SensoryCheckIn = () => {
                 <label className="text-white/90 text-sm block mb-2">✍️ Can you soften just one spot?</label>
                 <Textarea
                   value={softenSpot}
-                  onChange={(e) => setSoftenSpot(e.target.value)}
+                  onChange={(e) => journal.setValue('softenSpot', e.target.value)}
                   placeholder="What would it feel like to soften..."
                   className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50"
                 />
@@ -75,10 +79,11 @@ const SensoryCheckIn = () => {
 
             <Button
               onClick={handleSave}
+              disabled={journal.isBusy}
               className="w-full bg-pink-500 hover:bg-pink-600 text-white"
             >
               <Save className="h-4 w-4 mr-2" />
-              Save Check-In
+              {journal.isSaving ? 'Saving…' : 'Save Check-In'}
             </Button>
           </CardContent>
         </Card>
