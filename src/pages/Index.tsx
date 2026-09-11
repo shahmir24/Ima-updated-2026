@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Heart, Circle, Clock, Calendar, MessageSquare, Activity, Smile, Frown, Meh, Zap, Brain, User, Settings, HelpCircle, LogOut, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,11 +13,61 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/auth-context';
+import { useToast } from '@/hooks/use-toast';
+import { useTodayMood, useSaveMoodCheckin, toMoodLabel, isMoodValue } from '@/hooks/use-mood';
 
 const Index = () => {
   const navigate = useNavigate();
   const { signOut } = useAuth();
-  const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  // Today's check-in comes from the database, so the selection survives a
+  // refresh. `pendingMood` shows the tap immediately while the insert is in
+  // flight, and is cleared either way once it settles.
+  const { data: todayMood } = useTodayMood();
+  const saveMood = useSaveMoodCheckin();
+  const [pendingMood, setPendingMood] = useState<string | null>(null);
+
+  // A ref, not saveMood.isPending: two taps in the same tick both read the
+  // same render's isPending (still false) and would both insert. A ref is
+  // updated synchronously, so the second tap of a double-tap sees it.
+  const savingRef = useRef(false);
+
+  const selectedMood = pendingMood ?? (todayMood ? toMoodLabel(todayMood.mood) : null);
+
+  const handleSelectMood = (label: string) => {
+    // Two guards, because a tap on this row is cheap and easy to repeat:
+    //   * while an insert is in flight, further taps are ignored, so a
+    //     double-tap cannot write twice.
+    //   * a second tap on the mood already recorded is a no-op, not a new row.
+    //     The picker reads as a selection, so re-tapping the highlighted mood
+    //     means "yes, still that" — it should not append a duplicate.
+    // Choosing a DIFFERENT mood later still appends: the table is an
+    // append-only log and the day's series is the point of it.
+    if (savingRef.current || selectedMood === label) return;
+
+    const mood = label.toLowerCase();
+    if (!isMoodValue(mood)) return;
+
+    savingRef.current = true;
+    setPendingMood(label);
+    saveMood.mutate(
+      { mood },
+      {
+        onError: (error) => {
+          toast({
+            title: 'Could not save your mood',
+            description: error instanceof Error ? error.message : 'Please try again.',
+            variant: 'destructive'
+          });
+        },
+        onSettled: () => {
+          savingRef.current = false;
+          setPendingMood(null);
+        }
+      }
+    );
+  };
   const [tasks, setTasks] = useState([
     { id: 1, title: "Team meeting", time: "10:00 AM", completed: false },
     { id: 2, title: "Project proposal", time: "12:30 PM", completed: false },
@@ -108,7 +158,7 @@ const Index = () => {
             return (
               <button 
                 key={index} 
-                onClick={() => setSelectedMood(mood.name)}
+                onClick={() => handleSelectMood(mood.name)}
                 className="flex flex-col items-center min-w-[80px] transition-all duration-200"
               >
                 <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-2 transition-all duration-200 ${
