@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import Welcome from "./pages/Welcome";
 import Onboarding from "./pages/Onboarding";
 import Auth from "./pages/Auth";
+import AuthCallback from "./pages/AuthCallback";
 import ProfileSettings from "./pages/ProfileSettings";
 import Productivity from "./pages/Productivity";
 import Focus from "./pages/Focus";
@@ -55,6 +56,12 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
+            {/* Unguarded: where Supabase returns after an email confirmation
+                link. It reads the tokens (or the error) out of the URL and
+                then decides where the user belongs — a guard here would
+                redirect first and discard them. */}
+            <Route path="/auth/callback" element={<AuthCallback />} />
+
             {/* Signed out only */}
             <Route element={<PublicOnlyRoute />}>
               <Route path="/auth" element={<Auth />} />

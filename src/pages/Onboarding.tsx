@@ -25,7 +25,7 @@ const Onboarding = () => {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
-  const { user, refreshOnboardingStatus } = useAuth();
+  const { user, refreshOnboardingStatus, markOnboardingComplete } = useAuth();
   const [data, setData] = useState<OnboardingData>({
     reason: '',
     dailyFeeling: '',
@@ -195,6 +195,11 @@ const Onboarding = () => {
 
       if (profileError) throw profileError;
 
+      // The stamp landed, so the guards can be told straight away. Doing it
+      // here rather than relying only on the confirming read below means a
+      // failed read cannot bounce a user who HAS finished back to /welcome.
+      markOnboardingComplete();
+
       toast({
         title: "Welcome to iMA! 🌿",
         description: "Your onboarding responses have been saved."
@@ -245,8 +250,9 @@ const Onboarding = () => {
     } else {
       const success = await saveOnboardingData();
       if (success) {
-        // Must land before navigating: ProtectedRoute reads this value and
-        // would bounce back to /welcome if it were still stale.
+        // saveOnboardingData() has already flipped the flag optimistically;
+        // this confirms it against the row that was just written. It cannot
+        // undo the flag — a failed read leaves the known-good value in place.
         await refreshOnboardingStatus();
         navigate('/', { replace: true });
       }

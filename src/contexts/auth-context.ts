@@ -17,8 +17,14 @@ export interface AuthContextValue {
   /** True until the initial session lookup AND profile lookup have settled. */
   loading: boolean;
   signOut: () => Promise<void>;
-  /** Re-reads onboarding status. Call after finishing onboarding. */
+  /** Re-reads onboarding status from the profile row. */
   refreshOnboardingStatus: () => Promise<void>;
+  /**
+   * Marks the signed-in user as onboarded without waiting for a read.
+   * Call it straight after the profile row has been stamped, so the guards
+   * stop sending the user to /welcome even if the confirming read fails.
+   */
+  markOnboardingComplete: () => void;
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
