@@ -19,6 +19,29 @@ interface FloatingSettingsProps {
   onSettingChange: (setting: string, value: number) => void;
 }
 
+/**
+ * Option lists, matching App Settings exactly so the same setting does not
+ * offer different choices in two places. This panel previously offered
+ * 25|50 minute blocks and 5|15 minute buffers while App Settings — which is
+ * what actually persists — offered 25|45|90 and 5|10.
+ *
+ * App Settings is the source of truth. All values sit inside the column
+ * CHECKs (focus_block_minutes 1-240, buffer_minutes 0-60, default_flows
+ * 1-12), so nothing here can produce a value the database would reject.
+ */
+const BLOCK_OPTIONS = [25, 45, 90];
+const BUFFER_OPTIONS = [5, 10];
+/** default_flows persists but has no App Settings control, so this list stands alone. */
+const FLOW_OPTIONS = [1, 2, 3, 4];
+
+/**
+ * Keeps the current value selectable even when it is not one of the offered
+ * options — a saved value only reachable by editing the row directly would
+ * otherwise render the Select blank.
+ */
+const withCurrent = (options: number[], current: number) =>
+  options.includes(current) ? options : [...options, current].sort((a, b) => a - b);
+
 const FloatingSettings = ({ 
   isOpen, 
   onToggle, 
@@ -33,21 +56,21 @@ const FloatingSettings = ({
       label: 'Time boxing duration', 
       value: `${timeBoxDuration} min`,
       setting: 'timeBox',
-      options: [25, 50]
+      options: withCurrent(BLOCK_OPTIONS, timeBoxDuration)
     },
     { 
       icon: Timer, 
       label: 'Interval duration', 
       value: `${intervalDuration} min`,
       setting: 'interval',
-      options: [5, 15]
+      options: withCurrent(BUFFER_OPTIONS, intervalDuration)
     },
     { 
       icon: BarChart, 
       label: 'No. of Flows', 
       value: numberOfFlows.toString(),
       setting: 'flows',
-      options: [1, 2, 3, 4]
+      options: withCurrent(FLOW_OPTIONS, numberOfFlows)
     },
   ];
 
