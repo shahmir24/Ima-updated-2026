@@ -3,7 +3,6 @@ import React, { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Heart, Circle, Clock, Calendar, MessageSquare, Activity, Smile, Frown, Meh, Zap, Brain, User, Settings, HelpCircle, LogOut, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +14,26 @@ import {
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { useTodayMood, useSaveMoodCheckin, toMoodLabel, isMoodValue } from '@/hooks/use-mood';
+import { useTasks, useToggleTaskCompleted, type TaskRow } from '@/hooks/use-tasks';
+
+/** Local YYYY-MM-DD, so "today" is the user's calendar day, not a UTC one. */
+const toLocalISODate = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+/** '14:00:00' -> '2:00 PM'. Null when the task has no start time — the column
+ *  is nullable and a time must never be invented for a task that has none. */
+const formatStartTime = (value: string | null) => {
+  if (!value) return null;
+  const [hours, minutes] = value.split(':');
+  return new Date(2000, 0, 1, Number(hours), Number(minutes)).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
+/** How many of today's tasks the home screen shows before "View all". */
+const HOME_TASK_LIMIT = 3;
 
 const Index = () => {
   const navigate = useNavigate();
@@ -68,11 +87,27 @@ const Index = () => {
       }
     );
   };
-  const [tasks, setTasks] = useState([
-    { id: 1, title: "Team meeting", time: "10:00 AM", completed: false },
-    { id: 2, title: "Project proposal", time: "12:30 PM", completed: false },
-    { id: 3, title: "Review designs", time: "3:00 PM", completed: false }
-  ]);
+  // The same persisted tasks the /tasks screen reads. This section used to
+  // hold three hardcoded rows — Team meeting, Project proposal, Review
+  // designs — with working checkboxes that saved nothing, sitting next to a
+  // real Tasks feature. Ticking one moved a progress bar, so the home screen
+  // looked like it had task tracking that did not exist.
+  const { data: allTasks = [], isPending: tasksLoading, isError: tasksFailed } = useTasks();
+  const toggleTaskCompleted = useToggleTaskCompleted();
+
+  // scheduled_date is `date NOT NULL default current_date`, so today is exact
+  // — no guessing. Order comes from useTasks (date, then start_time, then
+  // created_at) and is left alone, so ticking a task does not make it jump.
+  const today = toLocalISODate(new Date());
+  const todaysTasks = allTasks.filter((task) => task.scheduled_date === today);
+  const visibleTasks = todaysTasks.slice(0, HOME_TASK_LIMIT);
+
+  const handleToggleTask = (task: TaskRow) => {
+    // Errors surface through the mutation state below.
+    toggleTaskCompleted.toggle(task).catch(() => { /* reported via taskError */ });
+  };
+
+  const taskError = toggleTaskCompleted.error;
 
   const moods = [
     { name: "Happy", icon: Smile, color: "from-yellow-400 to-orange-400" },
@@ -81,15 +116,6 @@ const Index = () => {
     { name: "Anxious", icon: Zap, color: "from-red-400 to-pink-500" },
     { name: "Focused", icon: Brain, color: "from-purple-400 to-purple-600" }
   ];
-
-  const toggleTask = (taskId: number) => {
-    setTasks(tasks.map(task => 
-      task.id === taskId ? { ...task, completed: !task.completed } : task
-    ));
-  };
-
-  const completedTasks = tasks.filter(task => task.completed).length;
-  const progressPercentage = (completedTasks / tasks.length) * 100;
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
@@ -280,59 +306,82 @@ const Index = () => {
           </Link>
         </div>
 
-        {/* Tasks section */}
+        {/* Tasks section — the real, persisted tasks from /tasks.
+            The "Edit" button that sat on every row is gone: the app has no
+            task-edit UI, so it could never do anything. */}
         <div className="mt-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Today's tasks</h2>
-            <Button variant="ghost" size="sm" className="text-primary">View all</Button>
-          </div>
-          
-          <div className="space-y-3">
-            {tasks.map((task) => (
-              <div key={task.id} className="bg-secondary rounded-2xl p-4 flex items-center justify-between animate-slide-up">
-                <div className="flex items-center gap-3">
-                  <button 
-                    onClick={() => toggleTask(task.id)}
-                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                      task.completed 
-                        ? 'bg-blue-500 border-blue-500' 
-                        : 'border-muted-foreground hover:border-blue-500'
-                    }`}
-                  >
-                    {task.completed && <Check className="w-4 h-4 text-white" />}
-                  </button>
-                  <div>
-                    <h3 className="text-lg font-medium">{task.title}</h3>
-                    <p className="text-sm text-muted-foreground">{task.time}</p>
-                  </div>
-                </div>
-                <Button variant="ghost" size="sm" className="text-primary">Edit</Button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Personal goal card */}
-        <Card className="mt-4 bg-secondary border-0 rounded-3xl p-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <h3 className="text-lg font-semibold mb-1">Personal goal</h3>
-              <p className="text-muted-foreground text-sm mb-3">Daily meditation</p>
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-blue-500 to-teal-400 rounded-full transition-all duration-300" 
-                    style={{ width: `${progressPercentage}%` }}
-                  ></div>
-                </div>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">{Math.round(progressPercentage)}%</span>
-              </div>
-            </div>
-            <Button variant="ghost" size="sm" className="rounded-full h-10 w-10 p-2 bg-muted flex items-center justify-center">
-              <Calendar className="h-5 w-5" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-primary"
+              onClick={() => navigate('/tasks')}
+            >
+              View all
             </Button>
           </div>
-        </Card>
+
+          {taskError && (
+            <p className="text-sm text-red-300 mb-3">{(taskError as Error).message}</p>
+          )}
+
+          {tasksLoading && (
+            <p className="text-sm text-muted-foreground">Loading your tasks…</p>
+          )}
+
+          {tasksFailed && !tasksLoading && (
+            <p className="text-sm text-red-300">Could not load your tasks.</p>
+          )}
+
+          {!tasksLoading && !tasksFailed && todaysTasks.length === 0 && (
+            <div className="bg-secondary rounded-2xl p-4 flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                {allTasks.length === 0 ? 'No tasks yet.' : 'Nothing scheduled for today.'}
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-primary"
+                onClick={() => navigate('/tasks')}
+              >
+                {allTasks.length === 0 ? 'Add one' : 'See all'}
+              </Button>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            {visibleTasks.map((task) => {
+              const startTime = formatStartTime(task.start_time);
+
+              return (
+                <div key={task.id} className="bg-secondary rounded-2xl p-4 flex items-center justify-between animate-slide-up">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => handleToggleTask(task)}
+                      disabled={toggleTaskCompleted.isPending}
+                      aria-label={task.completed ? `Mark "${task.title}" as not done` : `Mark "${task.title}" as done`}
+                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                        task.completed
+                          ? 'bg-blue-500 border-blue-500'
+                          : 'border-muted-foreground hover:border-blue-500'
+                      }`}
+                    >
+                      {task.completed && <Check className="w-4 h-4 text-white" />}
+                    </button>
+                    <div>
+                      <h3 className={`text-lg font-medium ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
+                        {task.title}
+                      </h3>
+                      {/* Only rendered when the task actually has a start time. */}
+                      {startTime && <p className="text-sm text-muted-foreground">{startTime}</p>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </main>
 
       {/* Bottom navigation.
