@@ -1,9 +1,10 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Phone, MessageCircle, Heart, Wind, Users, Bot } from 'lucide-react';
 import WellnessHeader from '@/components/wellness/WellnessHeader';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import EmergencyHelpDialog from '@/components/safe-space/EmergencyHelpDialog';
 
 interface SafeSpaceOption {
   id: string;
@@ -12,7 +13,10 @@ interface SafeSpaceOption {
   description: string;
   color: string;
   priority?: boolean;
-  route: string;
+  /** Where the card goes. Omitted for cards that open something in place. */
+  route?: string;
+  /** Set instead of `route` when the card opens a dialog rather than navigating. */
+  action?: 'emergency-help';
 }
 
 const safeSpaceOptions: SafeSpaceOption[] = [
@@ -32,7 +36,9 @@ const safeSpaceOptions: SafeSpaceOption[] = [
     description: 'Crisis hotlines and emergency contacts',
     color: 'bg-red-500/20 text-red-300',
     priority: true,
-    route: '/safe-space/emergency'
+    // No route: this opens the emergency help dialog in place. It previously
+    // pointed at /safe-space/emergency, which was never a registered route.
+    action: 'emergency-help'
   },
   {
     id: 'grounding-exercises',
@@ -62,32 +68,21 @@ const safeSpaceOptions: SafeSpaceOption[] = [
 
 const SafeSpaceMenu = () => {
   const navigate = useNavigate();
+  const [emergencyHelpOpen, setEmergencyHelpOpen] = useState(false);
 
-  const handleOptionClick = (route: string) => {
-    console.log(`Navigating to ${route}`);
-    
-    if (route === '/safe-space/emergency') {
-      handleEmergencyCall();
+  // "I Need Help Now" opens the emergency help dialog. It used to call
+  // window.location.href = 'tel:911' directly from this tap: one touch on a
+  // card dialled US emergency services, with no confirmation, no choice of
+  // region, and the number never shown. The try/catch around it could not
+  // fire either — assigning location.href does not throw — so the fallback
+  // that listed all three numbers was unreachable, and on desktop the card
+  // appeared to do nothing at all.
+  const handleOptionClick = (option: SafeSpaceOption) => {
+    if (option.action === 'emergency-help') {
+      setEmergencyHelpOpen(true);
       return;
     }
-    
-    navigate(route);
-  };
-
-  const handleEmergencyCall = () => {
-    const emergencyNumbers = {
-      US: '911',
-      UK: '999',
-      EU: '112',
-    };
-    
-    const emergencyNumber = emergencyNumbers.US;
-    
-    try {
-      window.location.href = `tel:${emergencyNumber}`;
-    } catch (error) {
-      alert(`Emergency Numbers:\nUS: 911\nUK: 999\nEU: 112\n\nIf you're in immediate danger, please call your local emergency services.`);
-    }
+    if (option.route) navigate(option.route);
   };
 
   return (
@@ -105,7 +100,7 @@ const SafeSpaceMenu = () => {
         {safeSpaceOptions.map((option, index) => (
           <div
             key={option.id}
-            onClick={() => handleOptionClick(option.route)}
+            onClick={() => handleOptionClick(option)}
             className={`bg-secondary/40 rounded-3xl p-4 sm:p-6 hover:bg-secondary/60 transition-all duration-300 cursor-pointer card-hover animate-fade-in ${
               option.priority ? 'ring-2 ring-blue-500/50' : ''
             }`}
@@ -137,6 +132,8 @@ const SafeSpaceMenu = () => {
           </div>
         </div>
       </main>
+
+      <EmergencyHelpDialog open={emergencyHelpOpen} onOpenChange={setEmergencyHelpOpen} />
 
       <BottomNavigation />
     </div>
