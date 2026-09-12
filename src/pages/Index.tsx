@@ -98,7 +98,7 @@ const Index = () => {
         {/* Logo in top left */}
         <div className="h-12 w-16 flex items-center justify-center">
           <img 
-            src="/lovable-uploads/d8549ee1-5d5d-4efb-9c1b49629e14.png" 
+            src="/lovable-uploads/d8549ee1-5d5d-4efb-9c5b-9c1b49629e14.png" 
             alt="iMA Logo" 
             className="h-10 w-auto object-contain"
           />
@@ -180,7 +180,7 @@ const Index = () => {
 
         {/* Feature cards grid - Updated for better mobile responsiveness */}
         <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 sm:gap-4">
-          <Link to="/breathe" className="col-span-2 sm:col-span-6 rounded-3xl overflow-hidden">
+          <Link to="/breathing" className="col-span-2 sm:col-span-6 rounded-3xl overflow-hidden">
             <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-3xl p-4 sm:p-6 aspect-[2/1] flex flex-col justify-between card-hover glow relative">
               <div className="absolute inset-0 flex items-center justify-center opacity-30">
                 <div className="w-32 sm:w-40 h-32 sm:h-40 rounded-full bg-blue-400/20 animate-breathe"></div>
@@ -267,7 +267,7 @@ const Index = () => {
             </div>
           </Link>
           
-          <Link to="/journal" className="col-span-2 sm:col-span-6 rounded-3xl overflow-hidden">
+          <Link to="/journaling" className="col-span-2 sm:col-span-6 rounded-3xl overflow-hidden">
             <div className="bg-gradient-to-br from-teal-600 to-teal-900 rounded-3xl p-3 sm:p-5 h-32 sm:h-auto flex flex-col justify-between card-hover">
               <div>
                 <h3 className="text-sm sm:text-lg font-bold mb-1">Daily journal</h3>

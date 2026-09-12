@@ -442,7 +442,7 @@ const BodyDouble = () => {
           <div className="space-y-3">
             <Button
               className="w-full bg-purple-500 hover:bg-purple-600 text-white"
-              onClick={() => navigate('/journal')}
+              onClick={() => navigate('/journaling')}
             >
               <Edit3 className="h-4 w-4 mr-2" />
               Save as Journal Entry
