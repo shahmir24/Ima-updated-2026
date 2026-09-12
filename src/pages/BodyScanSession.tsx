@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Pause, Play, SkipForward, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -65,8 +65,6 @@ const bodyScanSteps: BodyScanStep[] = [
 
 const BodyScanSession = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const soundEnabled = location.state?.soundEnabled || false;
   
   const [currentStep, setCurrentStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);

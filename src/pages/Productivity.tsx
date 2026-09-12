@@ -4,7 +4,6 @@ import ProductivityHeader from '@/components/productivity/ProductivityHeader';
 import ProductivitySearchBar from '@/components/productivity/ProductivitySearchBar';
 import { ToolCardsGrid, toolCards } from '@/components/productivity/ToolCardsGrid';
 import FidgetButton from '@/components/productivity/FidgetButton';
-import GoalsSection from '@/components/productivity/GoalsSection';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
 
 const Productivity = () => {
@@ -44,13 +43,6 @@ const Productivity = () => {
           onFidgetClick={handleFidgetClick}
         />
 
-        <GoalsSection />
-
-        {/* Empty Card Space */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-secondary/50 rounded-3xl p-6 aspect-square border-2 border-dashed border-muted"></div>
-          <div className="bg-secondary/50 rounded-3xl p-6 aspect-square border-2 border-dashed border-muted"></div>
-        </div>
       </main>
 
       <BottomNavigation />

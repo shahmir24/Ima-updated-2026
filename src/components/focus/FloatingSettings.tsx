@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Settings, Clock, Timer, BarChart, Trophy } from 'lucide-react';
+import { Settings, Clock, Timer, BarChart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -49,13 +49,6 @@ const FloatingSettings = ({
       setting: 'flows',
       options: [1, 2, 3, 4]
     },
-    { 
-      icon: Trophy, 
-      label: 'Challenges', 
-      value: 'Daily',
-      setting: 'challenges',
-      options: ['Daily', 'Weekly']
-    },
   ];
 
   return (
@@ -76,41 +69,23 @@ const FloatingSettings = ({
                     <span className="text-white text-sm font-medium">{option.label}</span>
                   </div>
                   <div className="text-white/80 text-sm min-w-[70px]">
-                    {option.setting === 'challenges' ? (
-                      <Select 
-                        value={option.value} 
-                        onValueChange={(value) => console.log('Challenge setting:', value)}
-                      >
-                        <SelectTrigger className="h-7 bg-white/10 border-white/20 text-white text-xs rounded-lg">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(option.options as string[]).map((opt) => (
-                            <SelectItem key={opt} value={opt}>
-                              {opt}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Select 
-                        value={option.setting === 'timeBox' ? timeBoxDuration.toString() : 
-                               option.setting === 'interval' ? intervalDuration.toString() : 
-                               numberOfFlows.toString()} 
-                        onValueChange={(value) => onSettingChange(option.setting, parseInt(value))}
-                      >
-                        <SelectTrigger className="h-7 bg-white/10 border-white/20 text-white text-xs rounded-lg">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(option.options as number[]).map((opt) => (
-                            <SelectItem key={opt} value={opt.toString()}>
-                              {opt}{option.setting !== 'flows' ? ' min' : ''}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
+                    <Select
+                      value={option.setting === 'timeBox' ? timeBoxDuration.toString() :
+                             option.setting === 'interval' ? intervalDuration.toString() :
+                             numberOfFlows.toString()}
+                      onValueChange={(value) => onSettingChange(option.setting, parseInt(value))}
+                    >
+                      <SelectTrigger className="h-7 bg-white/10 border-white/20 text-white text-xs rounded-lg">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(option.options as number[]).map((opt) => (
+                          <SelectItem key={opt} value={opt.toString()}>
+                            {opt}{option.setting !== 'flows' ? ' min' : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>

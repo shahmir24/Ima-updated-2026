@@ -1,18 +1,15 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Volume2, VolumeX } from 'lucide-react';
+import { Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import WellnessHeader from '@/components/wellness/WellnessHeader';
 
 const BodyScanIntro = () => {
   const navigate = useNavigate();
-  const [soundEnabled, setSoundEnabled] = React.useState(false);
 
   const handleStartScan = () => {
-    navigate('/mindfulness/body-scan/session', { 
-      state: { soundEnabled } 
-    });
+    navigate('/mindfulness/body-scan/session');
   };
 
   return (
@@ -44,28 +41,6 @@ const BodyScanIntro = () => {
             </p>
             <p className="text-white/60 text-sm mt-1">
               8 gentle steps from head to toe
-            </p>
-          </div>
-
-          {/* Sound Toggle */}
-          <div className="bg-secondary/30 rounded-2xl p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-white/80 text-sm font-medium">Background Sound</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSoundEnabled(!soundEnabled)}
-                className="h-8 w-8 p-0 hover:bg-white/10"
-              >
-                {soundEnabled ? (
-                  <Volume2 className="h-5 w-5 text-blue-400" />
-                ) : (
-                  <VolumeX className="h-5 w-5 text-white/60" />
-                )}
-              </Button>
-            </div>
-            <p className="text-white/50 text-xs mt-1">
-              {soundEnabled ? 'Gentle ambient sounds enabled' : 'Silent mode'}
             </p>
           </div>
 

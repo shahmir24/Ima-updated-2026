@@ -12,7 +12,6 @@ import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAutoSave } from '@/hooks/use-autosave';
 import { useProfile, useUpdateProfile, type ProfilePatch } from '@/hooks/use-profile';
@@ -420,41 +419,6 @@ const ProfileSettings = () => {
               </div>
             </Card>
 
-            {/* Your Flow at a Glance */}
-            <Card className="p-6 rounded-3xl border-0 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20">
-              <h3 className="text-lg font-semibold mb-4 flex items-center">
-                <Zap className="h-5 w-5 mr-2 text-primary" />
-                Your Flow at a Glance
-              </h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-background/60 rounded-xl">
-                  <span className="text-sm">💚 You've journaled 3 days in a row!</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-background/60 rounded-xl">
-                  <span className="text-sm">Most Used Tool:</span>
-                  <Badge variant="secondary" className="rounded-full">
-                    🌬️ Breathing • 2h ago
-                  </Badge>
-                </div>
-                <div className="p-3 bg-background/60 rounded-xl">
-                  <div className="text-sm mb-2">Time Spent This Week</div>
-                  <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div className="text-center">
-                      <div className="font-medium">12m</div>
-                      <div className="text-muted-foreground">Breathing</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-medium">8m</div>
-                      <div className="text-muted-foreground">Journaling</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-medium">25m</div>
-                      <div className="text-muted-foreground">Soundscape</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Card>
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6 mt-0">
@@ -541,11 +505,13 @@ const ProfileSettings = () => {
                   />
                 </div>
 
+                {/* Not built. The schema notes this one has no shape to store
+                    yet, so the control is disabled rather than pretending. */}
                 <div>
                   <Label>Panic Mode Shortcut</Label>
                   <p className="text-sm text-muted-foreground mb-2">Quick-access gesture</p>
-                  <Button variant="outline" className="w-full rounded-xl">
-                    Set Shortcut
+                  <Button variant="outline" className="w-full rounded-xl" disabled>
+                    Set Shortcut — coming soon
                   </Button>
                 </div>
 
@@ -671,18 +637,22 @@ const ProfileSettings = () => {
                 <Shield className="h-5 w-5 mr-2 text-primary" />
                 🔐 Account & Privacy
               </h3>
+              {/* None of these are implemented. They are disabled rather than
+                  removed so the commitments stay visible — and because three of
+                  them destroy or export real user data, a button that looks
+                  live but does nothing is the worst option here. */}
               <div className="space-y-3">
-                <Button variant="outline" className="w-full rounded-xl justify-start">
-                  Email & Password Reset
+                <Button variant="outline" className="w-full rounded-xl justify-start" disabled>
+                  Email &amp; Password Reset — coming soon
                 </Button>
-                <Button variant="outline" className="w-full rounded-xl justify-start">
-                  Export Data (journals, mood)
+                <Button variant="outline" className="w-full rounded-xl justify-start" disabled>
+                  Export Data (journals, mood) — coming soon
                 </Button>
-                <Button variant="outline" className="w-full rounded-xl justify-start">
-                  Clear Emotional History
+                <Button variant="outline" className="w-full rounded-xl justify-start" disabled>
+                  Clear Emotional History — coming soon
                 </Button>
-                <Button variant="outline" className="w-full rounded-xl justify-start text-red-600 hover:text-red-700">
-                  Delete Account
+                <Button variant="outline" className="w-full rounded-xl justify-start text-red-600" disabled>
+                  Delete Account — coming soon
                 </Button>
               </div>
             </Card>
@@ -694,17 +664,17 @@ const ProfileSettings = () => {
                 📩 Feedback & Support
               </h3>
               <div className="space-y-3">
-                <Button variant="outline" className="w-full rounded-xl justify-start">
+                <Button variant="outline" className="w-full rounded-xl justify-start" disabled>
                   <HelpCircle className="h-4 w-4 mr-2" />
-                  Bug Report
+                  Bug Report — coming soon
                 </Button>
-                <Button variant="outline" className="w-full rounded-xl justify-start">
+                <Button variant="outline" className="w-full rounded-xl justify-start" disabled>
                   <Zap className="h-4 w-4 mr-2" />
-                  Suggest a Feature
+                  Suggest a Feature — coming soon
                 </Button>
-                <Button variant="outline" className="w-full rounded-xl justify-start">
+                <Button variant="outline" className="w-full rounded-xl justify-start" disabled>
                   <MessageSquare className="h-4 w-4 mr-2" />
-                  Talk to Team iMA
+                  Talk to Team iMA — coming soon
                 </Button>
               </div>
             </Card>

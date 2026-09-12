@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, Heart, Wind, Edit3, Phone, Mic, MicOff, Search } from 'lucide-react';
+import { ArrowLeft, Send, Heart, Wind, Edit3, Phone, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
@@ -25,8 +25,6 @@ const SafeSpaceChat = () => {
   ]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const suggestedPrompts = [
@@ -131,57 +129,14 @@ const SafeSpaceChat = () => {
     }, 1500);
   };
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      
-      recorder.onstart = () => {
-        setIsRecording(true);
-      };
-      
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          const simulatedText = "I'm feeling anxious and need some support right now.";
-          handleSendMessage(simulatedText);
-        }
-      };
-      
-      recorder.onstop = () => {
-        setIsRecording(false);
-        stream.getTracks().forEach(track => track.stop());
-      };
-      
-      setMediaRecorder(recorder);
-      recorder.start();
-      
-      setTimeout(() => {
-        if (recorder.state === 'recording') {
-          recorder.stop();
-        }
-      }, 10000);
-      
-    } catch (error) {
-      console.error('Error accessing microphone:', error);
-      alert('Unable to access microphone. Please check your permissions.');
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-      mediaRecorder.stop();
-    }
-  };
-
   const handlePromptClick = (promptText: string) => {
     handleSendMessage(promptText);
   };
 
   const handleActionCard = (action: string) => {
-    console.log(`Action triggered: ${action}`);
     switch (action) {
       case 'grounding':
-        // Could navigate to a grounding exercise
+        navigate('/meditation/anchor');
         break;
       case 'breathing':
         navigate('/breathing');
@@ -190,7 +145,7 @@ const SafeSpaceChat = () => {
         navigate('/journaling');
         break;
       case 'emergency':
-        // Could show emergency contacts
+        navigate('/safe-space/contacts');
         break;
     }
   };
@@ -319,7 +274,7 @@ const SafeSpaceChat = () => {
         </div>
       )}
 
-      {/* Text Input Bar with Mic - Above Navigation */}
+      {/* Text Input Bar - Above Navigation */}
       <div className="p-4 border-t border-secondary/20">
         <div className="relative">
           <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
@@ -334,18 +289,11 @@ const SafeSpaceChat = () => {
             className="w-full bg-secondary/20 border-0 rounded-2xl pl-12 pr-16 py-4 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
           />
           <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex space-x-1">
-            <Button
-              onClick={isRecording ? stopRecording : startRecording}
-              size="icon"
-              className={`h-8 w-8 rounded-full ${
-                isRecording 
-                  ? 'bg-red-500 hover:bg-red-600 animate-pulse' 
-                  : 'bg-green-500/20 hover:bg-green-500/30 border border-green-500/50'
-              }`}
-            >
-              {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4 text-green-400" />}
-            </Button>
-            
+            {/* The microphone button is gone. It asked for real microphone
+                permission, recorded audio, threw the audio away, and sent a
+                hardcoded sentence — "I'm feeling anxious and need some support
+                right now." — whatever the person had actually said. Nothing
+                here requests the microphone any more. */}
             <Button
               onClick={() => handleSendMessage(inputText)}
               disabled={!inputText.trim()}
