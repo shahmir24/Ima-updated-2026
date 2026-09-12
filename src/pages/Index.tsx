@@ -335,29 +335,35 @@ const Index = () => {
         </Card>
       </main>
 
-      {/* Bottom navigation */}
+      {/* Bottom navigation.
+          Home keeps its own labelled nav rather than the shared component,
+          which has no labels and no logo button — swapping it in would change
+          how Home looks. Each button goes where its own label says, so the
+          fifth stays on Wellness rather than becoming Tasks; Tasks is one tap
+          away via the Productivity card and via the shared nav everywhere
+          else. */}
       <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-lg border-t border-border">
         <div className="max-w-lg mx-auto flex justify-around items-center py-2 px-4">
-          <Button variant="ghost" size="icon" className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-2xl min-w-[60px]">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/wellness')} aria-label="Wellness" className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-2xl min-w-[60px]">
             <Heart className="h-6 w-6" />
             <span className="text-xs">Wellness</span>
           </Button>
-          <Button variant="ghost" size="icon" className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-2xl min-w-[60px]">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/focus')} aria-label="Focus" className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-2xl min-w-[60px]">
             <Clock className="h-6 w-6" />
             <span className="text-xs">Focus</span>
           </Button>
-          <Button variant="ghost" size="icon" className="flex flex-col items-center p-2 rounded-full bg-gradient-to-br from-blue-500 to-teal-400 -translate-y-2 shadow-lg">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/')} aria-label="Home" aria-current="page" className="flex flex-col items-center p-2 rounded-full bg-gradient-to-br from-blue-500 to-teal-400 -translate-y-2 shadow-lg">
             <img 
               src="/lovable-uploads/d8549ee1-5d5d-4efb-9c5b-9c1b49629e14.png" 
               alt="iMA Logo" 
               className="h-8 w-8 object-contain"
             />
           </Button>
-          <Button variant="ghost" size="icon" className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-2xl min-w-[60px]">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/journaling')} aria-label="Journal" className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-2xl min-w-[60px]">
             <Calendar className="h-6 w-6" />
             <span className="text-xs">Journal</span>
           </Button>
-          <Button variant="ghost" size="icon" className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-2xl min-w-[60px]">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/profile-settings?tab=profile')} aria-label="Profile" className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-2xl min-w-[60px]">
             <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center">
               <User className="h-4 w-4 text-white" />
             </div>
