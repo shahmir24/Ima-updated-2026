@@ -4,6 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { Pause, Play, SkipForward, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import VoiceToggle from '@/components/wellness/VoiceToggle';
+import { useUserSettings } from '@/hooks/use-user-settings';
+import { useSpokenGuidance } from '@/hooks/use-spoken-guidance';
 
 interface BodyScanStep {
   id: string;
@@ -63,13 +66,27 @@ const bodyScanSteps: BodyScanStep[] = [
   }
 ];
 
+/** The completion screen's own words — not the quote beneath them. */
+const COMPLETION_LINE =
+  "You've completed your body scan. Take a moment to notice how you feel.";
+
 const BodyScanSession = () => {
   const navigate = useNavigate();
   
   const [currentStep, setCurrentStep] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(true);
+  // Starts paused. Arriving on this route used to begin the scan on its own,
+  // which with voice would mean the app talking at whoever opened it.
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(bodyScanSteps[0].duration);
   const [showCompletion, setShowCompletion] = useState(false);
+
+  const { data: settings } = useUserSettings();
+  const voice = useSpokenGuidance({ volume: (settings?.sound_volume ?? 75) / 100 });
+  const { speak, repeat, cancel: cancelVoice } = voice;
+
+  const currentInstruction = bodyScanSteps[currentStep].instruction;
+  const stepKey = `step-${currentStep}`;
 
   useEffect(() => {
     if (!isPlaying || showCompletion) return;
@@ -92,7 +109,22 @@ const BodyScanSession = () => {
     return () => clearInterval(timer);
   }, [currentStep, isPlaying, showCompletion]);
 
+  // One utterance per step, driven by committed state rather than from inside
+  // the timer's updater. Silent until the user starts.
+  useEffect(() => {
+    if (!isPlaying || showCompletion) return;
+    speak(stepKey, currentInstruction);
+  }, [isPlaying, showCompletion, stepKey, currentInstruction, speak]);
+
+  useEffect(() => {
+    if (!showCompletion) return;
+    speak('complete', COMPLETION_LINE);
+  }, [showCompletion, speak]);
+
   const handleNext = () => {
+    // Drop the instruction being read before moving on, so the outgoing step
+    // cannot talk over the incoming one.
+    cancelVoice();
     if (currentStep < bodyScanSteps.length - 1) {
       setCurrentStep(currentStep + 1);
       setTimeRemaining(bodyScanSteps[currentStep + 1].duration);
@@ -102,14 +134,35 @@ const BodyScanSession = () => {
   };
 
   const handlePausePlay = () => {
-    setIsPlaying(!isPlaying);
+    if (isPlaying) {
+      cancelVoice();
+      setIsPlaying(false);
+      return;
+    }
+
+    setHasStarted(true);
+    setIsPlaying(true);
+    // Starting and resuming both say where we are. A step runs 30-45 seconds,
+    // so the instruction is the guidance itself, not a passing cue — coming
+    // back to silence would leave the user with nothing to follow.
+    repeat(stepKey, currentInstruction);
+  };
+
+  const handleVoiceToggle = () => {
+    const nextMuted = !voice.muted;
+    voice.setMuted(nextMuted);
+    // Unmuting mid-step: without this the user waits up to 45 seconds for the
+    // guidance they just asked for.
+    if (!nextMuted && isPlaying && !showCompletion) repeat(stepKey, currentInstruction);
   };
 
   const handleExit = () => {
+    cancelVoice();
     navigate('/mindfulness/body-scan');
   };
 
   const handleComplete = () => {
+    cancelVoice();
     navigate('/wellness/mindfulness');
   };
 
@@ -209,6 +262,7 @@ const BodyScanSession = () => {
             variant="ghost"
             size="icon"
             onClick={handlePausePlay}
+            aria-label={hasStarted ? (isPlaying ? 'Pause body scan' : 'Resume body scan') : 'Start body scan'}
             className="h-12 w-12 rounded-full hover:bg-white/10"
           >
             {isPlaying ? (
@@ -222,14 +276,21 @@ const BodyScanSession = () => {
             variant="ghost"
             size="icon"
             onClick={handleNext}
+            aria-label="Skip to the next step"
             className="h-12 w-12 rounded-full hover:bg-white/10"
           >
             <SkipForward className="h-6 w-6 text-white" />
           </Button>
+
+          <VoiceToggle supported={voice.supported} muted={voice.muted} onToggle={handleVoiceToggle} />
         </div>
         
         <p className="text-center text-white/50 text-sm mt-4">
-          {isPlaying ? 'Pause' : 'Resume'} • Skip • Exit
+          {hasStarted
+            ? `${isPlaying ? 'Pause' : 'Resume'} • Skip • Exit`
+            : voice.supported && !voice.muted
+              ? 'Press play to begin — each step is read aloud'
+              : 'Press play to begin'}
         </p>
       </div>
     </div>

@@ -5,6 +5,14 @@ import { ArrowLeft, Play, Pause, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import WellnessHeader from '@/components/wellness/WellnessHeader';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import VoiceToggle from '@/components/wellness/VoiceToggle';
+import { useUserSettings } from '@/hooks/use-user-settings';
+import { useSpokenGuidance } from '@/hooks/use-spoken-guidance';
+
+const phases = ['Inhale', 'Hold', 'Exhale'];
+/** Counts per phase: the advertised Inhale 4 -> Hold 4 -> Exhale 6. */
+const phaseCounts = [4, 4, 6];
+const phaseDurations = [4000, 4000, 6000];
 
 const TriangleCalm = () => {
   const navigate = useNavigate();
@@ -14,15 +22,13 @@ const TriangleCalm = () => {
   const [cycles, setCycles] = useState(0);
   const [scale, setScale] = useState(1);
 
-  const phases = ['Inhale', 'Hold', 'Exhale'];
-  const phaseDurations = [4000, 4000, 6000]; // inhale 4s, hold 4s, exhale 6s
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
     if (isActive) {
       const currentDuration = phaseDurations[phase];
-      const countsInPhase = phase === 2 ? 6 : 4;
+      const countsInPhase = phaseCounts[phase];
       
       interval = setInterval(() => {
         setCount((prev) => {
@@ -35,11 +41,12 @@ const TriangleCalm = () => {
               }
               return nextPhase;
             });
-            return phase === 1 ? 6 : 4; // Set next phase count
+            // The count belongs to the phase that is STARTING.
+            return phaseCounts[(phase + 1) % phaseCounts.length];
           }
           return prev - 1;
         });
-      }, currentDuration / (phase === 2 ? 6 : 4));
+      }, currentDuration / countsInPhase);
 
       // Scale animation
       if (phase === 0) {
@@ -54,14 +61,32 @@ const TriangleCalm = () => {
     return () => clearInterval(interval);
   }, [isActive, phase]);
 
+
+  const { data: settings } = useUserSettings();
+  const voice = useSpokenGuidance({ volume: (settings?.sound_volume ?? 75) / 100 });
+  const { speak, cancel: cancelVoice, reset: resetVoice } = voice;
+
+  // Speaks the phase the component has actually committed to — never from
+  // inside a state updater, which React is free to re-invoke. Keyed by cycle
+  // and phase, so each phase says its cue exactly once no matter how many
+  // times this re-renders, and silent until the user starts the exercise.
+  useEffect(() => {
+    if (!isActive) return;
+    speak(`${cycles}:${phase}`, phases[phase]);
+  }, [isActive, phase, cycles, speak]);
+
   const toggleBreathing = () => {
+    // Pausing stops a cue mid-word; resuming does not repeat it, because the
+    // phase key has not changed.
+    if (isActive) cancelVoice();
     setIsActive(!isActive);
   };
 
   const resetBreathing = () => {
+    resetVoice();
     setIsActive(false);
     setPhase(0);
-    setCount(4);
+    setCount(phaseCounts[0]);
     setCycles(0);
     setScale(1);
   };
@@ -137,6 +162,8 @@ const TriangleCalm = () => {
           >
             <RotateCcw className="h-6 w-6 text-white/60" />
           </Button>
+
+          <VoiceToggle supported={voice.supported} muted={voice.muted} onToggle={voice.toggleMuted} />
         </div>
 
         {/* Guidance */}

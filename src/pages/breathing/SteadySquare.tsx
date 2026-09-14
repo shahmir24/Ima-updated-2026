@@ -5,6 +5,12 @@ import { ArrowLeft, Play, Pause, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import WellnessHeader from '@/components/wellness/WellnessHeader';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import VoiceToggle from '@/components/wellness/VoiceToggle';
+import { useUserSettings } from '@/hooks/use-user-settings';
+import { useSpokenGuidance } from '@/hooks/use-spoken-guidance';
+
+const phases = ['Inhale', 'Hold', 'Exhale', 'Hold'];
+const phaseDuration = 4000; // 4 seconds per phase
 
 const SteadySquare = () => {
   const navigate = useNavigate();
@@ -13,8 +19,6 @@ const SteadySquare = () => {
   const [count, setCount] = useState(4);
   const [cycles, setCycles] = useState(0);
 
-  const phases = ['Inhale', 'Hold', 'Exhale', 'Hold'];
-  const phaseDuration = 4000; // 4 seconds per phase
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -40,11 +44,29 @@ const SteadySquare = () => {
     return () => clearInterval(interval);
   }, [isActive]);
 
+
+  const { data: settings } = useUserSettings();
+  const voice = useSpokenGuidance({ volume: (settings?.sound_volume ?? 75) / 100 });
+  const { speak, cancel: cancelVoice, reset: resetVoice } = voice;
+
+  // Speaks the phase the component has actually committed to — never from
+  // inside a state updater, which React is free to re-invoke. Keyed by cycle
+  // and phase, so each phase says its cue exactly once no matter how many
+  // times this re-renders, and silent until the user starts the exercise.
+  useEffect(() => {
+    if (!isActive) return;
+    speak(`${cycles}:${phase}`, phases[phase]);
+  }, [isActive, phase, cycles, speak]);
+
   const toggleBreathing = () => {
+    // Pausing stops a cue mid-word; resuming does not repeat it, because the
+    // phase key has not changed.
+    if (isActive) cancelVoice();
     setIsActive(!isActive);
   };
 
   const resetBreathing = () => {
+    resetVoice();
     setIsActive(false);
     setPhase(0);
     setCount(4);
@@ -117,6 +139,8 @@ const SteadySquare = () => {
           >
             <RotateCcw className="h-5 w-5 sm:h-6 sm:w-6 text-white/60" />
           </Button>
+
+          <VoiceToggle supported={voice.supported} muted={voice.muted} onToggle={voice.toggleMuted} />
         </div>
 
         {/* Guidance */}
