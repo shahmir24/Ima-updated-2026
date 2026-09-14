@@ -69,6 +69,14 @@ export const JOURNAL_TYPE_META: Record<JournalType, JournalTypeMeta> = {
       { key: 'warmth', question: 'What felt safe, sweet, or warm today?' }
     ]
   },
+  'body-double': {
+    type: 'body-double',
+    title: 'Body Double Session',
+    fields: [
+      { key: 'didWell', question: 'What went well?' },
+      { key: 'toImprove', question: 'What would I like to improve?' }
+    ]
+  },
   'sensory-checkin': {
     type: 'sensory-checkin',
     title: 'Come Back to Your Body',

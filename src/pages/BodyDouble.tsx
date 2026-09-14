@@ -1,18 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Pause, RotateCcw, MessageCircle, Heart, Droplets, Coffee, Zap, Brain, Meh, Smile, Frown, Sun, Moon, CheckCircle, Edit3, Wind } from 'lucide-react';
+import {
+  ArrowLeft, Play, Pause, RotateCcw, Heart, Brain, Meh, CheckCircle,
+  Edit3, Wind, Volume2, ListChecks, LifeBuoy
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Progress } from '@/components/ui/progress';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card } from '@/components/ui/card';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import { useToast } from '@/hooks/use-toast';
+import { useUserSettings } from '@/hooks/use-user-settings';
+import { useSaveJournalEntry } from '@/hooks/use-journal';
+import { useFocusSession } from '@/hooks/use-focus-session';
 
-interface Message {
+/**
+ * Body Double — quiet co-working presence.
+ *
+ * There is no model behind this screen and it does not pretend otherwise. The
+ * support area shows timed nudges and the help the user asks for; it never
+ * claims to have read anything, and nothing infers the user's state from how
+ * long they went without clicking. When a real agent lands it slots into the
+ * same support area: the messages are already a typed list with a `kind`, and
+ * every one of them is produced by an explicit call rather than by a render.
+ */
+
+interface SupportMessage {
   id: string;
+  /** 'nudge' = scheduled encouragement, 'status' = something that happened. */
+  kind: 'nudge' | 'status';
   text: string;
-  sender: 'user' | 'ai';
-  timestamp: Date;
 }
 
 interface SessionState {
@@ -20,7 +37,12 @@ interface SessionState {
   timeRemaining: number;
   totalTime: number;
   phase: 'work' | 'break';
+  /** Completed work blocks — focus_sessions.flows_completed. */
   cycles: number;
+  /** Completed break blocks — focus_sessions.breaks_taken. */
+  breaksTaken: number;
+  /** Active work-phase seconds only. Pauses and breaks do not count. */
+  focusSeconds: number;
   intention: string;
   mood: string;
   startType: string;
@@ -32,215 +54,361 @@ interface SessionWrapUp {
   endMood: string;
 }
 
+/** Matches the user_settings column defaults. */
+const FALLBACK_BLOCK_MINUTES = 25;
+const FALLBACK_BREAK_MINUTES = 5;
+
+const moods = [
+  { name: 'calm', icon: '😌', color: 'from-blue-400 to-blue-600' },
+  { name: 'anxious', icon: '😰', color: 'from-yellow-400 to-orange-500' },
+  { name: 'sleepy', icon: '😴', color: 'from-purple-400 to-indigo-500' },
+  { name: 'fire', icon: '🔥', color: 'from-red-400 to-pink-500' },
+  { name: 'scattered', icon: '🌪️', color: 'from-gray-400 to-gray-600' }
+];
+
+const startOptions = [
+  { id: 'task', title: 'Task I want to focus on', icon: CheckCircle },
+  { id: 'scattered', title: "I'm feeling scattered", icon: Brain },
+  { id: 'lost', title: "I don't know where to start", icon: Meh }
+];
+
+/**
+ * Canned encouragement on a schedule — nothing more is claimed.
+ *
+ * Fractions of the work block rather than fixed seconds, so they land whatever
+ * block length the user has saved, and `>=` rather than `===`, so a tick lost
+ * to a throttled background tab does not skip the nudge entirely.
+ */
+const NUDGE_MILESTONES = [
+  {
+    at: 0.25,
+    lines: [
+      'Still with it? One small step is enough.',
+      'No rush. Small and steady counts.',
+      "Whatever you've done so far is a start."
+    ]
+  },
+  {
+    at: 0.6,
+    lines: [
+      "You don't need to finish everything. Just keep moving.",
+      'Want to keep going, or take a quick reset after this block?',
+      'Still here with you. Keep going at your pace.'
+    ]
+  }
+];
+
 const BodyDouble = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+
   const [currentScreen, setCurrentScreen] = useState<'welcome' | 'session' | 'wrapup'>('welcome');
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [inputValue, setInputValue] = useState('');
-  const [showDistraction, setShowDistraction] = useState(false);
-  const [showCheckIn, setShowCheckIn] = useState(false);
-  const [checkInMessage, setCheckInMessage] = useState('');
-  const [lastActivity, setLastActivity] = useState(Date.now());
+  const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
+  const [showSupport, setShowSupport] = useState(false);
+  const [supportView, setSupportView] = useState<'options' | 'break-down'>('options');
+  const [nextStepDraft, setNextStepDraft] = useState('');
+  const [nextStep, setNextStep] = useState('');
+  const [showNudge, setShowNudge] = useState(false);
+  const [nudgeText, setNudgeText] = useState('');
+  const [journalSaved, setJournalSaved] = useState(false);
+
+  const [blockMinutes, setBlockMinutes] = useState(FALLBACK_BLOCK_MINUTES);
+  const [breakMinutes, setBreakMinutes] = useState(FALLBACK_BREAK_MINUTES);
+
   const [session, setSession] = useState<SessionState>({
     isActive: false,
-    timeRemaining: 25 * 60,
-    totalTime: 25 * 60,
+    timeRemaining: FALLBACK_BLOCK_MINUTES * 60,
+    totalTime: FALLBACK_BLOCK_MINUTES * 60,
     phase: 'work',
     cycles: 0,
+    breaksTaken: 0,
+    focusSeconds: 0,
     intention: '',
     mood: '',
     startType: ''
   });
+
   const [wrapUp, setWrapUp] = useState<SessionWrapUp>({
     didWell: '',
     wantToImprove: '',
     endMood: ''
   });
 
-  const moods = [
-    { name: 'calm', icon: '😌', color: 'from-blue-400 to-blue-600' },
-    { name: 'anxious', icon: '😰', color: 'from-yellow-400 to-orange-500' },
-    { name: 'sleepy', icon: '😴', color: 'from-purple-400 to-indigo-500' },
-    { name: 'fire', icon: '🔥', color: 'from-red-400 to-pink-500' },
-    { name: 'scattered', icon: '🌪️', color: 'from-gray-400 to-gray-600' }
-  ];
+  const { data: settings, isFetched: settingsReady } = useUserSettings();
+  const recorder = useFocusSession();
+  const saveJournalEntry = useSaveJournalEntry('body-double');
 
-  const startOptions = [
-    { id: 'task', title: 'Task I want to focus on', icon: CheckCircle },
-    { id: 'scattered', title: "I'm feeling scattered", icon: Brain },
-    { id: 'lost', title: "I don't know where to start", icon: Meh }
-  ];
+  const messageSeq = useRef(0);
+  const firedNudgesRef = useRef<Set<string>>(new Set());
+  const nudgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savingJournalRef = useRef(false);
+  const startedRef = useRef(false);
 
-  // Timer effect
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    if (session.isActive && session.timeRemaining > 0) {
-      interval = setInterval(() => {
-        setSession(prev => ({
-          ...prev,
-          timeRemaining: prev.timeRemaining - 1
-        }));
-      }, 1000);
-    } else if (session.timeRemaining === 0 && session.isActive) {
-      handleTimerComplete();
-    }
-
-    return () => clearInterval(interval);
-  }, [session.isActive, session.timeRemaining]);
-
-  // Activity tracking for distraction detection
-  useEffect(() => {
-    const handleActivity = () => setLastActivity(Date.now());
-    
-    window.addEventListener('click', handleActivity);
-    window.addEventListener('keypress', handleActivity);
-    
-    return () => {
-      window.removeEventListener('click', handleActivity);
-      window.removeEventListener('keypress', handleActivity);
-    };
+  const pushSupport = useCallback((kind: SupportMessage['kind'], text: string) => {
+    messageSeq.current += 1;
+    const message: SupportMessage = { id: `m${messageSeq.current}`, kind, text };
+    // Idempotent by id: React is free to re-invoke a state updater against an
+    // already-committed baseline, and a plain append would then duplicate the
+    // message (and its key).
+    setSupportMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message]));
   }, []);
 
-  // Check-in prompts based on timer progress
+  const flashNudge = useCallback(
+    (text: string) => {
+      setNudgeText(text);
+      setShowNudge(true);
+      if (nudgeTimerRef.current) clearTimeout(nudgeTimerRef.current);
+      nudgeTimerRef.current = setTimeout(() => setShowNudge(false), 6000);
+      pushSupport('nudge', text);
+    },
+    [pushSupport]
+  );
+
+  useEffect(() => () => {
+    if (nudgeTimerRef.current) clearTimeout(nudgeTimerRef.current);
+  }, []);
+
+  // Saved timer settings, seeded once. A later refetch must not move the clock
+  // of a session already running.
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seededRef.current || !settingsReady) return;
+    seededRef.current = true;
+    if (!settings) return;
+
+    setBlockMinutes(settings.focus_block_minutes);
+    setBreakMinutes(settings.buffer_minutes);
+    if (startedRef.current) return;
+    setSession((prev) => ({
+      ...prev,
+      timeRemaining: settings.focus_block_minutes * 60,
+      totalTime: settings.focus_block_minutes * 60
+    }));
+  }, [settingsReady, settings]);
+
+  // One interval for the whole run, restarted only when the clock starts or
+  // stops — not rebuilt every tick.
   useEffect(() => {
     if (!session.isActive) return;
-    
-    const timeElapsed = session.totalTime - session.timeRemaining;
-    
-    // 5-minute mark
-    if (timeElapsed === 5 * 60 && session.phase === 'work') {
-      showCheckInCard("5 mins in — want a water break or keep flowing? 💧");
-    }
-    
-    // Mid-session check-in
-    if (timeElapsed === 12 * 60 && session.phase === 'work') {
-      showCheckInCard("Still on track, love? You're doing amazing ✨");
-    }
-  }, [session.timeRemaining, session.isActive]);
 
-  // Distraction detection
+    const interval = setInterval(() => {
+      setSession((prev) => {
+        if (!prev.isActive || prev.timeRemaining <= 0) return prev;
+        return {
+          ...prev,
+          timeRemaining: prev.timeRemaining - 1,
+          // Only a running work block counts as focus time.
+          focusSeconds: prev.phase === 'work' ? prev.focusSeconds + 1 : prev.focusSeconds
+        };
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [session.isActive]);
+
+  // Keep the recorder's copy of the counters current, so leaving early still
+  // records the focus time that was actually earned.
+  const { reportProgress } = recorder;
   useEffect(() => {
-    if (!session.isActive) return;
-    
-    const checkDistraction = setInterval(() => {
-      if (Date.now() - lastActivity > 60000) { // 1 minute of inactivity
-        setShowDistraction(true);
-      }
-    }, 30000);
+    reportProgress({
+      flowsCompleted: session.cycles,
+      breaksTaken: session.breaksTaken,
+      focusSeconds: session.focusSeconds
+    });
+  }, [reportProgress, session.cycles, session.breaksTaken, session.focusSeconds]);
 
-    return () => clearInterval(checkDistraction);
-  }, [lastActivity, session.isActive]);
+  const blockSeconds = blockMinutes * 60;
+  const breakSeconds = breakMinutes * 60;
 
-  const showCheckInCard = (message: string) => {
-    setCheckInMessage(message);
-    setShowCheckIn(true);
-    setTimeout(() => setShowCheckIn(false), 5000);
-  };
+  // Phase rollover. The next phase does not auto-start: the user decides when
+  // to begin a break, and when to come back.
+  useEffect(() => {
+    if (!session.isActive || session.timeRemaining > 0) return;
 
-  const addAiMessage = (text: string) => {
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      text,
-      sender: 'ai',
-      timestamp: new Date()
-    };
-    setMessages(prev => [...prev, newMessage]);
-  };
+    // The phase in this render IS the one that just ran out, so it can be read
+    // directly. Reading it inside the updater below would be a race: React is
+    // free to run an updater after this effect body has finished.
+    const wasWork = session.phase === 'work';
+    const nextSeconds = wasWork ? breakSeconds : blockSeconds;
 
-  const addUserMessage = (text: string) => {
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      text,
-      sender: 'user',
-      timestamp: new Date()
-    };
-    setMessages(prev => [...prev, newMessage]);
-  };
-
-  const handleTimerComplete = () => {
-    setSession(prev => ({
+    setSession((prev) => ({
       ...prev,
       isActive: false,
-      phase: prev.phase === 'work' ? 'break' : 'work',
-      cycles: prev.phase === 'work' ? prev.cycles + 1 : prev.cycles,
-      timeRemaining: prev.phase === 'work' ? 5 * 60 : 25 * 60,
-      totalTime: prev.phase === 'work' ? 5 * 60 : 25 * 60
+      phase: wasWork ? 'break' : 'work',
+      cycles: wasWork ? prev.cycles + 1 : prev.cycles,
+      breaksTaken: wasWork ? prev.breaksTaken : prev.breaksTaken + 1,
+      timeRemaining: nextSeconds,
+      totalTime: nextSeconds
     }));
 
-    if (session.phase === 'work') {
-      addAiMessage("Beautiful work! 🎉 Time for a 5-minute breather. How did that feel?");
-    } else {
-      addAiMessage("Break's over! Ready to dive back in? You've got this 💪");
+    pushSupport(
+      'status',
+      wasWork
+        ? `Block done. A ${breakMinutes}-minute break is ready when you are.`
+        : 'Break over. Start the next block whenever you like.'
+    );
+  }, [
+    session.isActive, session.timeRemaining, session.phase,
+    blockSeconds, breakSeconds, breakMinutes, pushSupport
+  ]);
+
+  // Scheduled nudges: once per work block, per milestone.
+  useEffect(() => {
+    if (!session.isActive || session.phase !== 'work' || session.totalTime <= 0) return;
+
+    const elapsedFraction = (session.totalTime - session.timeRemaining) / session.totalTime;
+
+    for (const milestone of NUDGE_MILESTONES) {
+      if (elapsedFraction < milestone.at) continue;
+      const token = `${session.cycles}:${milestone.at}`;
+      if (firedNudgesRef.current.has(token)) continue;
+      firedNudgesRef.current.add(token);
+      flashNudge(milestone.lines[session.cycles % milestone.lines.length]);
     }
-  };
+  }, [
+    session.isActive, session.phase, session.timeRemaining,
+    session.totalTime, session.cycles, flashNudge
+  ]);
 
-  const startSession = (mood: string, startType: string, intention: string) => {
-    setSession(prev => ({
-      ...prev,
-      mood,
-      startType,
-      intention
-    }));
+  const startSession = async () => {
+    startedRef.current = true;
+    setSession((prev) => ({ ...prev, isActive: true }));
     setCurrentScreen('session');
-    
-    const moodResponses = {
-      calm: "Love that calm energy! Let's flow with it 🌊",
-      anxious: "I feel you. Let's channel that energy into focus 💙",
-      sleepy: "No judgment here. We'll take it gentle and steady ☁️",
-      fire: "That's the energy! Let's put it to good use 🚀",
-      scattered: "Totally normal. We'll gather those thoughts together ✨"
-    };
-    
-    addAiMessage(moodResponses[mood] || "Hey friend! 👋 Ready to co-work together?");
-    addAiMessage(`Working on: ${intention}. I'm here with you every step of the way.`);
-  };
 
-  const handleSendMessage = () => {
-    if (!inputValue.trim()) return;
-    
-    addUserMessage(inputValue);
-    
-    setTimeout(() => {
-      const responses = [
-        "I hear you! We're in this together 💙",
-        "That sounds totally valid. What feels like the smallest next step?",
-        "Love the honesty. Sometimes just naming it helps, right?",
-        "You're doing great by checking in. What would feel good right now?",
-        "I'm here with you. Want to break that down into smaller pieces?"
-      ];
-      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-      addAiMessage(randomResponse);
-    }, 1000);
-    
-    setInputValue('');
+    pushSupport('status', `Working on: ${session.intention}`);
+    pushSupport(
+      'nudge',
+      "I'll keep time and check in now and then. Nothing here is watching your screen."
+    );
+
+    await recorder.start({
+      intention: session.intention,
+      startType: session.startType,
+      startMood: session.mood,
+      plannedBlockMinutes: blockMinutes,
+      plannedBreakMinutes: breakMinutes
+    });
   };
 
   const toggleTimer = () => {
-    setSession(prev => ({
-      ...prev,
-      isActive: !prev.isActive
-    }));
+    setSession((prev) => ({ ...prev, isActive: !prev.isActive }));
   };
 
-  const resetTimer = () => {
-    setSession(prev => ({
+  const resetBlock = () => {
+    firedNudgesRef.current = new Set();
+    setSession((prev) => ({
       ...prev,
       isActive: false,
-      timeRemaining: 25 * 60,
-      totalTime: 25 * 60,
-      phase: 'work',
-      cycles: 0
+      timeRemaining: prev.phase === 'work' ? blockSeconds : breakSeconds,
+      totalTime: prev.phase === 'work' ? blockSeconds : breakSeconds
     }));
+    pushSupport('status', 'Block reset. Start again when you are ready.');
   };
 
-  const handleDistracted = () => {
-    setShowDistraction(true);
+  const openSupport = () => {
+    setSupportView('options');
+    setNextStepDraft(nextStep);
+    setShowSupport(true);
   };
 
-  const handleSessionComplete = () => {
+  const saveNextStep = () => {
+    const step = nextStepDraft.trim();
+    if (!step) return;
+    setNextStep(step);
+    setShowSupport(false);
+    setSupportView('options');
+    pushSupport('status', `Next step: ${step}`);
+  };
+
+  const handleSessionComplete = async () => {
+    setSession((prev) => ({ ...prev, isActive: false }));
     setCurrentScreen('wrapup');
-    addAiMessage("You did it! 🎉 Let's reflect on how that went.");
+
+    // Recorded now, not when the reflection is written: the session really did
+    // end here, and closing the wrap-up must never turn it into an abandon.
+    await recorder.complete({
+      flowsCompleted: session.cycles,
+      breaksTaken: session.breaksTaken,
+      focusSeconds: session.focusSeconds
+    });
+  };
+
+  const handleSaveReflection = async () => {
+    // A ref, not the mutation's isPending: two taps in one tick read the same
+    // render's value and would both write.
+    if (savingJournalRef.current || journalSaved) return;
+
+    const didWell = wrapUp.didWell.trim();
+    const toImprove = wrapUp.wantToImprove.trim();
+    const endMood = wrapUp.endMood || null;
+
+    if (!didWell && !toImprove && !endMood) {
+      toast({
+        title: 'Nothing to save yet',
+        description: 'Write a line or pick how you feel, then save.'
+      });
+      return;
+    }
+
+    savingJournalRef.current = true;
+    try {
+      const sessionSaved = await recorder.saveReflection({
+        endMood,
+        reflectionDidWell: didWell || null,
+        reflectionToImprove: toImprove || null
+      });
+
+      // An empty reflection is not a journal entry.
+      if (!didWell && !toImprove) {
+        toast({
+          title: sessionSaved ? 'Saved with this session' : 'Saved on this screen only',
+          description: sessionSaved
+            ? 'Write a line if you would like it in your journal too.'
+            : 'We could not reach the server, so nothing was stored.'
+        });
+        return;
+      }
+
+      await saveJournalEntry.mutateAsync({ didWell, toImprove });
+      setJournalSaved(true);
+      toast({
+        title: 'Saved to your journal',
+        description: 'You can read it back under Past Entries.'
+      });
+    } catch (saveError) {
+      // The text stays on screen so it can be saved again.
+      toast({
+        title: 'Could not save your reflection',
+        description: saveError instanceof Error ? saveError.message : 'Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      savingJournalRef.current = false;
+    }
+  };
+
+  const startAnotherSession = () => {
+    firedNudgesRef.current = new Set();
+    startedRef.current = false;
+    messageSeq.current = 0;
+    setSupportMessages([]);
+    setNextStep('');
+    setNextStepDraft('');
+    setJournalSaved(false);
+    setWrapUp({ didWell: '', wantToImprove: '', endMood: '' });
+    setSession({
+      isActive: false,
+      timeRemaining: blockSeconds,
+      totalTime: blockSeconds,
+      phase: 'work',
+      cycles: 0,
+      breaksTaken: 0,
+      focusSeconds: 0,
+      intention: '',
+      mood: '',
+      startType: ''
+    });
+    setCurrentScreen('welcome');
   };
 
   const formatTime = (seconds: number) => {
@@ -249,7 +417,8 @@ const BodyDouble = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const progressPercentage = ((session.totalTime - session.timeRemaining) / session.totalTime) * 100;
+  const progressPercentage =
+    session.totalTime > 0 ? ((session.totalTime - session.timeRemaining) / session.totalTime) * 100 : 0;
 
   // Welcome Screen
   if (currentScreen === 'welcome') {
@@ -257,17 +426,17 @@ const BodyDouble = () => {
       <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
         {/* Header */}
         <header className="w-full max-w-lg mx-auto p-4 flex items-center justify-between">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => navigate('/')}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/productivity')}
             className="h-10 w-10 rounded-full p-0 hover:bg-white/10"
           >
             <ArrowLeft className="h-6 w-6 text-white" />
           </Button>
-          
+
           <h1 className="text-2xl font-bold text-white">BodyDouble</h1>
-          
+
           <div className="w-10"></div>
         </header>
 
@@ -290,10 +459,11 @@ const BodyDouble = () => {
               {moods.map((mood) => (
                 <button
                   key={mood.name}
-                  onClick={() => setSession(prev => ({ ...prev, mood: mood.name }))}
+                  onClick={() => setSession((prev) => ({ ...prev, mood: mood.name }))}
+                  aria-pressed={session.mood === mood.name}
                   className={`flex flex-col items-center p-3 rounded-2xl transition-all ${
-                    session.mood === mood.name 
-                      ? `bg-gradient-to-br ${mood.color} scale-105` 
+                    session.mood === mood.name
+                      ? `bg-gradient-to-br ${mood.color} scale-105`
                       : 'bg-[#1F1F1F] hover:bg-[#2F2F2F]'
                   }`}
                 >
@@ -312,10 +482,11 @@ const BodyDouble = () => {
               return (
                 <button
                   key={option.id}
-                  onClick={() => setSession(prev => ({ ...prev, startType: option.id }))}
+                  onClick={() => setSession((prev) => ({ ...prev, startType: option.id }))}
+                  aria-pressed={session.startType === option.id}
                   className={`w-full p-4 rounded-2xl text-left transition-all ${
-                    session.startType === option.id 
-                      ? 'bg-purple-500/30 border border-purple-400/50' 
+                    session.startType === option.id
+                      ? 'bg-purple-500/30 border border-purple-400/50'
                       : 'bg-[#1F1F1F] hover:bg-[#2F2F2F] border border-white/10'
                   }`}
                 >
@@ -333,22 +504,27 @@ const BodyDouble = () => {
             <div className="w-full space-y-3 animate-fade-in">
               <Input
                 value={session.intention}
-                onChange={(e) => setSession(prev => ({ ...prev, intention: e.target.value }))}
+                onChange={(e) => setSession((prev) => ({ ...prev, intention: e.target.value }))}
                 placeholder="What would you like to work on?"
                 className="bg-[#1F1F1F] border-white/20 text-white placeholder:text-white/50"
               />
-              
+
+              <p className="text-white/40 text-xs text-center">
+                {blockMinutes}-minute blocks with {breakMinutes}-minute breaks, from your settings.
+              </p>
+
               <div className="flex gap-3">
                 <Button
-                  onClick={() => startSession(session.mood, session.startType, session.intention)}
+                  onClick={startSession}
                   disabled={!session.mood || !session.intention.trim()}
                   className="flex-1 bg-purple-500 hover:bg-purple-600 text-white"
                 >
                   Start Co-Working
                 </Button>
-                
+
                 <Button
                   variant="outline"
+                  onClick={() => navigate('/breathing')}
                   className="border-purple-400/50 text-purple-300 hover:bg-purple-500/20"
                 >
                   <Wind className="h-4 w-4 mr-2" />
@@ -366,21 +542,23 @@ const BodyDouble = () => {
 
   // Session Wrap-up Screen
   if (currentScreen === 'wrapup') {
+    const minutesFocused = Math.round(session.focusSeconds / 60);
+
     return (
       <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
         {/* Header */}
         <header className="w-full max-w-lg mx-auto p-4 flex items-center justify-between">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => navigate('/')}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/productivity')}
             className="h-10 w-10 rounded-full p-0 hover:bg-white/10"
           >
             <ArrowLeft className="h-6 w-6 text-white" />
           </Button>
-          
+
           <h1 className="text-lg font-bold text-white">Session Complete</h1>
-          
+
           <div className="w-10"></div>
         </header>
 
@@ -390,27 +568,35 @@ const BodyDouble = () => {
             <div className="w-16 h-16 mx-auto bg-green-500/20 rounded-full flex items-center justify-center">
               <CheckCircle className="h-8 w-8 text-green-300" />
             </div>
-            <h2 className="text-xl font-bold text-white">Beautiful work! 🎉</h2>
-            <p className="text-white/80">Let's reflect on how that went</p>
+            <h2 className="text-xl font-bold text-white">Nice work 🎉</h2>
+            <p className="text-white/80">
+              {minutesFocused} {minutesFocused === 1 ? 'minute' : 'minutes'} of focus
+              {session.cycles > 0 && ` · ${session.cycles} ${session.cycles === 1 ? 'block' : 'blocks'}`}
+            </p>
+            {recorder.status === 'unrecorded' && (
+              <p className="text-orange-300 text-xs">
+                This session could not be saved{recorder.error ? `: ${recorder.error}` : '.'}
+              </p>
+            )}
           </div>
 
           {/* Reflection Questions */}
           <div className="space-y-4">
             <div>
-              <label className="block text-white/80 text-sm mb-2">One thing I did well:</label>
+              <label className="block text-white/80 text-sm mb-2">What went well?</label>
               <Input
                 value={wrapUp.didWell}
-                onChange={(e) => setWrapUp(prev => ({ ...prev, didWell: e.target.value }))}
+                onChange={(e) => setWrapUp((prev) => ({ ...prev, didWell: e.target.value }))}
                 placeholder="I stayed focused, took breaks, asked for help..."
                 className="bg-[#1F1F1F] border-white/20 text-white placeholder:text-white/50"
               />
             </div>
 
             <div>
-              <label className="block text-white/80 text-sm mb-2">One thing I want to improve:</label>
+              <label className="block text-white/80 text-sm mb-2">What would I like to improve?</label>
               <Input
                 value={wrapUp.wantToImprove}
-                onChange={(e) => setWrapUp(prev => ({ ...prev, wantToImprove: e.target.value }))}
+                onChange={(e) => setWrapUp((prev) => ({ ...prev, wantToImprove: e.target.value }))}
                 placeholder="Starting sooner, fewer distractions..."
                 className="bg-[#1F1F1F] border-white/20 text-white placeholder:text-white/50"
               />
@@ -423,10 +609,11 @@ const BodyDouble = () => {
                 {moods.map((mood) => (
                   <button
                     key={mood.name}
-                    onClick={() => setWrapUp(prev => ({ ...prev, endMood: mood.name }))}
+                    onClick={() => setWrapUp((prev) => ({ ...prev, endMood: mood.name }))}
+                    aria-pressed={wrapUp.endMood === mood.name}
                     className={`flex flex-col items-center p-3 rounded-2xl transition-all ${
-                      wrapUp.endMood === mood.name 
-                        ? `bg-gradient-to-br ${mood.color} scale-105` 
+                      wrapUp.endMood === mood.name
+                        ? `bg-gradient-to-br ${mood.color} scale-105`
                         : 'bg-[#1F1F1F] hover:bg-[#2F2F2F]'
                     }`}
                   >
@@ -442,30 +629,26 @@ const BodyDouble = () => {
           <div className="space-y-3">
             <Button
               className="w-full bg-purple-500 hover:bg-purple-600 text-white"
-              onClick={() => navigate('/journaling')}
+              onClick={handleSaveReflection}
+              disabled={journalSaved || saveJournalEntry.isPending}
             >
               <Edit3 className="h-4 w-4 mr-2" />
-              Save as Journal Entry
+              {journalSaved
+                ? 'Saved to your journal'
+                : saveJournalEntry.isPending
+                  ? 'Saving…'
+                  : 'Save Reflection'}
             </Button>
-            
+            <p className="text-white/40 text-xs text-center">
+              Saved with this session, and to your journal if you have written something.
+            </p>
+
             <Button
               variant="outline"
               className="w-full border-purple-400/50 text-purple-300 hover:bg-purple-500/20"
-              onClick={() => {
-                setCurrentScreen('welcome');
-                setSession({
-                  isActive: false,
-                  timeRemaining: 25 * 60,
-                  totalTime: 25 * 60,
-                  phase: 'work',
-                  cycles: 0,
-                  intention: session.intention,
-                  mood: '',
-                  startType: ''
-                });
-              }}
+              onClick={startAnotherSession}
             >
-              Replay This Setup
+              Start Another Session
             </Button>
           </div>
         </main>
@@ -481,17 +664,17 @@ const BodyDouble = () => {
       {/* Header with Timer */}
       <header className="w-full max-w-lg mx-auto p-4">
         <div className="flex items-center justify-between mb-4">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => navigate('/')}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/productivity')}
             className="h-10 w-10 rounded-full p-0 hover:bg-white/10"
           >
             <ArrowLeft className="h-6 w-6 text-white" />
           </Button>
-          
+
           <h1 className="text-lg font-bold text-white">BodyDouble Session</h1>
-          
+
           <div className="w-10"></div>
         </div>
 
@@ -499,28 +682,34 @@ const BodyDouble = () => {
         <div className="bg-[#1F1F1F] rounded-3xl p-6 text-center relative overflow-hidden">
           {/* Animated Ring Background */}
           <div className="absolute inset-0 flex items-center justify-center">
-            <div 
+            <div
               className="w-32 h-32 rounded-full border-4 border-purple-500/20"
               style={{
                 background: `conic-gradient(from 0deg, #a855f7 ${progressPercentage * 3.6}deg, transparent ${progressPercentage * 3.6}deg)`
               }}
             />
           </div>
-          
+
           <div className="relative z-10">
             <div className="text-4xl font-bold text-white mb-2">
               {formatTime(session.timeRemaining)}
             </div>
             <p className="text-white/60 text-sm mb-1">
-              {session.phase === 'work' ? 'Focus Time' : 'Break Time'} • Cycle {session.cycles + 1}
+              {session.phase === 'work' ? 'Focus Time' : 'Break Time'} • Block {session.cycles + 1}
             </p>
-            <p className="text-purple-300 text-sm mb-4">
+            <p className="text-purple-300 text-sm">
               Working on: {session.intention}
             </p>
-            
-            <div className="flex items-center justify-center space-x-4">
+            {nextStep && (
+              <p className="text-white/70 text-xs mt-1">
+                Next step: {nextStep}
+              </p>
+            )}
+
+            <div className="flex items-center justify-center space-x-4 mt-4">
               <Button
                 onClick={toggleTimer}
+                aria-label={session.isActive ? 'Pause timer' : 'Start timer'}
                 className="w-12 h-12 rounded-full bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/50"
               >
                 {session.isActive ? (
@@ -529,10 +718,11 @@ const BodyDouble = () => {
                   <Play className="h-6 w-6 text-purple-400" />
                 )}
               </Button>
-              
+
               <Button
-                onClick={resetTimer}
+                onClick={resetBlock}
                 variant="ghost"
+                aria-label="Reset this block"
                 className="w-10 h-10 rounded-full hover:bg-white/10"
               >
                 <RotateCcw className="h-5 w-5 text-white/60" />
@@ -544,13 +734,14 @@ const BodyDouble = () => {
         {/* Action Buttons */}
         <div className="flex gap-3 mt-4">
           <Button
-            onClick={handleDistracted}
+            onClick={openSupport}
             variant="outline"
             className="flex-1 border-orange-400/50 text-orange-300 hover:bg-orange-500/20"
           >
-            I got distracted
+            <LifeBuoy className="h-4 w-4 mr-2" />
+            I'm stuck
           </Button>
-          
+
           <Button
             onClick={handleSessionComplete}
             className="flex-1 bg-green-500/20 hover:bg-green-500/30 border border-green-400/50 text-green-300"
@@ -560,114 +751,166 @@ const BodyDouble = () => {
         </div>
       </header>
 
-      {/* Floating Check-in Card */}
-      {showCheckIn && (
+      {/* Floating nudge */}
+      {showNudge && (
         <div className="absolute top-1/3 left-4 right-4 z-50 animate-fade-in">
           <Card className="bg-purple-500/10 border border-purple-400/30 p-4 backdrop-blur-sm">
             <div className="flex items-center gap-3">
               <Heart className="h-5 w-5 text-purple-300" />
-              <p className="text-white text-sm">{checkInMessage}</p>
+              <p className="text-white text-sm">{nudgeText}</p>
             </div>
           </Card>
         </div>
       )}
 
-      {/* Chat Messages */}
-      <main className="flex-1 w-full max-w-lg mx-auto px-4 pb-24">
-        <div className="space-y-4 mb-4">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
-            >
-              <div
-                className={`max-w-[80%] p-3 rounded-2xl ${
-                  message.sender === 'user'
-                    ? 'bg-purple-500 text-white'
-                    : 'bg-[#1F1F1F] text-white border border-white/10'
-                }`}
-              >
-                {message.sender === 'ai' && (
-                  <div className="flex items-center gap-2 mb-1">
-                    <Heart className="h-4 w-4 text-purple-300" />
-                    <span className="text-purple-300 text-sm font-medium">BodyDouble</span>
-                  </div>
-                )}
-                <p className="text-sm leading-relaxed">{message.text}</p>
-              </div>
-            </div>
-          ))}
+      {/* Support area — timed nudges, session status, and help the user asks
+          for. Deliberately not a chat: there is nothing here that could
+          understand a typed message yet. */}
+      <main className="flex-1 w-full max-w-lg mx-auto px-4 pb-8">
+        <div className="flex items-center gap-2 mb-1">
+          <Heart className="h-4 w-4 text-purple-300" />
+          <h2 className="text-purple-300 text-sm font-medium">Support</h2>
         </div>
+        <p className="text-white/40 text-xs mb-4">
+          Timed nudges and the help you ask for. Nothing here is reading your screen.
+        </p>
+
+        <div className="space-y-3">
+          {supportMessages.length === 0 ? (
+            <p className="text-white/40 text-sm">
+              Check-ins will appear here as your block goes on.
+            </p>
+          ) : (
+            supportMessages.map((message) => (
+              <div key={message.id} className="flex justify-start animate-fade-in">
+                <div className="max-w-[85%] p-3 rounded-2xl bg-[#1F1F1F] text-white border border-white/10">
+                  <p className="text-white/40 text-[11px] mb-1">
+                    {message.kind === 'nudge' ? 'Check-in' : 'Session'}
+                  </p>
+                  <p className="text-sm leading-relaxed">{message.text}</p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {recorder.status === 'unrecorded' && (
+          <p className="text-orange-300 text-xs mt-4">
+            Your timer is running, but this session is not being saved
+            {recorder.error ? `: ${recorder.error}` : '.'}
+          </p>
+        )}
       </main>
 
-      {/* Distraction Rescue Modal */}
-      <Dialog open={showDistraction} onOpenChange={setShowDistraction}>
+      {/* Support dialog */}
+      <Dialog
+        open={showSupport}
+        onOpenChange={(open) => {
+          setShowSupport(open);
+          if (!open) setSupportView('options');
+        }}
+      >
         <DialogContent className="bg-[#1F1F1F] border border-white/20 text-white">
-          <DialogHeader>
-            <DialogTitle className="text-center text-white">
-              Hey, no worries — feels like your mind wandered 🌊
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="text-center space-y-4">
-            <p className="text-white/80">Want to reset together?</p>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                onClick={() => setShowDistraction(false)}
-                className="bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/50 text-blue-300"
-              >
-                <Wind className="h-4 w-4 mr-2" />
-                Quick breath
-              </Button>
-              
-              <Button
-                onClick={() => setShowDistraction(false)}
-                className="bg-green-500/20 hover:bg-green-500/30 border border-green-400/50 text-green-300"
-              >
-                <Brain className="h-4 w-4 mr-2" />
-                Break into steps
-              </Button>
-              
-              <Button
-                onClick={() => setShowDistraction(false)}
-                className="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/50 text-purple-300"
-              >
-                🎵 Lo-fi sounds
-              </Button>
-              
-              <Button
-                onClick={() => setShowDistraction(false)}
-                variant="outline"
-                className="border-white/20 text-white hover:bg-white/10"
-              >
-                Back to task
-              </Button>
-            </div>
-          </div>
+          {supportView === 'options' ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-center text-white">
+                  Want to reset together?
+                </DialogTitle>
+                <DialogDescription className="text-center text-white/60">
+                  Pick whatever helps. Nothing here is chosen for you.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    onClick={() => setSupportView('break-down')}
+                    className="bg-green-500/20 hover:bg-green-500/30 border border-green-400/50 text-green-300"
+                  >
+                    <ListChecks className="h-4 w-4 mr-2" />
+                    Break it down
+                  </Button>
+
+                  <Button
+                    onClick={() => setShowSupport(false)}
+                    variant="outline"
+                    className="border-white/20 text-white hover:bg-white/10"
+                  >
+                    Back to task
+                  </Button>
+
+                  <Button
+                    onClick={() => navigate('/breathing')}
+                    className="bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/50 text-blue-300"
+                  >
+                    <Wind className="h-4 w-4 mr-2" />
+                    Quick breath
+                  </Button>
+
+                  <Button
+                    onClick={() => navigate('/soundscape')}
+                    className="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/50 text-purple-300"
+                  >
+                    <Volume2 className="h-4 w-4 mr-2" />
+                    Sounds
+                  </Button>
+                </div>
+
+                <p className="text-white/40 text-xs text-center">
+                  Quick breath and Sounds open another screen, which ends this session.
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-center text-white">
+                  What is the smallest next action you can take?
+                </DialogTitle>
+                <DialogDescription className="text-center text-white/60">
+                  Working on: {session.intention}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+
+                <Input
+                  value={nextStepDraft}
+                  onChange={(e) => setNextStepDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveNextStep();
+                  }}
+                  placeholder="Find 3 papers about ACL loading..."
+                  className="bg-background border-white/20 text-white placeholder:text-white/50"
+                />
+
+                <p className="text-white/40 text-xs text-center">
+                  Your words, kept on this screen. Nothing is generated for you.
+                </p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    onClick={saveNextStep}
+                    disabled={!nextStepDraft.trim()}
+                    className="bg-purple-500 hover:bg-purple-600 text-white"
+                  >
+                    Set next step
+                  </Button>
+
+                  <Button
+                    onClick={() => setSupportView('options')}
+                    variant="outline"
+                    className="border-white/20 text-white hover:bg-white/10"
+                  >
+                    Back
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
-
-      {/* Input Bar */}
-      <div className="fixed bottom-20 left-0 right-0 bg-background border-t border-white/10">
-        <div className="w-full max-w-lg mx-auto p-4">
-          <div className="flex items-center space-x-2">
-            <Input
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Share what's on your mind..."
-              className="flex-1 bg-[#1F1F1F] border-white/20 text-white placeholder:text-white/50"
-              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-            />
-            <Button
-              onClick={handleSendMessage}
-              className="bg-purple-500 hover:bg-purple-600 text-white px-4"
-            >
-              <MessageCircle className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
 
       <BottomNavigation />
     </div>

@@ -8,9 +8,12 @@ import type { Database } from '@/integrations/supabase/types';
 export type JournalEntryRow = Database['public']['Tables']['journal_entries']['Row'];
 
 /**
- * The six ids the journal_entries_type CHECK accepts. They are the same ids
+ * The ids the journal_entries_type CHECK accepts. The first six are the ids
  * JournalingMenu.tsx already declares, so the menu, the routes and the column
  * agree without a mapping table in between.
+ *
+ * 'body-double' has no menu card: it is written by the Body Double wrap-up and
+ * read back through Journal History.
  */
 export const JOURNAL_TYPES = [
   'morning-intention',
@@ -18,7 +21,8 @@ export const JOURNAL_TYPES = [
   'post-panic',
   'focus-reset',
   'gratitude',
-  'sensory-checkin'
+  'sensory-checkin',
+  'body-double'
 ] as const;
 
 export type JournalType = (typeof JOURNAL_TYPES)[number];
@@ -40,10 +44,12 @@ const historyKey = (userId: string | null) =>
  * Post-panic is written *after* something happened, and two hard moments in
  * one day are two separate facts. Treating the second as an edit of the first
  * — which is what the per-day path below does — silently destroys the earlier
- * episode. The other five types genuinely are one-per-day: a day has one
- * morning intention, and re-saving it is a revision, not a new event.
+ * episode. A body-double reflection is the same: it belongs to one co-working
+ * session, and a second session that day is a second reflection. The other
+ * five types genuinely are one-per-day: a day has one morning intention, and
+ * re-saving it is a revision, not a new event.
  */
-const EPISODIC_TYPES = new Set<JournalType>(['post-panic']);
+const EPISODIC_TYPES = new Set<JournalType>(['post-panic', 'body-double']);
 
 export function isEpisodicJournal(entryType: JournalType): boolean {
   return EPISODIC_TYPES.has(entryType);

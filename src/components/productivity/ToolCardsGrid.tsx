@@ -24,7 +24,7 @@ export const toolCards: ToolCard[] = [
     id: 'body-double',
     name: 'BodyDouble',
     icon: <Heart className="h-6 w-6 sm:h-8 sm:w-8" />,
-    description: 'AI companion for focus & accountability',
+    description: 'Quiet co-working support for focus & accountability',
     color: 'bg-purple-500/20 text-purple-300',
     route: '/body-double'
   },
