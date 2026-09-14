@@ -1,28 +1,95 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Pause, Droplets, Waves, Zap, Sparkles, Wind } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Droplets, Waves, Zap, Sparkles, Wind, Volume2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
+import { useToast } from '@/hooks/use-toast';
+import { useAutoSave } from '@/hooks/use-autosave';
+import { useUserSettings, useUpdateUserSettings, type UserSettingsPatch } from '@/hooks/use-user-settings';
+import { useSoundscapePlayer } from '@/hooks/use-soundscape-player';
+
+/** Matches the `user_settings.sound_volume` column default. */
+const FALLBACK_VOLUME = 75;
+
+/**
+ * Two ids do not match their filenames — `waves` plays ocean.mp3 and `ambient`
+ * plays the binaural track — so each option carries its own path rather than
+ * deriving one from the id. Ids stay as they were: they are only local state,
+ * and renaming them would change nothing a user can see.
+ */
+const soundOptions = [
+  { id: 'rain', icon: Droplets, name: 'Rain', src: '/audio/soundscapes/rain.mp3' },
+  { id: 'waves', icon: Waves, name: 'Ocean', src: '/audio/soundscapes/ocean.mp3' },
+  { id: 'white-noise', icon: Zap, name: 'Brown Noise', src: '/audio/soundscapes/white-noise.mp3' },
+  { id: 'ambient', icon: Sparkles, name: 'Binaural Focus', src: '/audio/soundscapes/binaural-focus-10hz.mp3' },
+  { id: 'wind', icon: Wind, name: 'Wind', src: '/audio/soundscapes/wind.mp3' }
+];
+
+/** The binaural track is a stereo pair, so it only works over two channels. */
+const HEADPHONE_HINT_ID = 'ambient';
 
 const Soundscape = () => {
   const navigate = useNavigate();
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [selectedSound, setSelectedSound] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  const soundOptions = [
-    { id: 'rain', icon: Droplets, name: 'Rain' },
-    { id: 'waves', icon: Waves, name: 'Ocean' },
-    { id: 'white-noise', icon: Zap, name: 'White Noise' },
-    { id: 'ambient', icon: Sparkles, name: 'Ambient' },
-    { id: 'wind', icon: Wind, name: 'Wind' }
-  ];
+  // Rain is selected up front so the play button always has something to play.
+  const [selectedSound, setSelectedSound] = useState<string>(soundOptions[0].id);
+  const [volume, setVolume] = useState(FALLBACK_VOLUME);
+
+  const player = useSoundscapePlayer(FALLBACK_VOLUME / 100);
+  const { play, pause, setVolume: setPlayerVolume, isActive, isLoading, errorMessage } = player;
+
+  const { data: settings, isFetched: settingsLoaded } = useUserSettings();
+  const updateSettings = useUpdateUserSettings();
+
+  const settingsSave = useAutoSave<UserSettingsPatch>(async (patch) => {
+    try {
+      await updateSettings.mutateAsync(patch);
+    } catch {
+      toast({
+        title: 'Volume not saved',
+        description: 'It applies to this session, but we could not save it to your settings.',
+        variant: 'destructive'
+      });
+    }
+  });
+
+  // Seeded once. A later refetch must not move the slider or jolt the volume
+  // of something the user is listening to right now.
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seededRef.current || !settingsLoaded) return;
+    seededRef.current = true;
+    if (!settings) return;
+    setVolume(settings.sound_volume);
+    setPlayerVolume(settings.sound_volume / 100);
+  }, [settingsLoaded, settings, setPlayerVolume]);
+
+  const activeOption = soundOptions.find((sound) => sound.id === selectedSound) ?? soundOptions[0];
 
   const handlePlayPause = () => {
-    setIsPlaying(!isPlaying);
+    if (isActive) {
+      pause();
+      return;
+    }
+    // Only ever reached from this click, so playback always follows a gesture.
+    play(activeOption.id, activeOption.src);
   };
 
   const handleSoundSelect = (soundId: string) => {
     setSelectedSound(soundId);
+
+    // Selecting while paused picks the sound without starting it.
+    if (!isActive) return;
+
+    const next = soundOptions.find((sound) => sound.id === soundId);
+    if (next) play(next.id, next.src);
+  };
+
+  const handleVolumeChange = (value: number[]) => {
+    setVolume(value[0]);
+    setPlayerVolume(value[0] / 100);
   };
 
   return (
@@ -47,30 +114,40 @@ const Soundscape = () => {
       {/* Main Content */}
       <main className="flex-1 w-full px-4 flex flex-col items-center justify-center">
         {/* Central Play Button */}
-        <div className="relative flex items-center justify-center mb-16">
+        <div className="relative flex items-center justify-center mb-4">
           <div className="relative">
             {/* Outer pulsing ring when playing */}
-            {isPlaying && (
+            {isActive && (
               <div className="absolute inset-0 w-32 h-32 rounded-full bg-gradient-to-br from-blue-500/30 to-teal-400/30 animate-ping"></div>
             )}
             
             {/* Middle pulsing ring when playing */}
-            {isPlaying && (
+            {isActive && (
               <div className="absolute inset-2 w-28 h-28 rounded-full bg-gradient-to-br from-blue-500/40 to-teal-400/40 animate-pulse"></div>
             )}
             
             {/* Main button */}
             <Button
               onClick={handlePlayPause}
+              aria-label={isActive ? `Pause ${activeOption.name}` : `Play ${activeOption.name}`}
               className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 relative z-10"
             >
-              {isPlaying ? (
+              {isActive ? (
                 <Pause className="h-12 w-12 text-white" />
               ) : (
                 <Play className="h-12 w-12 text-white ml-1" />
               )}
             </Button>
           </div>
+        </div>
+
+        {/* Playback status — fixed height so nothing shifts when it appears */}
+        <div className="h-5 mb-7 flex items-center justify-center px-4" aria-live="polite">
+          {errorMessage ? (
+            <span className="text-xs text-red-300 text-center">{errorMessage}</span>
+          ) : isLoading ? (
+            <span className="text-xs text-white/60">Loading…</span>
+          ) : null}
         </div>
 
         {/* Sound Selector - Horizontal line below play button */}
@@ -83,6 +160,7 @@ const Soundscape = () => {
               <button
                 key={sound.id}
                 onClick={() => handleSoundSelect(sound.id)}
+                aria-pressed={isSelected}
                 className="flex flex-col items-center space-y-2 transition-all duration-300"
               >
                 <div
@@ -108,6 +186,29 @@ const Soundscape = () => {
               </button>
             );
           })}
+        </div>
+
+        {/* Headphone hint — also fixed height, for the same reason */}
+        <div className="h-5 mt-4 flex items-center justify-center">
+          {selectedSound === HEADPHONE_HINT_ID && (
+            <span className="text-xs text-white/50">Best experienced with headphones</span>
+          )}
+        </div>
+
+        {/* Volume */}
+        <div className="mt-6 w-full max-w-[240px] flex items-center gap-3">
+          <Volume2 className="h-4 w-4 text-white/70 shrink-0" />
+          <Slider
+            value={[volume]}
+            onValueChange={handleVolumeChange}
+            onValueCommit={(value) => settingsSave.saveNow({ sound_volume: value[0] })}
+            min={0}
+            max={100}
+            step={1}
+            aria-label="Volume"
+            className="flex-1"
+          />
+          <span className="text-xs text-white/60 w-8 text-right">{volume}%</span>
         </div>
       </main>
     </div>
