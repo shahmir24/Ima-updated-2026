@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Brain, BookOpen, Heart, Target, Sparkles, Sun } from 'lucide-react';
+import { Brain, BookOpen, Heart, Target, Sparkles, Sun, History } from 'lucide-react';
 import WellnessHeader from '@/components/wellness/WellnessHeader';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
 
@@ -101,6 +101,30 @@ const JournalingMenu = () => {
             </div>
           </div>
         ))}
+
+        {/* Not one of the six options: it opens what has already been written
+            rather than starting something new, so it sits apart from them. */}
+        <button
+          type="button"
+          onClick={() => handleOptionClick('/journaling/history')}
+          className="w-full text-left bg-secondary/40 rounded-3xl p-6 hover:bg-secondary/60 transition-all duration-300 card-hover animate-fade-in"
+          style={{ animationDelay: '0.6s' }}
+        >
+          <div className="flex items-center space-x-4">
+            <div className="w-16 h-16 rounded-2xl bg-purple-500/20 text-purple-300 flex items-center justify-center">
+              <History className="h-8 w-8" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-semibold text-white mb-1">Past Entries</h3>
+              <p className="text-white/70 text-sm leading-relaxed">Read what you've written before</p>
+            </div>
+            <div className="text-white/40">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </div>
+        </button>
 
         <div className="mt-8 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-3xl p-6">
           <div className="text-center">

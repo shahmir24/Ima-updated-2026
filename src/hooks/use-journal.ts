@@ -30,6 +30,31 @@ export type JournalType = (typeof JOURNAL_TYPES)[number];
 const todayEntryKey = (userId: string | null, entryType: JournalType) =>
   ['journal-entries', 'today', entryType, userId ?? 'anonymous'] as const;
 
+/** One key for the whole history list; it is not filtered by type. */
+const historyKey = (userId: string | null) =>
+  ['journal-entries', 'history', userId ?? 'anonymous'] as const;
+
+/**
+ * Types where a row is an episode, not a day.
+ *
+ * Post-panic is written *after* something happened, and two hard moments in
+ * one day are two separate facts. Treating the second as an edit of the first
+ * — which is what the per-day path below does — silently destroys the earlier
+ * episode. The other five types genuinely are one-per-day: a day has one
+ * morning intention, and re-saving it is a revision, not a new event.
+ */
+const EPISODIC_TYPES = new Set<JournalType>(['post-panic']);
+
+export function isEpisodicJournal(entryType: JournalType): boolean {
+  return EPISODIC_TYPES.has(entryType);
+}
+
+/**
+ * How much history the screen reads. A flat cap rather than pagination: it is
+ * honest about what it shows, and it cannot turn into an unbounded query.
+ */
+export const JOURNAL_HISTORY_LIMIT = 200;
+
 /**
  * Midnight today in the user's own timezone. Journals are a per-day practice
  * and the prompts say "today", so the boundary has to be the user's calendar
@@ -73,7 +98,9 @@ export function useTodayJournalEntry(entryType: JournalType) {
 
   return useQuery({
     queryKey: todayEntryKey(userId, entryType),
-    enabled: !!userId,
+    // An episodic journal has no "today's entry" to load: every visit is a new
+    // episode, so the query is never run for one.
+    enabled: !!userId && !isEpisodicJournal(entryType),
     queryFn: async (): Promise<JournalEntryRow | null> => {
       const { data, error } = await supabase
         .from('journal_entries')
@@ -93,13 +120,46 @@ export function useTodayJournalEntry(entryType: JournalType) {
 }
 
 /**
- * Writes one day's entry: updates today's row if there is one, inserts if not.
+ * Every journal entry the signed-in user has written, newest first, capped at
+ * JOURNAL_HISTORY_LIMIT.
+ *
+ * All six types in one list, which is what the reverse-chronological screen
+ * shows — and what journal_entries_user_time_idx (user_id, created_at desc)
+ * was added to serve. Ordering is by created_at, never updated_at, so editing
+ * an old entry does not jump it to the top.
+ */
+export function useJournalHistory() {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+
+  return useQuery({
+    queryKey: historyKey(userId),
+    enabled: !!userId,
+    queryFn: async (): Promise<JournalEntryRow[]> => {
+      const { data, error } = await supabase
+        .from('journal_entries')
+        .select('*')
+        .eq('user_id', userId as string)
+        .order('created_at', { ascending: false })
+        .limit(JOURNAL_HISTORY_LIMIT);
+
+      if (error) throw error;
+      return data ?? [];
+    }
+  });
+}
+
+/**
+ * Writes an entry: updates today's row if there is one, inserts if not.
  *
  * The table carries updated_at and an UPDATE policy — it is the editable one,
  * unlike mood_checkins — so re-saving the same day revises that day's entry
  * instead of stacking near-identical rows. Each new day still gets its own
  * row, which is what keeps the per-type history the
  * (user_id, entry_type, created_at) index exists to serve.
+ *
+ * An episodic type (see EPISODIC_TYPES) skips the update path entirely and
+ * always inserts, so two episodes on one day are two rows.
  */
 export function useSaveJournalEntry(entryType: JournalType) {
   const { user } = useAuth();
@@ -112,8 +172,12 @@ export function useSaveJournalEntry(entryType: JournalType) {
       if (!user) throw new Error('You must be signed in to save a journal entry.');
 
       // Read from the cache rather than a captured value, so a save always
-      // sees the entry the form is actually showing.
-      const existing = queryClient.getQueryData<JournalEntryRow | null>(key);
+      // sees the entry the form is actually showing. An episodic type never
+      // looks for one: it always inserts, so each episode keeps its own row
+      // and its own created_at.
+      const existing = isEpisodicJournal(entryType)
+        ? null
+        : queryClient.getQueryData<JournalEntryRow | null>(key);
 
       if (existing) {
         const { data, error } = await supabase
@@ -142,8 +206,16 @@ export function useSaveJournalEntry(entryType: JournalType) {
     },
     onSuccess: (row) => {
       // The row just written IS today's entry; seeding the cache avoids a
-      // refetch that would briefly blank the form.
-      queryClient.setQueryData(key, row);
+      // refetch that would briefly blank the form. Not for an episodic type:
+      // there is no "today's entry" there, and seeding one would turn the next
+      // episode into an edit of this one.
+      if (!isEpisodicJournal(entryType)) queryClient.setQueryData(key, row);
+
+      // Mark the history list stale rather than writing into it. Nothing is
+      // observing that query from a journal screen, so this queues a refetch
+      // for when the history screen is next opened instead of firing one now —
+      // and it never drops the list the user may be looking at.
+      void queryClient.invalidateQueries({ queryKey: historyKey(userId) });
     }
   });
 }
@@ -171,8 +243,18 @@ export function useJournalEntryForm<T extends Record<string, string>>(
   emptyValues: T
 ): JournalEntryForm<T> {
   const { toast } = useToast();
-  const { data: todayEntry, isFetched, isError, error } = useTodayJournalEntry(entryType);
+  const episodic = isEpisodicJournal(entryType);
+  const todayQuery = useTodayJournalEntry(entryType);
   const saveEntry = useSaveJournalEntry(entryType);
+
+  // The query is disabled for an episodic type, so it never fetches and never
+  // reports as fetched. Both have to be read through `episodic`, or the form
+  // would wait forever for an entry that is never coming and leave its save
+  // button disabled.
+  const todayEntry = episodic ? null : todayQuery.data ?? null;
+  const isFetched = episodic || todayQuery.isFetched;
+  const isError = !episodic && todayQuery.isError;
+  const error = todayQuery.error;
 
   // The page passes a fresh object literal every render; hold the first one so
   // it can be used inside effects without re-running them.
@@ -188,6 +270,8 @@ export function useJournalEntryForm<T extends Record<string, string>>(
   useEffect(() => {
     if (hydratedRef.current || !isFetched) return;
     hydratedRef.current = true;
+    // `todayEntry` is already null for an episodic type, so this opens blank
+    // every visit and an earlier episode is never presented as a draft.
     if (todayEntry) setValues(readResponses(todayEntry.responses, emptyRef.current));
   }, [todayEntry, isFetched]);
 

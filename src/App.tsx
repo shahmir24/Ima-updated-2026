@@ -26,6 +26,7 @@ import DeepReset from "./pages/breathing/DeepReset";
 import SleepSwitch from "./pages/breathing/SleepSwitch";
 import RideTheWave from "./pages/breathing/RideTheWave";
 import JournalingMenu from "./pages/JournalingMenu";
+import JournalHistory from "./pages/JournalHistory";
 import SafeSpaceMenu from "./pages/SafeSpaceMenu";
 import SafeSpaceChat from "./pages/SafeSpaceChat";
 import SafeContacts from "./pages/SafeContacts";
@@ -106,6 +107,7 @@ const App = () => (
               <Route path="/journaling/focus-reset" element={<FocusResetJournal />} />
               <Route path="/journaling/gratitude" element={<GratitudeJournal />} />
               <Route path="/journaling/sensory-checkin" element={<SensoryCheckIn />} />
+              <Route path="/journaling/history" element={<JournalHistory />} />
               <Route path="/safe-space" element={<SafeSpaceMenu />} />
               <Route path="/safe-space/chat" element={<SafeSpaceChat />} />
               <Route path="/safe-space/contacts" element={<SafeContacts />} />
