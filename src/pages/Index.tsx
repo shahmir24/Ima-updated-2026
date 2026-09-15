@@ -335,8 +335,9 @@ const Index = () => {
       {/* Bottom navigation.
           Home keeps its own labelled nav rather than the shared component,
           which has no labels and no logo button — swapping it in would change
-          how Home looks. Each button goes where its own label says. */}
-      <nav className="fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur-lg nav-safe-area">
+          how Home looks. Each button goes where its own label says. Hidden
+          from lg up, where the desktop sidebar takes over. */}
+      <nav className="fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur-lg nav-safe-area lg:hidden">
         <div className="mx-auto flex max-w-lg items-center justify-around px-4 py-2 md:max-w-2xl">
           <Button variant="ghost" size="icon" onClick={() => navigate('/wellness')} aria-label="Wellness" className="flex h-auto min-w-[60px] flex-col items-center gap-1 rounded-2xl px-3 py-2">
             <Heart className="h-6 w-6" />

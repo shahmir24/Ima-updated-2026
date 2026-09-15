@@ -27,6 +27,7 @@ import SleepSwitch from "./pages/breathing/SleepSwitch";
 import RideTheWave from "./pages/breathing/RideTheWave";
 import JournalingMenu from "./pages/JournalingMenu";
 import JournalHistory from "./pages/JournalHistory";
+import AppShell from "@/components/layout/AppShell";
 import SafeSpaceMenu from "./pages/SafeSpaceMenu";
 import SafeSpaceChat from "./pages/SafeSpaceChat";
 import SafeContacts from "./pages/SafeContacts";
@@ -76,41 +77,51 @@ const App = () => (
 
             {/* Signed in and onboarded — the app itself */}
             <Route element={<ProtectedRoute />}>
-              <Route path="/" element={<Index />} />
-              <Route path="/profile-settings" element={<ProfileSettings />} />
-              <Route path="/productivity" element={<Productivity />} />
-              <Route path="/focus" element={<Focus />} />
-              <Route path="/body-double" element={<BodyDouble />} />
-              <Route path="/soundscape" element={<Soundscape />} />
-              <Route path="/stats" element={<Stats />} />
-              <Route path="/tasks" element={<Tasks />} />
-              <Route path="/wellness" element={<Wellness />} />
-              <Route path="/wellness/mindfulness" element={<MindfulnessMenu />} />
-              <Route path="/breathing" element={<BreathingMenu />} />
+              {/* Inside the desktop application shell. Below lg the shell
+                  renders nothing but the page, so mobile is unchanged. */}
+              <Route element={<AppShell />}>
+                <Route path="/" element={<Index />} />
+                <Route path="/profile-settings" element={<ProfileSettings />} />
+                <Route path="/productivity" element={<Productivity />} />
+                <Route path="/focus" element={<Focus />} />
+                <Route path="/body-double" element={<BodyDouble />} />
+                <Route path="/soundscape" element={<Soundscape />} />
+                <Route path="/stats" element={<Stats />} />
+                <Route path="/tasks" element={<Tasks />} />
+                <Route path="/wellness" element={<Wellness />} />
+                <Route path="/wellness/mindfulness" element={<MindfulnessMenu />} />
+                <Route path="/breathing" element={<BreathingMenu />} />
+                <Route path="/meditation" element={<MeditationMenu />} />
+                <Route path="/meditation/focus-reset" element={<FocusReset />} />
+                <Route path="/meditation/anchor" element={<AnchorGrounding />} />
+                <Route path="/mindfulness/body-scan" element={<BodyScanIntro />} />
+                <Route path="/mindfulness/walking" element={<MindfulWalkingMenu />} />
+                <Route path="/mindfulness/walking/breath-sync" element={<BreathSyncWalk />} />
+                <Route path="/mindfulness/walking/break-loop" element={<BreakLoopWalk />} />
+                <Route path="/journaling" element={<JournalingMenu />} />
+                <Route path="/journaling/morning-intention" element={<MorningIntention />} />
+                <Route path="/journaling/daily-journal" element={<DailyJournal />} />
+                <Route path="/journaling/post-panic" element={<PostPanicJournal />} />
+                <Route path="/journaling/focus-reset" element={<FocusResetJournal />} />
+                <Route path="/journaling/gratitude" element={<GratitudeJournal />} />
+                <Route path="/journaling/sensory-checkin" element={<SensoryCheckIn />} />
+                <Route path="/journaling/history" element={<JournalHistory />} />
+                <Route path="/safe-space" element={<SafeSpaceMenu />} />
+                <Route path="/safe-space/chat" element={<SafeSpaceChat />} />
+                <Route path="/safe-space/contacts" element={<SafeContacts />} />
+              </Route>
+
+              {/* Guarded, but outside the shell: an exercise you are actually
+                  doing. These screens are chrome-free on purpose — a
+                  persistent sidebar beside a breathing pattern or a body scan
+                  is exactly the distraction they exist to remove. Their menu
+                  and intro pages are in the shell above. */}
               <Route path="/breathing/steady-square" element={<SteadySquare />} />
               <Route path="/breathing/triangle-calm" element={<TriangleCalm />} />
               <Route path="/breathing/deep-reset" element={<DeepReset />} />
               <Route path="/breathing/sleep-switch" element={<SleepSwitch />} />
               <Route path="/breathing/ride-the-wave" element={<RideTheWave />} />
-              <Route path="/meditation" element={<MeditationMenu />} />
-              <Route path="/meditation/focus-reset" element={<FocusReset />} />
-              <Route path="/meditation/anchor" element={<AnchorGrounding />} />
-              <Route path="/mindfulness/body-scan" element={<BodyScanIntro />} />
               <Route path="/mindfulness/body-scan/session" element={<BodyScanSession />} />
-              <Route path="/mindfulness/walking" element={<MindfulWalkingMenu />} />
-              <Route path="/mindfulness/walking/breath-sync" element={<BreathSyncWalk />} />
-              <Route path="/mindfulness/walking/break-loop" element={<BreakLoopWalk />} />
-              <Route path="/journaling" element={<JournalingMenu />} />
-              <Route path="/journaling/morning-intention" element={<MorningIntention />} />
-              <Route path="/journaling/daily-journal" element={<DailyJournal />} />
-              <Route path="/journaling/post-panic" element={<PostPanicJournal />} />
-              <Route path="/journaling/focus-reset" element={<FocusResetJournal />} />
-              <Route path="/journaling/gratitude" element={<GratitudeJournal />} />
-              <Route path="/journaling/sensory-checkin" element={<SensoryCheckIn />} />
-              <Route path="/journaling/history" element={<JournalHistory />} />
-              <Route path="/safe-space" element={<SafeSpaceMenu />} />
-              <Route path="/safe-space/chat" element={<SafeSpaceChat />} />
-              <Route path="/safe-space/contacts" element={<SafeContacts />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />

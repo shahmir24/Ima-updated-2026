@@ -7,6 +7,10 @@ import { Button } from '@/components/ui/button';
 /**
  * The app's primary navigation, rendered on 25 screens.
  *
+ * Hidden from lg up, where the desktop sidebar is the navigation. The two are
+ * exact complements — `lg:hidden` here, `hidden lg:flex` there — so a screen
+ * can never show both or neither.
+ *
  * Every button was previously inert — no handler of any kind — so the main nav
  * did nothing anywhere in the app. Destinations below are the existing routes;
  * nothing new was registered.
@@ -34,7 +38,7 @@ const BottomNavigation = () => {
   const iconTone = (active: boolean) => (active ? 'text-foreground' : 'text-muted-foreground');
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-lg border-t border-border">
+    <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-lg border-t border-border lg:hidden">
       <div className="max-w-lg mx-auto flex justify-around items-center py-3 px-4">
         <Button
           variant="ghost"
