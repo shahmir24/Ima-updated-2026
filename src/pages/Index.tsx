@@ -22,6 +22,7 @@ import { useProfile } from '@/hooks/use-profile';
 import { useHomeTaskQueue, greetingForHour } from '@/hooks/use-home-task-queue';
 import RightNowCard from '@/components/home/RightNowCard';
 import UpNextRow from '@/components/home/UpNextRow';
+import DesktopHome from '@/components/home/DesktopHome';
 
 /** Local YYYY-MM-DD, so "today" is the user's calendar day, not a UTC one. */
 const toLocalISODate = (date: Date) =>
@@ -113,21 +114,28 @@ const Index = () => {
     { name: "Focused", icon: Brain, color: "from-purple-400 to-purple-600" }
   ];
 
-  /** Nothing to do right now — said plainly, and never as an empty task card. */
-  const renderEmptyState = () => {
-    let message: string;
-    let action: string;
+  /**
+   * Nothing to do right now — said plainly, and never as an empty task card.
+   * Computed once here so the mobile card and the desktop hero cannot drift
+   * apart on which of the three situations the user is actually in.
+   */
+  const emptyState =
+    allTasks.length === 0
+      ? { message: 'No tasks yet.', action: 'Add one' }
+      : todaysTasks.length > 0
+        ? { message: 'All done for today.', action: 'View tasks' }
+        : { message: 'Nothing scheduled for today.', action: 'See all' };
 
-    if (allTasks.length === 0) {
-      message = 'No tasks yet.';
-      action = 'Add one';
-    } else if (todaysTasks.length > 0) {
-      message = 'All done for today.';
-      action = 'View tasks';
-    } else {
-      message = 'Nothing scheduled for today.';
-      action = 'See all';
-    }
+  /** The date, for quiet context on the desktop dashboard. */
+  const dateLabel = new Date().toLocaleDateString(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
+
+  const renderEmptyState = () => {
+    const { message, action } = emptyState;
 
     return (
       <section
@@ -148,7 +156,12 @@ const Index = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground pb-fixed-nav">
+    <>
+      {/* ------------------------------------------------ mobile and tablet.
+          Unchanged from the Phase 3 Home, header and bottom bar included. The
+          whole tree is gated so desktop never inherits its chrome — notably
+          the logo and wordmark, which the sidebar already carries. */}
+      <div data-testid="mobile-home" className="flex min-h-screen flex-col bg-background text-foreground pb-fixed-nav lg:hidden">
       {/* Header */}
       <header className="mx-auto flex w-full max-w-lg items-center justify-between p-4 md:max-w-2xl lg:max-w-3xl">
         <div className="flex h-12 w-16 items-center justify-center">
@@ -366,7 +379,30 @@ const Index = () => {
           </Button>
         </div>
       </nav>
-    </div>
+      </div>
+
+      {/* -------------------------------------------------------- desktop.
+          The same profile, mood, tasks, queue, mutation and handlers — only
+          the arrangement differs. */}
+      <DesktopHome
+        greeting={greeting}
+        dateLabel={dateLabel}
+        moods={moods}
+        selectedMood={selectedMood}
+        onSelectMood={handleSelectMood}
+        queue={queue}
+        todaysTasks={todaysTasks}
+        tasksLoading={tasksLoading}
+        tasksFailed={tasksFailed}
+        taskErrorMessage={taskError ? (taskError as Error).message : null}
+        isCompleting={toggleTaskCompleted.isPending}
+        onToggleTask={handleToggleTask}
+        onStart={() => navigate('/focus')}
+        onStuck={() => navigate('/body-double')}
+        emptyState={emptyState}
+        onEmptyStateAction={() => navigate('/tasks')}
+      />
+    </>
   );
 };
 

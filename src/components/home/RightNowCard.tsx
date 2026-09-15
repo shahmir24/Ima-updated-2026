@@ -6,8 +6,12 @@ import { formatStartTime, formatTaskDuration } from '@/hooks/use-home-task-queue
 
 interface RightNowCardProps {
   task: TaskRow;
-  /** Already includes the user's name when there is one. */
-  greeting: string;
+  /**
+   * Already includes the user's name when there is one. Optional: the desktop
+   * dashboard shows the greeting in its own header, so it omits it here rather
+   * than printing it twice.
+   */
+  greeting?: string;
   /** 1-based position in the queue, and its length. */
   position: number;
   total: number;
@@ -49,7 +53,7 @@ const RightNowCard = ({
       className="rounded-3xl bg-gradient-to-br from-blue-600 to-blue-700 p-5 sm:p-7 shadow-xl"
     >
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm text-blue-100">{greeting}</p>
+        {greeting ? <p className="text-sm text-blue-100">{greeting}</p> : <span />}
 
         {/* The ring means nothing on its own, so the count sits beside it and
             carries the meaning in words. */}
