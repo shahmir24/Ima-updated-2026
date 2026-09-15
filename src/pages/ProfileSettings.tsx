@@ -263,7 +263,7 @@ const ProfileSettings = () => {
                 </div>
                 
                 <div className="text-center">
-                  <p className="text-sm text-muted-foreground mb-3">Tap to upload a profile photo</p>
+                  <p className="text-sm text-muted-foreground mb-3">Preview only — profile photos aren’t saved yet.</p>
                   
                   <div className="space-y-3">
                     <div className="flex items-center justify-center space-x-2">
@@ -279,7 +279,7 @@ const ProfileSettings = () => {
                           );
                         }}
                       />
-                      <Label className="text-sm">Use my favorite mood emoji instead</Label>
+                      <Label className="text-sm">Use my favorite mood emoji instead — this one is saved</Label>
                     </div>
                     
                     {useEmojiProfile && (
@@ -432,12 +432,18 @@ const ProfileSettings = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Theme</Label>
-                    <p className="text-sm text-muted-foreground">Light / Soft Dark Mode</p>
+                    <p className="text-sm text-muted-foreground">Soft Dark — light mode coming soon</p>
                   </div>
+                  {/* Disabled, not removed: the column and the save below are
+                      kept for when a light palette exists. `checked` is fixed
+                      on because Soft Dark is what the app actually renders,
+                      whatever value happens to be stored. */}
                   <div className="flex items-center space-x-2">
                     <Sun className="h-4 w-4" />
                     <Switch
-                      checked={darkMode}
+                      checked
+                      disabled
+                      aria-label="Theme — Soft Dark, light mode coming soon"
                       onCheckedChange={(checked) => {
                         setDarkMode(checked);
                         settingsSave.saveNow({ theme: checked ? 'dark' : 'light' });
@@ -463,9 +469,14 @@ const ProfileSettings = () => {
                   <div className="text-xs text-muted-foreground mt-1">{soundVolume[0]}%</div>
                 </div>
 
+                {/* Disabled, not removed: it persists correctly but nothing
+                    consumes it yet, so offering it would promise a change the
+                    app does not make. */}
                 <div>
                   <Label>Animation Speed</Label>
+                  <p className="text-sm text-muted-foreground mb-2">Coming soon</p>
                   <Select
+                    disabled
                     value={animationSpeed}
                     onValueChange={(value) => {
                       setAnimationSpeed(value);
@@ -494,10 +505,13 @@ const ProfileSettings = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>ADHD Mode</Label>
-                    <p className="text-sm text-muted-foreground">Adds focus nudges & reminders</p>
+                    <p className="text-sm text-muted-foreground">Focus nudges &amp; reminders — coming soon</p>
                   </div>
+                  {/* Disabled, not removed: same reason as Animation Speed. */}
                   <Switch
                     checked={adhdMode}
+                    disabled
+                    aria-label="ADHD Mode — coming soon"
                     onCheckedChange={(checked) => {
                       setAdhdMode(checked);
                       settingsSave.saveNow({ adhd_mode: checked });
