@@ -74,7 +74,7 @@ const SteadySquare = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
       <WellnessHeader title="Steady Square" backPath="/breathing" />
 
       <main className="flex-1 responsive-container flex flex-col items-center justify-center space-y-6 sm:space-y-8">
@@ -135,7 +135,7 @@ const SteadySquare = () => {
           <Button
             onClick={resetBreathing}
             variant="ghost"
-            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full hover:bg-white/10"
+            className="w-12 h-12 rounded-full hover:bg-white/10"
           >
             <RotateCcw className="h-5 w-5 sm:h-6 sm:w-6 text-white/60" />
           </Button>

@@ -127,7 +127,7 @@ const FocusReset = () => {
             {phase === 'intro' && (
               <Button
                 onClick={startMeditation}
-                className="bg-blue-500 hover:bg-blue-600 text-white rounded-2xl px-8 py-3 text-lg font-medium flex items-center gap-3"
+                className="bg-blue-500 hover:bg-blue-600 text-white rounded-2xl h-12 px-8 py-3 text-lg font-medium flex items-center gap-3"
               >
                 <Play className="h-6 w-6" />
                 Start Reset
@@ -160,7 +160,7 @@ const FocusReset = () => {
                 </p>
                 <Button
                   onClick={restart}
-                  className="bg-blue-500 hover:bg-blue-600 text-white rounded-2xl px-8 py-3 text-lg font-medium"
+                  className="bg-blue-500 hover:bg-blue-600 text-white rounded-2xl h-12 px-8 py-3 text-lg font-medium"
                 >
                   Tap to start again
                 </Button>

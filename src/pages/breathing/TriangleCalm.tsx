@@ -92,7 +92,7 @@ const TriangleCalm = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
       <WellnessHeader title="Triangle Calm" backPath="/breathing" />
 
       <main className="flex-1 max-w-lg w-full mx-auto px-4 flex flex-col items-center justify-center space-y-8">

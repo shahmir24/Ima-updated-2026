@@ -24,7 +24,7 @@ const GratitudeJournal = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
       <WellnessHeader title="Tiny Wins, Soft Joys" backPath="/journaling" />
 
       <main className="flex-1 max-w-lg w-full mx-auto px-4 space-y-6">
@@ -48,7 +48,7 @@ const GratitudeJournal = () => {
                   value={smile}
                   onChange={(e) => journal.setValue('smile', e.target.value)}
                   placeholder="A moment that brought a smile..."
-                  className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50"
+                  className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50 min-h-[120px]"
                 />
               </div>
 
@@ -58,7 +58,7 @@ const GratitudeJournal = () => {
                   value={warmth}
                   onChange={(e) => journal.setValue('warmth', e.target.value)}
                   placeholder="Something that felt good..."
-                  className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50"
+                  className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50 min-h-[120px]"
                 />
               </div>
             </div>
@@ -70,7 +70,7 @@ const GratitudeJournal = () => {
             <Button
               onClick={handleSave}
               disabled={journal.isBusy}
-              className="w-full bg-yellow-500 hover:bg-yellow-600 text-white"
+              className="w-full h-12 bg-yellow-500 hover:bg-yellow-600 text-white"
             >
               <Save className="h-4 w-4 mr-2" />
               {journal.isSaving ? 'Saving…' : 'Save Gratitude'}

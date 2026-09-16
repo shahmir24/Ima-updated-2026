@@ -24,7 +24,7 @@ const DailyJournal = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
       <WellnessHeader title="Where Am I, Really?" backPath="/wellness" />
 
       <main className="flex-1 max-w-lg w-full mx-auto px-4 space-y-6">
@@ -48,7 +48,7 @@ const DailyJournal = () => {
                   value={onMind}
                   onChange={(e) => journal.setValue('onMind', e.target.value)}
                   placeholder="Whatever's floating around in your head..."
-                  className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50"
+                  className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50 min-h-[120px]"
                 />
               </div>
 
@@ -58,7 +58,7 @@ const DailyJournal = () => {
                   value={energy}
                   onChange={(e) => journal.setValue('energy', e.target.value)}
                   placeholder="Check in with your energy levels..."
-                  className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50"
+                  className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50 min-h-[120px]"
                 />
               </div>
 
@@ -68,7 +68,7 @@ const DailyJournal = () => {
                   value={letGoLeanIn}
                   onChange={(e) => journal.setValue('letGoLeanIn', e.target.value)}
                   placeholder="What needs releasing or embracing..."
-                  className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50"
+                  className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50 min-h-[120px]"
                 />
               </div>
             </div>
@@ -76,7 +76,7 @@ const DailyJournal = () => {
             <Button
               onClick={handleSave}
               disabled={journal.isBusy}
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+              className="w-full h-12 bg-blue-500 hover:bg-blue-600 text-white"
             >
               <Save className="h-4 w-4 mr-2" />
               {journal.isSaving ? 'Saving…' : 'Save Entry'}

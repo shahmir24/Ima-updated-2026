@@ -47,7 +47,7 @@ const BodyScanIntro = () => {
           {/* Start Button */}
           <Button
             onClick={handleStartScan}
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-2xl py-4 text-lg font-medium flex items-center justify-center gap-3"
+            className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-2xl h-12 py-4 text-lg font-medium flex items-center justify-center gap-3"
           >
             <Play className="h-6 w-6" />
             Start Body Scan

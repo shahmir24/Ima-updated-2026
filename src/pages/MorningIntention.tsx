@@ -24,7 +24,7 @@ const MorningIntention = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
       <WellnessHeader title="Set the Tone" backPath="/journaling" />
 
       <main className="flex-1 max-w-lg w-full mx-auto px-4 space-y-6">
@@ -58,7 +58,7 @@ const MorningIntention = () => {
             <Button
               onClick={handleSave}
               disabled={journal.isBusy}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+              className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white"
             >
               <Save className="h-4 w-4 mr-2" />
               {journal.isSaving ? 'Saving…' : 'Save Intention'}

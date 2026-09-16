@@ -24,7 +24,7 @@ const FocusResetJournal = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
       <WellnessHeader title="Zoom In" backPath="/journaling" />
 
       <main className="flex-1 max-w-lg w-full mx-auto px-4 space-y-6">
@@ -48,7 +48,7 @@ const FocusResetJournal = () => {
                   value={whatMatters}
                   onChange={(e) => journal.setValue('whatMatters', e.target.value)}
                   placeholder="Focus on what truly matters..."
-                  className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50"
+                  className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50 min-h-[120px]"
                 />
               </div>
 
@@ -58,7 +58,7 @@ const FocusResetJournal = () => {
                   value={justNoise}
                   onChange={(e) => journal.setValue('justNoise', e.target.value)}
                   placeholder="What can you let go of..."
-                  className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50"
+                  className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50 min-h-[120px]"
                 />
               </div>
             </div>
@@ -70,7 +70,7 @@ const FocusResetJournal = () => {
             <Button
               onClick={handleSave}
               disabled={journal.isBusy}
-              className="w-full bg-green-500 hover:bg-green-600 text-white"
+              className="w-full h-12 bg-green-500 hover:bg-green-600 text-white"
             >
               <Save className="h-4 w-4 mr-2" />
               {journal.isSaving ? 'Saving…' : 'Save Focus Reset'}

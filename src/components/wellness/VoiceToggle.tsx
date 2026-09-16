@@ -27,7 +27,7 @@ const VoiceToggle = ({ supported, muted, onToggle, className = '' }: VoiceToggle
       onClick={onToggle}
       aria-pressed={!muted}
       aria-label={muted ? 'Unmute spoken guidance' : 'Mute spoken guidance'}
-      className={`h-10 rounded-full px-3 gap-2 hover:bg-white/10 ${className}`}
+      className={`h-11 rounded-full px-3 gap-2 hover:bg-white/10 ${className}`}
     >
       {muted ? (
         <VolumeX className="h-5 w-5 text-white/60" />

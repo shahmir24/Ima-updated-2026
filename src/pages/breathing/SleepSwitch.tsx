@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Play, Pause, RotateCcw, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -95,22 +95,33 @@ const SleepSwitch = () => {
     setStarOpacity(0.3);
   };
 
+  const stars = useMemo(
+    () =>
+      Array.from({ length: 20 }, () => ({
+        left: `${Math.random() * 100}%`,
+        top: `${Math.random() * 100}%`,
+        delay: `${Math.random() * 3}s`
+      })),
+    []
+  );
+
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-b from-indigo-900 via-purple-900 to-indigo-800 text-foreground pb-20">
+    <div className="flex flex-col min-h-screen bg-gradient-to-b from-indigo-900 via-purple-900 to-indigo-800 text-foreground pb-20 lg:pb-10">
       <WellnessHeader title="Sleep Switch" backPath="/breathing" />
 
       <main className="flex-1 max-w-lg w-full mx-auto px-4 flex flex-col items-center justify-center space-y-8">
-        {/* Stars background */}
+        {/* Stars background — positions fixed once, so they do not jump on
+            every re-render of the running timer. */}
         <div className="absolute inset-0 overflow-hidden">
-          {Array.from({ length: 20 }).map((_, i) => (
+          {stars.map((star, i) => (
             <div
               key={i}
               className="absolute w-1 h-1 bg-white rounded-full animate-pulse"
               style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
+                left: star.left,
+                top: star.top,
                 opacity: starOpacity,
-                animationDelay: `${Math.random() * 3}s`,
+                animationDelay: star.delay,
                 transition: 'opacity 1s ease-in-out'
               }}
             />

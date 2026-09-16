@@ -423,14 +423,14 @@ const BodyDouble = () => {
   // Welcome Screen
   if (currentScreen === 'welcome') {
     return (
-      <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
+      <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
         {/* Header */}
         <header className="w-full max-w-lg mx-auto p-4 flex items-center justify-between">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate('/productivity')}
-            className="h-10 w-10 rounded-full p-0 hover:bg-white/10"
+            className="h-11 w-11 rounded-full p-0 hover:bg-white/10"
           >
             <ArrowLeft className="h-6 w-6 text-white" />
           </Button>
@@ -545,14 +545,14 @@ const BodyDouble = () => {
     const minutesFocused = Math.round(session.focusSeconds / 60);
 
     return (
-      <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
+      <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
         {/* Header */}
         <header className="w-full max-w-lg mx-auto p-4 flex items-center justify-between">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate('/productivity')}
-            className="h-10 w-10 rounded-full p-0 hover:bg-white/10"
+            className="h-11 w-11 rounded-full p-0 hover:bg-white/10"
           >
             <ArrowLeft className="h-6 w-6 text-white" />
           </Button>
@@ -660,7 +660,9 @@ const BodyDouble = () => {
 
   // Active Session Screen
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground">
+    // The mobile bar is fixed over this screen too, so it needs the same
+    // allowance as the welcome and wrap-up screens.
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
       {/* Header with Timer */}
       <header className="w-full max-w-lg mx-auto p-4">
         <div className="flex items-center justify-between mb-4">
@@ -668,7 +670,7 @@ const BodyDouble = () => {
             variant="ghost"
             size="icon"
             onClick={() => navigate('/productivity')}
-            className="h-10 w-10 rounded-full p-0 hover:bg-white/10"
+            className="h-11 w-11 rounded-full p-0 hover:bg-white/10"
           >
             <ArrowLeft className="h-6 w-6 text-white" />
           </Button>
