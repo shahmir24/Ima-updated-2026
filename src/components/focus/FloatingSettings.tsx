@@ -75,7 +75,7 @@ const FloatingSettings = ({
   ];
 
   return (
-    <div className="fixed bottom-24 right-4 z-50">
+    <div className="fixed bottom-24 right-4 z-50 lg:bottom-10 lg:right-8">
       {/* Settings Cards Stack */}
       {isOpen && (
         <div className="mb-2 space-y-2 animate-fade-in">

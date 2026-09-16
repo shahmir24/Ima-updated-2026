@@ -14,12 +14,12 @@ const TimerBox = ({ timeLeft, isBreak = false }: TimerBoxProps) => {
   };
 
   return (
-    <div className="relative mb-12 w-full max-w-sm">
-      <div className={`bg-white/5 backdrop-blur-xl border border-white/20 rounded-3xl p-12 shadow-2xl ${
+    <div className="relative mb-12 w-full max-w-sm sm:max-w-md">
+      <div className={`bg-white/5 backdrop-blur-xl border border-white/20 rounded-3xl p-8 sm:p-12 shadow-2xl ${
         isBreak ? 'ring-2 ring-orange-300/20' : ''
       }`}>
         <div className="text-center">
-          <div className={`text-6xl md:text-7xl font-thin tracking-wider font-mono ${
+          <div className={`text-5xl sm:text-6xl md:text-7xl font-thin tracking-wider font-mono ${
             isBreak ? 'text-orange-300' : 'text-white'
           }`}>
             {formatTime(timeLeft)}

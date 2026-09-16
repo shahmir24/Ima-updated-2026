@@ -7,6 +7,7 @@ import TimerBox from '@/components/focus/TimerBox';
 import ControlButtons from '@/components/focus/ControlButtons';
 import FloatingSettings from '@/components/focus/FloatingSettings';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import PageWorkspace from '@/components/layout/PageWorkspace';
 import { useUserSettings } from '@/hooks/use-user-settings';
 
 /**
@@ -17,6 +18,13 @@ import { useUserSettings } from '@/hooks/use-user-settings';
 const FALLBACK_BLOCK_MINUTES = 25;
 const FALLBACK_BUFFER_MINUTES = 5;
 const FALLBACK_FLOWS = 4;
+
+/**
+ * Deliberately narrower than the card hubs. This is a concentration screen, so
+ * the timer stays centred and close to itself rather than spreading across the
+ * desktop workspace.
+ */
+const WORKSPACE = 'max-w-2xl';
 
 const Focus = () => {
   const navigate = useNavigate();
@@ -147,7 +155,7 @@ const Focus = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground w-[480px] mx-auto relative">
+    <div className="flex flex-col min-h-screen bg-background text-foreground relative">
       {/* Lock Overlay */}
       {isLocked && (
         <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px] z-40 flex items-center justify-center">
@@ -160,12 +168,12 @@ const Focus = () => {
       )}
 
       {/* Header */}
-      <header className="w-full p-4 flex items-center justify-between">
+      <PageWorkspace width={WORKSPACE} className="flex items-center justify-between py-4">
         <Button 
           variant="ghost" 
           size="icon" 
           onClick={() => !isLocked && navigate('/productivity')}
-          className="h-10 w-10 rounded-full p-0 hover:bg-white/10"
+          className="h-11 w-11 rounded-full p-0 hover:bg-white/10"
           disabled={isLocked}
         >
           <ArrowLeft className="h-6 w-6 text-white" />
@@ -177,14 +185,14 @@ const Focus = () => {
           variant="ghost" 
           size="icon" 
           onClick={handleLockToggle}
-          className="h-10 w-10 rounded-full p-0 hover:bg-white/10 z-50"
+          className="h-11 w-11 rounded-full p-0 hover:bg-white/10 z-50"
         >
           <Lock className="h-5 w-5 text-white" />
         </Button>
-      </header>
+      </PageWorkspace>
 
       {/* Flows Counter & Affirmation */}
-      <div className="w-full px-4 mb-4">
+      <PageWorkspace width={WORKSPACE} className="mb-4">
         <div className="text-center">
           <div className="text-white/60 text-sm mb-1">
             {flowsCompleted}/{numberOfFlows}
@@ -203,17 +211,19 @@ const Focus = () => {
             </div>
           )}
         </div>
-      </div>
+      </PageWorkspace>
 
       {/* Main Content */}
-      <main className="flex-1 w-full px-4 flex flex-col items-center justify-center pb-20">
-        <TimerBox timeLeft={timeLeft} isBreak={currentPhase === 'break'} />
-        <ControlButtons 
-          isPlaying={isPlaying}
-          onPlayPause={handlePlayPause}
-          onReset={handleReset}
-          disabled={isLocked}
-        />
+      <main className="flex-1 flex flex-col items-center justify-center pb-20 lg:pb-10">
+        <PageWorkspace width={WORKSPACE} className="flex flex-col items-center justify-center">
+          <TimerBox timeLeft={timeLeft} isBreak={currentPhase === 'break'} />
+          <ControlButtons
+            isPlaying={isPlaying}
+            onPlayPause={handlePlayPause}
+            onReset={handleReset}
+            disabled={isLocked}
+          />
+        </PageWorkspace>
       </main>
 
       {/* Floating Settings */}
