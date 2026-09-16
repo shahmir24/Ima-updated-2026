@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import WellnessHeader from '@/components/wellness/WellnessHeader';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import PageHeader from '@/components/layout/PageHeader';
+import PageWorkspace from '@/components/layout/PageWorkspace';
 import { useJournalHistory, JOURNAL_HISTORY_LIMIT, type JournalEntryRow } from '@/hooks/use-journal';
 import { journalTypeTitle, readJournalAnswers } from '@/lib/journal-types';
 
@@ -31,6 +32,13 @@ function formatWrittenAt(createdAt: string): string {
   return written.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
+/**
+ * A history to read, not a hub to browse: it stays a single column at a width
+ * that keeps rows scannable, and the entry text itself is capped narrower
+ * still so a long answer never runs the full width of a desktop column.
+ */
+const WORKSPACE = 'max-w-4xl';
+
 const JournalHistory = () => {
   const { data: entries, isFetched, isError, error } = useJournalHistory();
 
@@ -56,7 +64,7 @@ const JournalHistory = () => {
             <p className="text-white/50 text-xs mt-1">{formatWrittenAt(entry.created_at)}</p>
 
             {!isExpanded && (
-              <p className="text-white/70 text-sm mt-3 leading-relaxed line-clamp-2 break-words">
+              <p className="text-white/70 text-sm mt-3 leading-relaxed line-clamp-2 break-words max-w-prose">
                 {answers.length > 0 ? (
                   answers[0].answer
                 ) : (
@@ -79,7 +87,7 @@ const JournalHistory = () => {
               answers.map((answer) => (
                 <div key={answer.key}>
                   <p className="text-white/50 text-xs mb-1">{answer.question}</p>
-                  <p className="text-white/90 text-sm leading-relaxed whitespace-pre-wrap break-words">
+                  <p className="text-white/90 text-sm leading-relaxed whitespace-pre-wrap break-words max-w-prose">
                     {answer.answer}
                   </p>
                 </div>
@@ -140,10 +148,12 @@ const JournalHistory = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
-      <WellnessHeader title="Past Entries" backPath="/journaling" />
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
+      <PageHeader title="Past Entries" backPath="/journaling" width={WORKSPACE} />
 
-      <main className="flex-1 max-w-lg w-full mx-auto px-4 space-y-4">{renderBody()}</main>
+      <main className="flex-1">
+        <PageWorkspace width={WORKSPACE} className="space-y-4">{renderBody()}</PageWorkspace>
+      </main>
 
       <BottomNavigation />
     </div>
