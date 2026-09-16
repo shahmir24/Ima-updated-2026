@@ -9,7 +9,7 @@ interface FidgetButtonProps {
 
 const FidgetButton = ({ fidgetColor, onFidgetClick }: FidgetButtonProps) => {
   return (
-    <div className="mb-6">
+    <div className="mb-6 lg:max-w-sm">
       <button 
         onClick={onFidgetClick}
         className="w-full rounded-3xl py-6 px-6 transition-all duration-300 hover:scale-105 shadow-lg"

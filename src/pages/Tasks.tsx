@@ -1,12 +1,14 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, Plus, ChevronRight } from 'lucide-react';
+import { Calendar, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import TaskCard from '@/components/tasks/TaskCard';
 import MeetingModal from '@/components/tasks/MeetingModal';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import PageHeader from '@/components/layout/PageHeader';
+import PageWorkspace from '@/components/layout/PageWorkspace';
 import {
   useTasks,
   useCreateTask,
@@ -48,6 +50,9 @@ const describeTimeRange = (task: TaskRow) => {
 
 const toTitleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
+/** A list meant to be read, so it stays narrower than the card hubs. */
+const WORKSPACE = 'max-w-4xl';
+
 const Tasks = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'all' | 'completed'>('all');
@@ -81,27 +86,12 @@ const Tasks = () => {
   const mutationError = createTask.error || deleteTask.error || toggleCompleted.error;
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
-
-      {/* Header */}
-      <header className="w-full max-w-lg mx-auto p-4 flex items-center justify-between">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => navigate('/productivity')}
-          className="h-10 w-10 rounded-full p-0 hover:bg-white/10"
-        >
-          <ArrowLeft className="h-6 w-6 text-white" />
-        </Button>
-        
-        <h1 className="text-2xl font-bold text-white">Today's Tasks</h1>
-        
-        <div className="w-10"></div>
-      </header>
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
+      <PageHeader title="Today's Tasks" backPath="/productivity" width={WORKSPACE} />
 
       {/* Sub-header */}
-      <div className="w-full max-w-lg mx-auto px-4 mb-6">
-        <div className="flex justify-between items-center">
+      <PageWorkspace width={WORKSPACE} className="mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="text-white text-base">{dayName}, {dateString}</span>
           <div className="flex items-center gap-3">
             <Button 
@@ -115,10 +105,10 @@ const Tasks = () => {
             <Calendar className="h-6 w-6 text-white" />
           </div>
         </div>
-      </div>
+      </PageWorkspace>
 
       {/* Filter Tabs */}
-      <div className="w-full max-w-lg mx-auto px-4 mb-6">
+      <PageWorkspace width={WORKSPACE} className="mb-6">
         <div className="flex gap-2">
           <Button
             onClick={() => setActiveTab('all')}
@@ -149,60 +139,62 @@ const Tasks = () => {
             </Badge>
           </Button>
         </div>
-      </div>
+      </PageWorkspace>
 
       {/* Task Cards */}
-      <main className="flex-1 max-w-lg w-full mx-auto px-4 space-y-4">
-        {mutationError && (
-          <p className="text-red-300 text-sm text-center py-2">
-            {(mutationError as Error).message}
-          </p>
-        )}
-
-        {isPending && (
-          <p className="text-white/60 text-sm text-center py-8">Loading your tasks…</p>
-        )}
-
-        {isError && (
-          <div className="text-center py-8 space-y-3">
-            <p className="text-red-300 text-sm">
-              {(error as Error)?.message || 'Could not load your tasks.'}
+      <main className="flex-1">
+        <PageWorkspace width={WORKSPACE} className="space-y-4">
+          {mutationError && (
+            <p className="text-red-300 text-sm text-center py-2">
+              {(mutationError as Error).message}
             </p>
-            <Button
-              onClick={() => refetch()}
-              className="rounded-full px-6 py-2 text-white"
-              style={{ backgroundColor: '#2f74db' }}
-            >
-              Try again
-            </Button>
-          </div>
-        )}
+          )}
 
-        {!isPending && !isError && filteredTasks.length === 0 && (
-          <p className="text-white/60 text-sm text-center py-8">
-            {activeTab === 'completed'
-              ? 'Nothing completed yet.'
-              : 'No tasks yet. Tap “New Task” to add one.'}
-          </p>
-        )}
+          {isPending && (
+            <p className="text-white/60 text-sm text-center py-8">Loading your tasks…</p>
+          )}
 
-        {filteredTasks.map((task) => (
-          <TaskCard
-            key={task.id}
-            task={{
-              id: task.id,
-              title: task.title,
-              description: task.description ?? '',
-              time: describeTimeRange(task),
-              dateLabel: describeDate(task.scheduled_date),
-              tag: toTitleCase(task.tag),
-              completed: task.completed
-            }}
-            busy={toggleCompleted.isPending || deleteTask.isPending}
-            onComplete={() => handleCompleteTask(task)}
-            onDelete={() => handleDeleteTask(task.id)}
-          />
-        ))}
+          {isError && (
+            <div className="text-center py-8 space-y-3">
+              <p className="text-red-300 text-sm">
+                {(error as Error)?.message || 'Could not load your tasks.'}
+              </p>
+              <Button
+                onClick={() => refetch()}
+                className="rounded-full px-6 py-2 text-white"
+                style={{ backgroundColor: '#2f74db' }}
+              >
+                Try again
+              </Button>
+            </div>
+          )}
+
+          {!isPending && !isError && filteredTasks.length === 0 && (
+            <p className="text-white/60 text-sm text-center py-8">
+              {activeTab === 'completed'
+                ? 'Nothing completed yet.'
+                : 'No tasks yet. Tap “New Task” to add one.'}
+            </p>
+          )}
+
+          {filteredTasks.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={{
+                id: task.id,
+                title: task.title,
+                description: task.description ?? '',
+                time: describeTimeRange(task),
+                dateLabel: describeDate(task.scheduled_date),
+                tag: toTitleCase(task.tag),
+                completed: task.completed
+              }}
+              busy={toggleCompleted.isPending || deleteTask.isPending}
+              onComplete={() => handleCompleteTask(task)}
+              onDelete={() => handleDeleteTask(task.id)}
+            />
+          ))}
+        </PageWorkspace>
       </main>
 
       {/* Meeting Modal */}

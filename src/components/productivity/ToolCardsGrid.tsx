@@ -74,12 +74,12 @@ export const ToolCardsGrid: React.FC<ToolCardsGridProps> = ({ filteredTools }) =
   };
 
   return (
-    <div className="grid grid-cols-2 gap-4 mb-6">
+    <div className="grid grid-cols-2 gap-4 mb-6 md:grid-cols-3 lg:gap-6">
       {filteredTools.map((tool, index) => (
         <div
           key={tool.id}
           onClick={() => handleToolClick(tool.route)}
-          className="bg-[#1F1F1F] rounded-3xl p-4 sm:p-6 aspect-square flex flex-col justify-start hover:scale-105 transition-transform duration-200 cursor-pointer"
+          className="bg-[#1F1F1F] rounded-3xl p-4 sm:p-6 aspect-square md:aspect-auto md:min-h-[12rem] flex flex-col justify-start hover:scale-105 transition-transform duration-200 cursor-pointer"
           style={{ animationDelay: `${index * 0.1}s` }}
         >
           <div className="flex items-center gap-2 sm:gap-3 mb-2">
