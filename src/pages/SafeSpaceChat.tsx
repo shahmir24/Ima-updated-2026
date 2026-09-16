@@ -201,7 +201,7 @@ const SafeSpaceChat = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground">
+    <div className="flex flex-col h-screen bg-background text-foreground pb-20 lg:pb-0">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-secondary/20">
         <Button
@@ -298,7 +298,7 @@ const SafeSpaceChat = () => {
               onClick={() => handleSendMessage(inputText)}
               disabled={!inputText.trim()}
               size="icon"
-              className="h-8 w-8 rounded-full bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 disabled:opacity-30"
+              className="h-11 w-11 rounded-full bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 disabled:opacity-30"
             >
               <Send className="h-4 w-4 text-blue-400" />
             </Button>

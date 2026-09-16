@@ -86,7 +86,7 @@ const DesktopSidebar = () => {
         <Link
           to={item.to}
           aria-current={active ? 'page' : undefined}
-          className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+          className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
             active
               ? 'bg-secondary font-medium text-foreground'
               : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'

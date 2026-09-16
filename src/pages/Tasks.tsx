@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import TaskCard from '@/components/tasks/TaskCard';
@@ -97,12 +97,11 @@ const Tasks = () => {
             <Button 
               onClick={() => setShowMeetingModal(true)}
               style={{ backgroundColor: '#2f74db' }}
-              className="hover:opacity-90 text-white rounded-full px-4 py-2 flex items-center gap-2"
+              className="hover:opacity-90 text-white rounded-full h-11 px-4 py-2 flex items-center gap-2"
             >
               <Plus className="h-4 w-4" />
               New Task
             </Button>
-            <Calendar className="h-6 w-6 text-white" />
           </div>
         </div>
       </PageWorkspace>
@@ -112,7 +111,7 @@ const Tasks = () => {
         <div className="flex gap-2">
           <Button
             onClick={() => setActiveTab('all')}
-            className={`rounded-full px-6 py-2 flex items-center gap-2 ${
+            className={`rounded-full h-11 px-6 py-2 flex items-center gap-2 ${
               activeTab === 'all' 
                 ? 'text-white' 
                 : 'bg-gray-600 text-white hover:bg-gray-500'
@@ -126,7 +125,7 @@ const Tasks = () => {
           </Button>
           <Button
             onClick={() => setActiveTab('completed')}
-            className={`rounded-full px-6 py-2 flex items-center gap-2 ${
+            className={`rounded-full h-11 px-6 py-2 flex items-center gap-2 ${
               activeTab === 'completed' 
                 ? 'text-white' 
                 : 'bg-gray-600 text-white hover:bg-gray-500'
@@ -161,7 +160,7 @@ const Tasks = () => {
               </p>
               <Button
                 onClick={() => refetch()}
-                className="rounded-full px-6 py-2 text-white"
+                className="rounded-full h-11 px-6 py-2 text-white"
                 style={{ backgroundColor: '#2f74db' }}
               >
                 Try again

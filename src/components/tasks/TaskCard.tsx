@@ -90,7 +90,7 @@ const TaskCard = ({ task, onComplete, onDelete, busy = false }: TaskCardProps) =
                     size="icon"
                     disabled={busy}
                     aria-label={`Delete task "${task.title}"`}
-                    className="h-10 w-10 rounded-full text-white/60 hover:text-white hover:bg-white/10"
+                    className="h-11 w-11 rounded-full text-white/60 hover:text-white hover:bg-white/10"
                   >
                     <Trash2 className="h-5 w-5" />
                   </Button>

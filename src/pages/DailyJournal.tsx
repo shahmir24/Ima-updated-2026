@@ -20,7 +20,7 @@ const DailyJournal = () => {
   const handleSave = async () => {
     // Navigate only once the write has landed, so a failure leaves the
     // page (and what was written) intact instead of discarding it.
-    if ((await journal.save()) === 'saved') navigate('/wellness');
+    if ((await journal.save()) === 'saved') navigate('/journaling');
   };
 
   return (

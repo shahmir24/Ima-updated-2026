@@ -26,7 +26,7 @@ const WellnessHeader = ({ title, backPath = '/wellness' }: WellnessHeaderProps) 
           <ArrowLeft className="h-6 w-6 text-white" />
         </Button>
         
-        <h1 className="text-2xl font-bold text-white">{title}</h1>
+        <h1 className="text-2xl font-bold text-white lg:text-3xl">{title}</h1>
         
         <div className="w-10"></div>
       </header>

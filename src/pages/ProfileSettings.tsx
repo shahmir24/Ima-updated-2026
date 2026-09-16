@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
+import PageWorkspace from '@/components/layout/PageWorkspace';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { useAutoSave } from '@/hooks/use-autosave';
@@ -28,6 +29,9 @@ const toLocalISODate = (date: Date) =>
  */
 const isStorableDateOfBirth = (value: string) =>
   value > '1900-01-01' && value < toLocalISODate(new Date());
+
+/** A settings form: wide enough to feel deliberate, narrow enough to read. */
+const WORKSPACE = 'max-w-3xl';
 
 const ProfileSettings = () => {
   const navigate = useNavigate();
@@ -193,26 +197,29 @@ const ProfileSettings = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Header */}
-      <header className="w-full max-w-lg mx-auto p-4 flex items-center justify-between border-b border-border/20">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="rounded-full"
-          onClick={handleBackClick}
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-xl font-semibold">Profile & Settings</h1>
-        <div className="w-10" />
+      {/* Header — the rule spans the page, the row inside it is the workspace */}
+      <header className="w-full border-b border-border/20">
+        <PageWorkspace width={WORKSPACE} className="flex items-center justify-between py-4 lg:justify-start lg:gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11 rounded-full"
+            aria-label="Go back"
+            onClick={handleBackClick}
+          >
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+          <h1 className="text-2xl font-bold lg:text-3xl">Profile &amp; Settings</h1>
+          <div className="w-10 lg:hidden" />
+        </PageWorkspace>
       </header>
 
-      <div className="max-w-lg mx-auto px-4 py-6">
+      <PageWorkspace width={WORKSPACE} className="py-6">
         <Tabs value={initialTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-8 bg-secondary/50 rounded-2xl p-1">
             <TabsTrigger 
               value="profile" 
-              className="rounded-xl font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              className="h-11 rounded-2xl font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
               onClick={() => navigate('/profile-settings?tab=profile')}
             >
               <User className="h-4 w-4 mr-2" />
@@ -220,7 +227,7 @@ const ProfileSettings = () => {
             </TabsTrigger>
             <TabsTrigger 
               value="settings" 
-              className="rounded-xl font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              className="h-11 rounded-2xl font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
               onClick={() => navigate('/profile-settings?tab=settings')}
             >
               <Settings className="h-4 w-4 mr-2" />
@@ -317,7 +324,7 @@ const ProfileSettings = () => {
                   <Input
                     id="firstName"
                     placeholder="e.g. Zara"
-                    className="mt-1 rounded-xl"
+                    className="mt-1 rounded-2xl"
                     value={firstName}
                     onChange={(e) => {
                       setFirstName(e.target.value);
@@ -335,7 +342,7 @@ const ProfileSettings = () => {
                       profileSave.saveNow({ pronouns: value });
                     }}
                   >
-                    <SelectTrigger className="mt-1 rounded-xl">
+                    <SelectTrigger className="mt-1 rounded-2xl">
                       <SelectValue placeholder="Select pronouns" />
                     </SelectTrigger>
                     <SelectContent>
@@ -352,7 +359,7 @@ const ProfileSettings = () => {
                   <Input
                     id="dob"
                     type="date"
-                    className="mt-1 rounded-xl"
+                    className="mt-1 rounded-2xl"
                     value={dateOfBirth}
                     onChange={(e) => handleDateOfBirthChange(e.target.value)}
                   />
@@ -367,7 +374,7 @@ const ProfileSettings = () => {
                       profileSave.saveNow({ mood_checkin_frequency: value });
                     }}
                   >
-                    <SelectTrigger className="mt-1 rounded-xl">
+                    <SelectTrigger className="mt-1 rounded-2xl">
                       <SelectValue placeholder="How often?" />
                     </SelectTrigger>
                     <SelectContent>
@@ -383,7 +390,7 @@ const ProfileSettings = () => {
                   <Input
                     id="focusGoals"
                     placeholder="✨ reduce overwhelm"
-                    className="mt-1 rounded-xl"
+                    className="mt-1 rounded-2xl"
                     value={focusGoal}
                     onChange={(e) => {
                       setFocusGoal(e.target.value);
@@ -483,7 +490,7 @@ const ProfileSettings = () => {
                       settingsSave.saveNow({ animation_speed: value });
                     }}
                   >
-                    <SelectTrigger className="mt-1 rounded-xl">
+                    <SelectTrigger className="mt-1 rounded-2xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -524,7 +531,7 @@ const ProfileSettings = () => {
                 <div>
                   <Label>Panic Mode Shortcut</Label>
                   <p className="text-sm text-muted-foreground mb-2">Quick-access gesture</p>
-                  <Button variant="outline" className="w-full rounded-xl" disabled>
+                  <Button variant="outline" className="w-full h-11 rounded-2xl" disabled>
                     Set Shortcut — coming soon
                   </Button>
                 </div>
@@ -534,7 +541,7 @@ const ProfileSettings = () => {
                   <Input
                     id="aiName"
                     placeholder="e.g. Zoe"
-                    className="mt-1 rounded-xl"
+                    className="mt-1 rounded-2xl"
                     value={aiCompanionName}
                     onChange={(e) => {
                       setAiCompanionName(e.target.value);
@@ -562,7 +569,7 @@ const ProfileSettings = () => {
                       settingsSave.saveNow({ focus_block_minutes: Number(value) });
                     }}
                   >
-                    <SelectTrigger className="mt-1 rounded-xl">
+                    <SelectTrigger className="mt-1 rounded-2xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -582,7 +589,7 @@ const ProfileSettings = () => {
                       settingsSave.saveNow({ buffer_minutes: Number(value) });
                     }}
                   >
-                    <SelectTrigger className="mt-1 rounded-xl">
+                    <SelectTrigger className="mt-1 rounded-2xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -603,7 +610,7 @@ const ProfileSettings = () => {
                       <Button
                         key={style.id}
                         variant={timeboxingStyle === style.id ? 'default' : 'outline'}
-                        className="rounded-xl text-xs"
+                        className="h-11 rounded-2xl text-xs"
                         onClick={() => {
                           setTimeboxingStyle(style.id);
                           settingsSave.saveNow({ timeboxing_style: style.id });
@@ -620,7 +627,7 @@ const ProfileSettings = () => {
                   <Input
                     id="dailyGoal"
                     placeholder="How much work do you want to aim for today?"
-                    className="mt-1 rounded-xl"
+                    className="mt-1 rounded-2xl"
                     value={dailyFocusGoal}
                     onChange={(e) => {
                       setDailyFocusGoal(e.target.value);
@@ -656,16 +663,16 @@ const ProfileSettings = () => {
                   them destroy or export real user data, a button that looks
                   live but does nothing is the worst option here. */}
               <div className="space-y-3">
-                <Button variant="outline" className="w-full rounded-xl justify-start" disabled>
+                <Button variant="outline" className="w-full h-11 rounded-2xl justify-start" disabled>
                   Email &amp; Password Reset — coming soon
                 </Button>
-                <Button variant="outline" className="w-full rounded-xl justify-start" disabled>
+                <Button variant="outline" className="w-full h-11 rounded-2xl justify-start" disabled>
                   Export Data (journals, mood) — coming soon
                 </Button>
-                <Button variant="outline" className="w-full rounded-xl justify-start" disabled>
+                <Button variant="outline" className="w-full h-11 rounded-2xl justify-start" disabled>
                   Clear Emotional History — coming soon
                 </Button>
-                <Button variant="outline" className="w-full rounded-xl justify-start text-red-600" disabled>
+                <Button variant="outline" className="w-full h-11 rounded-2xl justify-start text-red-600" disabled>
                   Delete Account — coming soon
                 </Button>
               </div>
@@ -678,15 +685,15 @@ const ProfileSettings = () => {
                 📩 Feedback & Support
               </h3>
               <div className="space-y-3">
-                <Button variant="outline" className="w-full rounded-xl justify-start" disabled>
+                <Button variant="outline" className="w-full h-11 rounded-2xl justify-start" disabled>
                   <HelpCircle className="h-4 w-4 mr-2" />
                   Bug Report — coming soon
                 </Button>
-                <Button variant="outline" className="w-full rounded-xl justify-start" disabled>
+                <Button variant="outline" className="w-full h-11 rounded-2xl justify-start" disabled>
                   <Zap className="h-4 w-4 mr-2" />
                   Suggest a Feature — coming soon
                 </Button>
-                <Button variant="outline" className="w-full rounded-xl justify-start" disabled>
+                <Button variant="outline" className="w-full h-11 rounded-2xl justify-start" disabled>
                   <MessageSquare className="h-4 w-4 mr-2" />
                   Talk to Team iMA — coming soon
                 </Button>
@@ -694,7 +701,7 @@ const ProfileSettings = () => {
             </Card>
           </TabsContent>
         </Tabs>
-      </div>
+      </PageWorkspace>
     </div>
   );
 };

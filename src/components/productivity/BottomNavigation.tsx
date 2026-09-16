@@ -46,7 +46,7 @@ const BottomNavigation = () => {
           onClick={() => navigate('/focus')}
           aria-label="Focus"
           aria-current={isFocus ? 'page' : undefined}
-          className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-2xl min-w-[60px]"
+          className="flex flex-col items-center justify-center gap-1 h-auto min-h-11 py-2 px-3 rounded-2xl min-w-[60px]"
         >
           <Clock className={`h-6 w-6 ${iconTone(isFocus)}`} />
         </Button>
@@ -56,7 +56,7 @@ const BottomNavigation = () => {
           onClick={() => navigate('/tasks')}
           aria-label="Tasks"
           aria-current={isTasks ? 'page' : undefined}
-          className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-2xl min-w-[60px]"
+          className="flex flex-col items-center justify-center gap-1 h-auto min-h-11 py-2 px-3 rounded-2xl min-w-[60px]"
         >
           <div className={`w-6 h-6 rounded-full border-2 ${isTasks ? 'border-foreground' : 'border-muted-foreground'}`}></div>
         </Button>
@@ -66,7 +66,7 @@ const BottomNavigation = () => {
           onClick={() => navigate('/')}
           aria-label="Home"
           aria-current={isHome ? 'page' : undefined}
-          className="flex flex-col items-center p-3 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg"
+          className="flex min-h-11 min-w-11 flex-col items-center justify-center p-3 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg"
         >
           <Grid3X3 className="h-6 w-6 text-white" />
         </Button>
@@ -76,7 +76,7 @@ const BottomNavigation = () => {
           onClick={() => navigate('/journaling')}
           aria-label="Journal"
           aria-current={isJournal ? 'page' : undefined}
-          className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-2xl min-w-[60px]"
+          className="flex flex-col items-center justify-center gap-1 h-auto min-h-11 py-2 px-3 rounded-2xl min-w-[60px]"
         >
           <div className="w-6 h-6 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center">
             <Calendar className="h-4 w-4 text-white" />
@@ -88,7 +88,7 @@ const BottomNavigation = () => {
           onClick={() => navigate('/profile-settings?tab=profile')}
           aria-label="Profile"
           aria-current={isProfile ? 'page' : undefined}
-          className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-2xl min-w-[60px]"
+          className="flex flex-col items-center justify-center gap-1 h-auto min-h-11 py-2 px-3 rounded-2xl min-w-[60px]"
         >
           <User className={`h-6 w-6 ${iconTone(isProfile)}`} />
         </Button>
