@@ -4,14 +4,22 @@ import type { TaskRow } from '@/hooks/use-tasks';
 /**
  * The "Right Now" queue behind the home screen.
  *
- * Deliberately not a ranking engine: the order is whatever useTasks() already
- * returned (scheduled_date, then start_time with nulls last, then created_at),
- * so Home and /tasks always agree about what comes next, and completing a task
- * cannot make the list jump.
+ * Eligibility is every incomplete task scheduled on or before the user's local
+ * today. An unfinished task must not vanish from the executive-function layer
+ * just because midnight passed, which is exactly what a today-only rule did:
+ * a task scheduled yesterday was still listed under /tasks while Home claimed
+ * there was nothing to do.
  *
- * There is no time-of-day weighting either. Promoting "overdue" work would
- * make the same data produce a different queue minute to minute, which is both
- * untestable and disorienting for someone who glances at the screen twice.
+ * Still not a ranking engine. The order is whatever useTasks() already
+ * returned (scheduled_date, then start_time with nulls last, then created_at),
+ * so Home and /tasks always agree about what comes next, completing a task
+ * cannot make the list jump, and the oldest unfinished work simply sorts first
+ * because its date is earliest. There is no urgency score, no time-of-day
+ * weighting and nothing generated: the same rows always produce the same
+ * queue.
+ *
+ * A backlog does not flood the screen either — the card shows one task, with
+ * at most UP_NEXT_LIMIT listed beneath it.
  *
  * The cursor is session state and nothing more. "Not now" moves it; a refresh
  * puts it back to the first task. Nothing here writes anything.
@@ -21,7 +29,7 @@ import type { TaskRow } from '@/hooks/use-tasks';
 export const UP_NEXT_LIMIT = 3;
 
 export interface HomeTaskQueue {
-  /** Today's incomplete tasks, in the order useTasks() returned them. */
+  /** Incomplete tasks due today or earlier, in the order useTasks() returned them. */
   eligible: TaskRow[];
   total: number;
   /** The task the Right Now card is showing, or null when there are none. */
@@ -38,13 +46,17 @@ export interface HomeTaskQueue {
   advance: () => void;
 }
 
-const isSameLocalDay = (scheduledDate: string, localToday: string) => scheduledDate === localToday;
+/**
+ * Both are local YYYY-MM-DD, which sorts correctly as a plain string, so this
+ * needs no Date parsing and cannot drift with the timezone.
+ */
+const isDueOrOverdue = (scheduledDate: string, localToday: string) => scheduledDate <= localToday;
 
 export function useHomeTaskQueue(tasks: TaskRow[], localToday: string): HomeTaskQueue {
   const [cursor, setCursor] = useState(0);
 
   const eligible = tasks.filter(
-    (task) => isSameLocalDay(task.scheduled_date, localToday) && !task.completed
+    (task) => isDueOrOverdue(task.scheduled_date, localToday) && !task.completed
   );
   const total = eligible.length;
 

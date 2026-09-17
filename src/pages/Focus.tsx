@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import TimerBox from '@/components/focus/TimerBox';
@@ -9,6 +9,7 @@ import FloatingSettings from '@/components/focus/FloatingSettings';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
 import PageWorkspace from '@/components/layout/PageWorkspace';
 import { useUserSettings } from '@/hooks/use-user-settings';
+import { useTasks } from '@/hooks/use-tasks';
 
 /**
  * Used until the saved settings arrive, and when a user has no settings row.
@@ -28,6 +29,20 @@ const WORKSPACE = 'max-w-2xl';
 
 const Focus = () => {
   const navigate = useNavigate();
+
+  /**
+   * Optional context. Home passes the id of the task it was showing under
+   * Right Now; the title is resolved from the user's own tasks rather than
+   * carried in the URL, so it survives a refresh, exposes nothing, and stays
+   * subject to the same RLS as every other read. An unknown or absent id
+   * simply leaves this the generic Focus Timer.
+   */
+  const [searchParams] = useSearchParams();
+  const requestedTaskId = searchParams.get('task');
+  const { data: tasks = [] } = useTasks();
+  const focusTask = requestedTaskId
+    ? tasks.find((task) => task.id === requestedTaskId) ?? null
+    : null;
   const [isPlaying, setIsPlaying] = useState(false);
   const [timeLeft, setTimeLeft] = useState(FALLBACK_BLOCK_MINUTES * 60);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -208,6 +223,12 @@ const Focus = () => {
           {currentPhase === 'break' && (
             <div className="text-orange-300/80 text-xs mt-1">
               Break time - recharge for your next flow
+            </div>
+          )}
+          {focusTask && (
+            <div className="mt-3">
+              <p className="text-white/50 text-xs">Working on</p>
+              <p className="text-white text-sm font-medium">{focusTask.title}</p>
             </div>
           )}
         </div>

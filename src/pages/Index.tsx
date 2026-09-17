@@ -89,6 +89,14 @@ const Index = () => {
   const today = toLocalISODate(new Date());
   const queue = useHomeTaskQueue(allTasks, today);
 
+  /**
+   * Hand the Right Now task to whichever screen the user is sent to, so they
+   * do not have to remember what the app just told them. Both destinations
+   * still work with no task at all when reached from anywhere else.
+   */
+  const withTask = (path: string) =>
+    queue.current ? `${path}?task=${encodeURIComponent(queue.current.id)}` : path;
+
   // The name is only ever the stored one; there is no fallback that guesses at
   // a first name from anything else.
   const firstName = profile?.first_name?.trim();
@@ -266,8 +274,8 @@ const Index = () => {
               ringFraction={queue.ringFraction}
               canAdvance={queue.canAdvance}
               isCompleting={toggleTaskCompleted.isPending}
-              onStart={() => navigate('/focus')}
-              onStuck={() => navigate('/body-double')}
+              onStart={() => navigate(withTask('/focus'))}
+              onStuck={() => navigate(withTask('/body-double'))}
               onNotNow={queue.advance}
               onToggleComplete={() => handleToggleTask(queue.current as TaskRow)}
             >
@@ -397,8 +405,8 @@ const Index = () => {
         taskErrorMessage={taskError ? (taskError as Error).message : null}
         isCompleting={toggleTaskCompleted.isPending}
         onToggleTask={handleToggleTask}
-        onStart={() => navigate('/focus')}
-        onStuck={() => navigate('/body-double')}
+        onStart={() => navigate(withTask('/focus'))}
+        onStuck={() => navigate(withTask('/body-double'))}
         emptyState={emptyState}
         onEmptyStateAction={() => navigate('/tasks')}
       />

@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Camera, Upload, Smile, User, Settings, Moon, Sun, Volume2, Zap, Clock, Shield, MessageSquare, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Camera, Upload, Smile, User, Settings, Moon, Sun, Volume2, Zap, Clock, Shield, MessageSquare, HelpCircle, LogOut } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,6 +15,7 @@ import PageWorkspace from '@/components/layout/PageWorkspace';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { useAutoSave } from '@/hooks/use-autosave';
+import { useAuth } from '@/contexts/auth-context';
 import { useProfile, useUpdateProfile, type ProfilePatch } from '@/hooks/use-profile';
 import { useUserSettings, useUpdateUserSettings, type UserSettingsPatch } from '@/hooks/use-user-settings';
 
@@ -34,6 +35,20 @@ const isStorableDateOfBirth = (value: string) =>
 const WORKSPACE = 'max-w-3xl';
 
 const ProfileSettings = () => {
+  const { signOut } = useAuth();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    // The guard redirects on a cleared session, so there is nothing to
+    // navigate here. The flag only stops a second click mid-request.
+    setLoggingOut(true);
+    try {
+      await signOut();
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') || 'profile';
@@ -675,6 +690,22 @@ const ProfileSettings = () => {
                 <Button variant="outline" className="w-full h-11 rounded-2xl justify-start text-red-600" disabled>
                   Delete Account — coming soon
                 </Button>
+
+                {/* The one account action that works. It signs out through the
+                    existing auth context; the route guard then sends the user
+                    to /auth. Nothing is deleted. */}
+                <Button
+                  variant="outline"
+                  className="w-full h-11 rounded-2xl justify-start border-white/20"
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  {loggingOut ? 'Logging out…' : 'Log out'}
+                </Button>
+                <p className="text-sm text-muted-foreground">
+                  Signs you out on this device. Your data stays in your account.
+                </p>
               </div>
             </Card>
 

@@ -12,8 +12,13 @@ export interface FocusSessionStart {
   startType: string;
   /** focus_sessions_start_mood: calm | anxious | sleepy | fire | scattered. */
   startMood: string;
-  plannedBlockMinutes: number;
-  plannedBreakMinutes: number;
+  /**
+   * Null when the session planned no block at all — Body Double's untimed
+   * companionship mode. Both columns are nullable with an `is null or …`
+   * CHECK, so this stores honestly rather than claiming a plan.
+   */
+  plannedBlockMinutes: number | null;
+  plannedBreakMinutes: number | null;
 }
 
 /** What actually happened. Written on finish, and on leaving early. */

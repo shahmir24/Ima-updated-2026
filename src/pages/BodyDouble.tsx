@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Play, Pause, RotateCcw, Heart, Brain, Meh, CheckCircle,
   Edit3, Wind, Volume2, ListChecks, LifeBuoy
@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useUserSettings } from '@/hooks/use-user-settings';
 import { useSaveJournalEntry } from '@/hooks/use-journal';
 import { useFocusSession } from '@/hooks/use-focus-session';
+import { useTasks } from '@/hooks/use-tasks';
 
 /**
  * Body Double — quiet co-working presence.
@@ -112,6 +113,20 @@ const BodyDouble = () => {
   const [nudgeText, setNudgeText] = useState('');
   const [journalSaved, setJournalSaved] = useState(false);
 
+  /**
+   * Co-working and timeboxing are not the same thing. 'timed' keeps the
+   * existing behaviour — the saved Focus block starts counting down — while
+   * 'untimed' simply stays with the user: no countdown, and the elapsed time
+   * is tracked only so the session still records a real duration.
+   */
+  const [timerMode, setTimerMode] = useState<'timed' | 'untimed'>('timed');
+  /**
+   * True when the intention should be shown as an editable field rather than
+   * a list to pick from: either the user asked for "Something else", or a task
+   * was handed over from Home and is therefore already known.
+   */
+  const [showIntentionField, setShowIntentionField] = useState(false);
+
   const [blockMinutes, setBlockMinutes] = useState(FALLBACK_BLOCK_MINUTES);
   const [breakMinutes, setBreakMinutes] = useState(FALLBACK_BREAK_MINUTES);
 
@@ -136,6 +151,27 @@ const BodyDouble = () => {
 
   const { data: settings, isFetched: settingsReady } = useUserSettings();
   const recorder = useFocusSession();
+
+  /**
+   * Context handoff. Home's "I'm stuck" passes the id of the task it was
+   * showing, so this screen already knows what the user is stuck on instead of
+   * asking again. The title is resolved from the user's own tasks, so nothing
+   * is carried in the URL and RLS still applies. Reached with no id — from the
+   * sidebar, say — the generic intake is unchanged.
+   */
+  const [searchParams] = useSearchParams();
+  const requestedTaskId = searchParams.get('task');
+  const { data: allTasks = [] } = useTasks();
+  const handedOffTask = requestedTaskId
+    ? allTasks.find((task) => task.id === requestedTaskId) ?? null
+    : null;
+
+  /**
+   * The user's own unfinished work, offered instead of an empty text field.
+   * useTasks() already orders by date, so overdue and today's tasks come
+   * first, and the list is capped to stay a choice rather than a backlog.
+   */
+  const pickableTasks = allTasks.filter((task) => !task.completed).slice(0, 6);
   const saveJournalEntry = useSaveJournalEntry('body-double');
 
   const messageSeq = useRef(0);
@@ -170,6 +206,15 @@ const BodyDouble = () => {
 
   // Saved timer settings, seeded once. A later refetch must not move the clock
   // of a session already running.
+  const handoffSeededRef = useRef(false);
+  useEffect(() => {
+    if (handoffSeededRef.current || !handedOffTask) return;
+    handoffSeededRef.current = true;
+    setSession((prev) => ({ ...prev, intention: handedOffTask.title, startType: 'task' }));
+    // Already known — do not offer a picker that asks the same question again.
+    setShowIntentionField(true);
+  }, [handedOffTask]);
+
   const seededRef = useRef(false);
   useEffect(() => {
     if (seededRef.current || !settingsReady) return;
@@ -188,8 +233,23 @@ const BodyDouble = () => {
 
   // One interval for the whole run, restarted only when the clock starts or
   // stops — not rebuilt every tick.
+  /**
+   * Untimed companionship still needs a real duration for focus_sessions, so
+   * time spent on the screen is counted up. Nothing counts down, and this
+   * never touches timeRemaining.
+   */
   useEffect(() => {
-    if (!session.isActive) return;
+    if (currentScreen !== 'session' || timerMode !== 'untimed') return;
+
+    const interval = setInterval(() => {
+      setSession((prev) => ({ ...prev, focusSeconds: prev.focusSeconds + 1 }));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [currentScreen, timerMode]);
+
+  useEffect(() => {
+    if (!session.isActive || timerMode === 'untimed') return;
 
     const interval = setInterval(() => {
       setSession((prev) => {
@@ -204,7 +264,7 @@ const BodyDouble = () => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [session.isActive]);
+  }, [session.isActive, timerMode]);
 
   // Keep the recorder's copy of the counters current, so leaving early still
   // records the focus time that was actually earned.
@@ -223,7 +283,7 @@ const BodyDouble = () => {
   // Phase rollover. The next phase does not auto-start: the user decides when
   // to begin a break, and when to come back.
   useEffect(() => {
-    if (!session.isActive || session.timeRemaining > 0) return;
+    if (!session.isActive || timerMode === 'untimed' || session.timeRemaining > 0) return;
 
     // The phase in this render IS the one that just ran out, so it can be read
     // directly. Reading it inside the updater below would be a race: React is
@@ -248,13 +308,13 @@ const BodyDouble = () => {
         : 'Break over. Start the next block whenever you like.'
     );
   }, [
-    session.isActive, session.timeRemaining, session.phase,
+    session.isActive, session.timeRemaining, session.phase, timerMode,
     blockSeconds, breakSeconds, breakMinutes, pushSupport
   ]);
 
   // Scheduled nudges: once per work block, per milestone.
   useEffect(() => {
-    if (!session.isActive || session.phase !== 'work' || session.totalTime <= 0) return;
+    if (!session.isActive || timerMode === 'untimed' || session.phase !== 'work' || session.totalTime <= 0) return;
 
     const elapsedFraction = (session.totalTime - session.timeRemaining) / session.totalTime;
 
@@ -267,26 +327,33 @@ const BodyDouble = () => {
     }
   }, [
     session.isActive, session.phase, session.timeRemaining,
-    session.totalTime, session.cycles, flashNudge
+    session.totalTime, session.cycles, timerMode, flashNudge
   ]);
 
   const startSession = async () => {
     startedRef.current = true;
-    setSession((prev) => ({ ...prev, isActive: true }));
+    // 'untimed' leaves isActive false, which is what the countdown effect
+    // watches, so no clock starts. The elapsed counter below runs instead.
+    const timed = timerMode === 'timed';
+    setSession((prev) => ({ ...prev, isActive: timed }));
     setCurrentScreen('session');
 
     pushSupport('status', `Working on: ${session.intention}`);
     pushSupport(
       'nudge',
-      "I'll keep time and check in now and then. Nothing here is watching your screen."
+      timed
+        ? "I'll keep time and check in now and then. Nothing here is watching your screen."
+        : "No timer running. I'll stay here until you say you're done. Nothing here is watching your screen."
     );
 
     await recorder.start({
       intention: session.intention,
       startType: session.startType,
       startMood: session.mood,
-      plannedBlockMinutes: blockMinutes,
-      plannedBreakMinutes: breakMinutes
+      // An untimed session planned no block, so it stores none rather than
+      // claiming the saved Focus settings it never used.
+      plannedBlockMinutes: timed ? blockMinutes : null,
+      plannedBreakMinutes: timed ? breakMinutes : null
     });
   };
 
@@ -502,15 +569,86 @@ const BodyDouble = () => {
           {/* Task Input */}
           {session.startType && (
             <div className="w-full space-y-3 animate-fade-in">
-              <Input
-                value={session.intention}
-                onChange={(e) => setSession((prev) => ({ ...prev, intention: e.target.value }))}
-                placeholder="What would you like to work on?"
-                className="bg-[#1F1F1F] border-white/20 text-white placeholder:text-white/50"
-              />
+              {/* The user's own unfinished tasks, when this screen has them and
+                  the user has not chosen to type something else instead. iMA
+                  already knows this list; making them retype a task they
+                  already entered is the thing to avoid. Selecting one only
+                  borrows its title — no task is created, changed or copied. */}
+              {session.startType === 'task' && !showIntentionField && pickableTasks.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-white/80 text-sm">Which one?</p>
+                  {pickableTasks.map((task) => (
+                    <button
+                      key={task.id}
+                      type="button"
+                      onClick={() => setSession((prev) => ({ ...prev, intention: task.title }))}
+                      aria-pressed={session.intention === task.title}
+                      className={`w-full min-h-11 p-3 rounded-2xl text-left transition-all ${
+                        session.intention === task.title
+                          ? 'bg-purple-500/30 border border-purple-400/50'
+                          : 'bg-[#1F1F1F] hover:bg-[#2F2F2F] border border-white/10'
+                      }`}
+                    >
+                      <span className="text-white text-sm">{task.title}</span>
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowIntentionField(true);
+                      setSession((prev) => ({ ...prev, intention: '' }));
+                    }}
+                    className="w-full min-h-11 p-3 rounded-2xl text-left bg-[#1F1F1F] hover:bg-[#2F2F2F] border border-white/10 text-white/70 text-sm"
+                  >
+                    Something else
+                  </button>
+                </div>
+              ) : (
+                <Input
+                  value={session.intention}
+                  onChange={(e) => setSession((prev) => ({ ...prev, intention: e.target.value }))}
+                  placeholder="What would you like to work on?"
+                  className="bg-[#1F1F1F] border-white/20 text-white placeholder:text-white/50"
+                />
+              )}
+
+              {/* Co-working is not automatically a timebox. */}
+              <div className="space-y-2 pt-1">
+                <p className="text-white/80 text-sm">How should I keep you company?</p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setTimerMode('untimed')}
+                    aria-pressed={timerMode === 'untimed'}
+                    className={`min-h-11 p-3 rounded-2xl text-left transition-all ${
+                      timerMode === 'untimed'
+                        ? 'bg-purple-500/30 border border-purple-400/50'
+                        : 'bg-[#1F1F1F] hover:bg-[#2F2F2F] border border-white/10'
+                    }`}
+                  >
+                    <span className="text-white text-sm">Just stay with me</span>
+                    <span className="block text-white/50 text-xs">No countdown</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTimerMode('timed')}
+                    aria-pressed={timerMode === 'timed'}
+                    className={`min-h-11 p-3 rounded-2xl text-left transition-all ${
+                      timerMode === 'timed'
+                        ? 'bg-purple-500/30 border border-purple-400/50'
+                        : 'bg-[#1F1F1F] hover:bg-[#2F2F2F] border border-white/10'
+                    }`}
+                  >
+                    <span className="text-white text-sm">Use my Focus timer</span>
+                    <span className="block text-white/50 text-xs">{blockMinutes} min</span>
+                  </button>
+                </div>
+              </div>
 
               <p className="text-white/40 text-xs text-center">
-                {blockMinutes}-minute blocks with {breakMinutes}-minute breaks, from your settings.
+                {timerMode === 'timed'
+                  ? `${blockMinutes}-minute blocks with ${breakMinutes}-minute breaks, from your settings.`
+                  : 'No timer. I\u2019ll stay here until you say you\u2019re done.'}
               </p>
 
               <div className="flex gap-3">
@@ -650,6 +788,16 @@ const BodyDouble = () => {
             >
               Start Another Session
             </Button>
+
+            {/* Finishing a session should not be a dead end. Nothing redirects
+                on its own: the confirmation above stays until the user picks. */}
+            <Button
+              variant="outline"
+              className="w-full border-white/20 text-white/80 hover:bg-white/10"
+              onClick={() => navigate('/')}
+            >
+              Return to Home
+            </Button>
           </div>
         </main>
 
@@ -687,17 +835,22 @@ const BodyDouble = () => {
             <div
               className="w-32 h-32 rounded-full border-4 border-purple-500/20"
               style={{
-                background: `conic-gradient(from 0deg, #a855f7 ${progressPercentage * 3.6}deg, transparent ${progressPercentage * 3.6}deg)`
+                background:
+                  timerMode === 'untimed'
+                    ? undefined
+                    : `conic-gradient(from 0deg, #a855f7 ${progressPercentage * 3.6}deg, transparent ${progressPercentage * 3.6}deg)`
               }}
             />
           </div>
 
           <div className="relative z-10">
             <div className="text-4xl font-bold text-white mb-2">
-              {formatTime(session.timeRemaining)}
+              {formatTime(timerMode === 'untimed' ? session.focusSeconds : session.timeRemaining)}
             </div>
             <p className="text-white/60 text-sm mb-1">
-              {session.phase === 'work' ? 'Focus Time' : 'Break Time'} • Block {session.cycles + 1}
+              {timerMode === 'untimed'
+                ? 'Here with you'
+                : `${session.phase === 'work' ? 'Focus Time' : 'Break Time'} • Block ${session.cycles + 1}`}
             </p>
             <p className="text-purple-300 text-sm">
               Working on: {session.intention}
@@ -708,7 +861,11 @@ const BodyDouble = () => {
               </p>
             )}
 
-            <div className="flex items-center justify-center space-x-4 mt-4">
+            <div
+              className={`flex items-center justify-center space-x-4 mt-4 ${
+                timerMode === 'untimed' ? 'hidden' : ''
+              }`}
+            >
               <Button
                 onClick={toggleTimer}
                 aria-label={session.isActive ? 'Pause timer' : 'Start timer'}
