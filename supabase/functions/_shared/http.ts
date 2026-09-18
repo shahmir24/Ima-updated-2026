@@ -24,11 +24,16 @@ export const DEFAULT_ALLOWED_ORIGINS: readonly string[] = [
 /**
  * Merges the configured origins onto the local defaults.
  *
- * IMA_ALLOWED_ORIGINS is a comma-separated list of exact origins. A single
- * leading-label wildcard is accepted for Vercel preview deployments, which get
- * a fresh hostname per push and can otherwise never be allow-listed:
+ * IMA_ALLOWED_ORIGINS is a comma-separated list of exact origins, each of which
+ * may contain one `*` inside the hostname for Vercel preview deployments — they
+ * get a fresh hostname per push and can otherwise never be allow-listed. The
+ * value this project deploys with is:
  *
- *   https://ima.example.com,https://*.vercel.app
+ *   https://ima-updated-2026.vercel.app,https://ima-updated-2026-*.vercel.app
+ *
+ * Note what that is NOT: `https://*.vercel.app` would admit every site on
+ * vercel.app, strangers' included. Anchoring the wildcard between the project
+ * name and the suffix keeps it to hostnames Vercel only mints for this project.
  */
 export function resolveAllowedOrigins(configured: string | null | undefined): string[] {
   const extra = (configured ?? '')
@@ -38,30 +43,65 @@ export function resolveAllowedOrigins(configured: string | null | undefined): st
   return [...DEFAULT_ALLOWED_ORIGINS, ...extra];
 }
 
+const HTTPS = 'https://';
+
 /**
- * Exact match, or a `https://*.suffix` wildcard.
+ * Matches an origin against one `https://<before>*<after>` entry.
  *
- * The wildcard is kept deliberately tight: https only, at least one real
- * subdomain label, and a host of nothing but host characters — so a value like
- * `https://evil.com/.vercel.app` or `https://x.vercel.app.evil.com` cannot slip
- * through the suffix test.
+ * The `*` stands for one or more host characters with NO DOT among them, so it
+ * can never span a label boundary. That single rule is what stops the usual
+ * tricks:
+ *
+ *   entry   https://ima-updated-2026-*.vercel.app
+ *   yes     https://ima-updated-2026-abc123-acme.vercel.app   (preview build)
+ *   yes     https://ima-updated-2026-git-my-branch.vercel.app (branch build)
+ *   no      https://ima-updated-2026-x.evil.vercel.app        (* would span a dot)
+ *   no      https://ima-updated-2026.vercel.app.evil.com      (wrong suffix)
+ *   no      https://evil.com/.vercel.app                      (not a bare origin)
+ *   no      https://someone-elses-project.vercel.app          (wrong prefix)
+ *   no      http://ima-updated-2026-abc.vercel.app            (not https)
+ *
+ * Narrowing further is possible without a code change: Vercel puts the account
+ * or team slug in the last label before .vercel.app, so an entry of
+ * `https://ima-updated-2026-*-<scope>.vercel.app` also fits this one-star form.
  */
+function matchesWildcard(origin: string, entry: string): boolean {
+  if (!entry.startsWith(HTTPS)) return false;
+
+  const star = entry.indexOf('*');
+  if (star === -1) return false;
+  // Exactly one wildcard. Belt and braces: an origin can never contain a `*`
+  // once the host check below has run, so a two-star entry would match nothing
+  // anyway. Refusing the malformed entry outright is clearer than relying on
+  // that, and it keeps the two rules independent.
+  if (entry.indexOf('*', star + 1) !== -1) return false;
+
+  const before = entry.slice(0, star);
+  const after = entry.slice(star + 1);
+  // The entry must stay anchored on the right by at least one real label, or
+  // `https://x*` would match any https origin at all.
+  if (!after.includes('.')) return false;
+
+  // A bare origin only: scheme plus host. Anything carrying a path, a port, a
+  // query or credentials is refused before the prefix/suffix test, so a string
+  // like `https://evil.com/.vercel.app` cannot reach it.
+  if (!/^[a-z0-9.-]+$/.test(origin.slice(HTTPS.length))) return false;
+
+  // `before` begins with https:// because the entry does, so matching it also
+  // proves the origin's scheme — there is no separate check for that.
+  if (!origin.startsWith(before) || !origin.endsWith(after)) return false;
+  // A non-empty middle, and one that cannot overlap the two anchors.
+  if (origin.length <= before.length + after.length) return false;
+
+  const middle = origin.slice(before.length, origin.length - after.length);
+  return !middle.includes('.');
+}
+
+/** Exact match, or one `https://<before>*<after>` wildcard entry. */
 export function isOriginAllowed(origin: string, allowed: readonly string[]): boolean {
   for (const entry of allowed) {
     if (entry === origin) return true;
-
-    const WILDCARD = 'https://*.';
-    if (!entry.startsWith(WILDCARD)) continue;
-
-    const suffix = entry.slice(WILDCARD.length);
-    if (!suffix.includes('.')) continue;
-    if (!origin.startsWith('https://')) continue;
-
-    const host = origin.slice('https://'.length);
-    if (!/^[a-z0-9.-]+$/.test(host)) continue;
-    if (!host.endsWith(`.${suffix}`)) continue;
-    // Require something in front of the dot, so `https://.vercel.app` fails.
-    if (host.length > suffix.length + 1) return true;
+    if (matchesWildcard(origin, entry)) return true;
   }
   return false;
 }
