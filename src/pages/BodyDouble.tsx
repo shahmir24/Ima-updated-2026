@@ -14,16 +14,29 @@ import { useUserSettings } from '@/hooks/use-user-settings';
 import { useSaveJournalEntry } from '@/hooks/use-journal';
 import { useFocusSession } from '@/hooks/use-focus-session';
 import { useTasks } from '@/hooks/use-tasks';
+import { useTaskBreakdown } from '@/hooks/use-task-breakdown';
+import StepSuggestions from '@/components/bodydouble/StepSuggestions';
 
 /**
  * Body Double — quiet co-working presence.
  *
- * There is no model behind this screen and it does not pretend otherwise. The
- * support area shows timed nudges and the help the user asks for; it never
- * claims to have read anything, and nothing infers the user's state from how
- * long they went without clicking. When a real agent lands it slots into the
- * same support area: the messages are already a typed list with a `kind`, and
- * every one of them is produced by an explicit call rather than by a render.
+ * One part of this screen now asks a service for suggestions: "Break it down"
+ * sends the task text, and the step being narrowed, to the ai-breakdown Edge
+ * Function and shows what comes back. That is the whole of it. Everything else
+ * here is still unmodelled — the nudges are canned and on a timer, the support
+ * area never claims to have read anything, and nothing infers the user's state
+ * from how long they went without clicking.
+ *
+ * What the suggestions are NOT: they are not evidence that iMA can see the
+ * screen, the user's attention, their mood or their surroundings. Nothing but
+ * the words in the task and the current step is ever sent, and nothing that
+ * comes back is stored — suggestions live in this component's state until the
+ * dialog closes and are not memory of any kind.
+ *
+ * The manual path is untouched and stays the fallback: the "write your own
+ * step" field is visible and usable whether suggestions are idle, loading,
+ * returned or broken, and a failed call leaves this screen working exactly as
+ * it did before any of it existed.
  */
 
 interface SupportMessage {
@@ -173,6 +186,12 @@ const BodyDouble = () => {
    */
   const pickableTasks = allTasks.filter((task) => !task.completed).slice(0, 6);
   const saveJournalEntry = useSaveJournalEntry('body-double');
+
+  /**
+   * Suggested steps. Session-local and never persisted: closing the dialog or
+   * starting another session drops them.
+   */
+  const breakdown = useTaskBreakdown();
 
   const messageSeq = useRef(0);
   const firedNudgesRef = useRef<Set<string>>(new Set());
@@ -375,16 +394,52 @@ const BodyDouble = () => {
   const openSupport = () => {
     setSupportView('options');
     setNextStepDraft(nextStep);
+    // Each stuck moment starts clean. Carrying the previous one's suggestions
+    // forward would show steps for a step the user has already moved past.
+    breakdown.reset();
     setShowSupport(true);
   };
 
-  const saveNextStep = () => {
-    const step = nextStepDraft.trim();
+  /**
+   * Entering the break-down view always starts clean.
+   *
+   * Resetting in openSupport alone was not enough: "Back" returns to the
+   * options view without closing the dialog, so re-entering would show the
+   * steps from before — and, if a request was still in flight, would show a
+   * permanently disabled "Thinking…" belonging to a view the user had left.
+   */
+  const openBreakDownView = () => {
+    breakdown.reset();
+    setSupportView('break-down');
+  };
+
+  /**
+   * The one way a next step is set, whether it was typed or picked from a
+   * suggestion. Unchanged in behaviour from when it was inlined in
+   * saveNextStep: same trim, same guard, same state, same support message.
+   */
+  const commitNextStep = (candidate: string) => {
+    const step = candidate.trim();
     if (!step) return;
     setNextStep(step);
+    setNextStepDraft(step);
     setShowSupport(false);
     setSupportView('options');
+    breakdown.reset();
     pushSupport('status', `Next step: ${step}`);
+  };
+
+  const saveNextStep = () => {
+    commitNextStep(nextStepDraft);
+  };
+
+  /**
+   * Picking a suggestion goes through commitNextStep, exactly as typing one
+   * does. There is one way a next step is set, one place it is announced into
+   * the support log, and no second parallel system to keep in agreement.
+   */
+  const startWithSuggestion = (step: string) => {
+    commitNextStep(step);
   };
 
   const handleSessionComplete = async () => {
@@ -461,6 +516,8 @@ const BodyDouble = () => {
     setSupportMessages([]);
     setNextStep('');
     setNextStepDraft('');
+    // Suggestions belong to the session that asked for them.
+    breakdown.reset();
     setJournalSaved(false);
     setWrapUp({ didWell: '', wantToImprove: '', endMood: '' });
     setSession({
@@ -969,7 +1026,7 @@ const BodyDouble = () => {
           if (!open) setSupportView('options');
         }}
       >
-        <DialogContent className="bg-[#1F1F1F] border border-white/20 text-white">
+        <DialogContent className="bg-[#1F1F1F] border border-white/20 text-white max-h-[calc(100vh-10rem)] overflow-y-auto">
           {supportView === 'options' ? (
             <>
               <DialogHeader>
@@ -984,7 +1041,7 @@ const BodyDouble = () => {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <Button
-                    onClick={() => setSupportView('break-down')}
+                    onClick={openBreakDownView}
                     className="bg-green-500/20 hover:bg-green-500/30 border border-green-400/50 text-green-300"
                   >
                     <ListChecks className="h-4 w-4 mr-2" />
@@ -1034,6 +1091,24 @@ const BodyDouble = () => {
 
               <div className="space-y-4">
 
+                <StepSuggestions
+                  steps={breakdown.steps}
+                  pending={breakdown.pending}
+                  error={breakdown.error}
+                  requested={breakdown.requested}
+                  canMakeSmaller={breakdown.canMakeSmaller}
+                  onSuggest={() => breakdown.breakDown(session.intention)}
+                  onStartWith={startWithSuggestion}
+                  onMakeSmaller={(step) => breakdown.makeSmaller(session.intention, step)}
+                  onTryAnother={(step) => breakdown.tryAnother(session.intention, step)}
+                />
+
+                <div className="flex items-center gap-3">
+                  <span className="h-px flex-1 bg-white/10" />
+                  <span className="text-white/40 text-xs">or write your own</span>
+                  <span className="h-px flex-1 bg-white/10" />
+                </div>
+
                 <Input
                   value={nextStepDraft}
                   onChange={(e) => setNextStepDraft(e.target.value)}
@@ -1045,7 +1120,8 @@ const BodyDouble = () => {
                 />
 
                 <p className="text-white/40 text-xs text-center">
-                  Your words, kept on this screen. Nothing is generated for you.
+                  Suggestions come from a service, using only the task and step above.
+                  They are not saved, and nothing here can see your screen or how you feel.
                 </p>
 
                 <div className="grid grid-cols-2 gap-3">
