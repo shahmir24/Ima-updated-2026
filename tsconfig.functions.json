@@ -1,0 +1,28 @@
+{
+  /* Supabase Edge Function sources. They run on Deno, not in the browser and
+     not in node, so this project deliberately pulls in neither DOM nor node
+     types: anything that compiles here uses only the language itself. Without
+     it `tsc -b` would skip supabase/ entirely and a broken edge contract would
+     not surface until deploy. */
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "types": []
+  },
+  "include": ["supabase/functions"]
+}
