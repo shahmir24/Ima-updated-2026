@@ -5,10 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { cn } from '@/lib/utils';
+import type { TaskRow } from '@/hooks/use-tasks';
 
-interface CreateTaskInput {
+export interface TaskFormInput {
   title: string;
   scheduled_date: string;
   start_time: string;
@@ -17,14 +18,41 @@ interface CreateTaskInput {
 interface MeetingModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreate: (input: CreateTaskInput) => Promise<void>;
+  /**
+   * Absent/null creates a task; a row puts the form in edit mode and prefills
+   * it. The caller decides which mutation runs — this form never persists.
+   */
+  task?: TaskRow | null;
+  onSubmit: (input: TaskFormInput) => Promise<void>;
   isSaving?: boolean;
 }
 
-const MeetingModal = ({ isOpen, onClose, onCreate, isSaving = false }: MeetingModalProps) => {
-  const [taskTitle, setTaskTitle] = useState('');
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedTime, setSelectedTime] = useState<string>('14:00');
+const DEFAULT_TIME = '14:00';
+
+/**
+ * scheduled_date is a bare Postgres date. new Date('2026-09-18') reads it as
+ * UTC midnight, which renders as the previous day west of Greenwich — the same
+ * shift the write path avoids by using format() instead of toISOString().
+ */
+const parseScheduledDate = (value: string | null | undefined): Date => {
+  if (!value) return new Date();
+  const parsed = parse(value, 'yyyy-MM-dd', new Date());
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+};
+
+/** Postgres `time` reads back as 'HH:MM:SS'; the Select's values are 'HH:MM'. */
+const toSelectTime = (value: string | null | undefined): string => {
+  if (!value) return DEFAULT_TIME;
+  const [hour, minute] = value.split(':');
+  if (!hour || !minute) return DEFAULT_TIME;
+  return `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
+};
+
+const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false }: MeetingModalProps) => {
+  const isEditing = !!task;
+  const [taskTitle, setTaskTitle] = useState(() => task?.title ?? '');
+  const [selectedDate, setSelectedDate] = useState<Date>(() => parseScheduledDate(task?.scheduled_date));
+  const [selectedTime, setSelectedTime] = useState<string>(() => toSelectTime(task?.start_time));
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -40,21 +68,34 @@ const MeetingModal = ({ isOpen, onClose, onCreate, isSaving = false }: MeetingMo
 
     setSaveError(null);
     try {
-      await onCreate({
+      await onSubmit({
         title,
         // Local date, not toISOString(): that converts to UTC and can shift the
         // task to the previous or next day depending on the timezone.
         scheduled_date: format(selectedDate, 'yyyy-MM-dd'),
         start_time: selectedTime
       });
-      // Reset only after a confirmed write, so a failure keeps the input.
-      setTaskTitle('');
-      setSelectedDate(new Date());
-      setSelectedTime('14:00');
+      // Reset only after a confirmed write, so a failure keeps the input. An
+      // edit keeps its values instead: the caller remounts the form per task.
+      if (!isEditing) {
+        setTaskTitle('');
+        setSelectedDate(new Date());
+        setSelectedTime(DEFAULT_TIME);
+      }
       onClose();
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Could not save the task.');
     }
+  };
+
+  const formatDisplayTime = (timeString: string) => {
+    const [hour, minute] = timeString.split(':');
+    const date = new Date(2024, 0, 1, parseInt(hour), parseInt(minute));
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
   };
 
   const timeOptions = [];
@@ -70,15 +111,12 @@ const MeetingModal = ({ isOpen, onClose, onCreate, isSaving = false }: MeetingMo
     }
   }
 
-  const formatDisplayTime = (timeString: string) => {
-    const [hour, minute] = timeString.split(':');
-    const date = new Date(2024, 0, 1, parseInt(hour), parseInt(minute));
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    });
-  };
+  // An existing row can hold a time off the 30-minute grid. Offer it rather
+  // than letting the Select render blank against a value it cannot find.
+  if (!timeOptions.some((option) => option.value === selectedTime)) {
+    timeOptions.push({ value: selectedTime, label: formatDisplayTime(selectedTime) });
+    timeOptions.sort((a, b) => (a.value < b.value ? -1 : 1));
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end">
@@ -96,7 +134,9 @@ const MeetingModal = ({ isOpen, onClose, onCreate, isSaving = false }: MeetingMo
           </Button>
           
           <div className="text-center">
-            <h1 className="text-xl font-bold text-white">Create New Task</h1>
+            <h1 className="text-xl font-bold text-white">
+              {isEditing ? 'Edit Task' : 'Create New Task'}
+            </h1>
           </div>
           
           <div className="w-10"></div>
@@ -195,7 +235,7 @@ const MeetingModal = ({ isOpen, onClose, onCreate, isSaving = false }: MeetingMo
             style={{ backgroundColor: '#2f74db' }}
             className="w-full hover:opacity-90 text-white rounded-2xl py-4 text-lg font-semibold disabled:opacity-60"
           >
-            {isSaving ? 'Saving…' : 'Save Task'}
+            {isSaving ? 'Saving…' : isEditing ? 'Save Changes' : 'Save Task'}
           </Button>
         </div>
       </div>

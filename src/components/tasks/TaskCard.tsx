@@ -2,7 +2,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Check, ChevronRight, Trash2 } from 'lucide-react';
+import { Check, ChevronRight, Pencil, Trash2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,10 +31,12 @@ interface TaskCardProps {
   task: Task;
   onComplete: () => void;
   onDelete: () => void;
+  /** Optional, so the card stays usable anywhere editing is not offered. */
+  onEdit?: () => void;
   busy?: boolean;
 }
 
-const TaskCard = ({ task, onComplete, onDelete, busy = false }: TaskCardProps) => {
+const TaskCard = ({ task, onComplete, onDelete, onEdit, busy = false }: TaskCardProps) => {
   const getTagColor = (tag: string) => {
     switch (tag.toLowerCase()) {
       case 'flow':
@@ -83,6 +85,19 @@ const TaskCard = ({ task, onComplete, onDelete, busy = false }: TaskCardProps) =
             </div>
 
             <div className="flex items-center gap-2">
+              {onEdit && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onEdit}
+                  disabled={busy}
+                  aria-label={`Edit task "${task.title}"`}
+                  className="h-11 w-11 rounded-full text-white/60 hover:text-white hover:bg-white/10"
+                >
+                  <Pencil className="h-5 w-5" />
+                </Button>
+              )}
+
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button

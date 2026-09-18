@@ -14,8 +14,10 @@ import {
   useCreateTask,
   useDeleteTask,
   useToggleTaskCompleted,
+  useUpdateTask,
   type TaskRow
 } from '@/hooks/use-tasks';
+import type { TaskFormInput } from '@/components/tasks/MeetingModal';
 
 /** '14:00:00' -> '2:00 PM'. Empty string when no time is set. */
 const formatTime = (value: string | null) => {
@@ -57,6 +59,8 @@ const Tasks = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'all' | 'completed'>('all');
   const [showMeetingModal, setShowMeetingModal] = useState(false);
+  /** null = the form is creating; a row = the form is editing that row. */
+  const [editingTask, setEditingTask] = useState<TaskRow | null>(null);
   
   const today = new Date();
   const dayName = today.toLocaleDateString('en-US', { weekday: 'long' });
@@ -68,6 +72,7 @@ const Tasks = () => {
 
   const { data: tasks = [], isPending, isError, error, refetch } = useTasks();
   const createTask = useCreateTask();
+  const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
   const toggleCompleted = useToggleTaskCompleted();
 
@@ -83,7 +88,44 @@ const Tasks = () => {
     deleteTask.mutate(taskId);
   };
 
-  const mutationError = createTask.error || deleteTask.error || toggleCompleted.error;
+  const openCreateModal = () => {
+    setEditingTask(null);
+    setShowMeetingModal(true);
+  };
+
+  const openEditModal = (task: TaskRow) => {
+    setEditingTask(task);
+    setShowMeetingModal(true);
+  };
+
+  const closeModal = () => {
+    setShowMeetingModal(false);
+    setEditingTask(null);
+  };
+
+  /**
+   * One form, two writes. Editing goes through the existing useUpdateTask,
+   * which is an UPDATE scoped to id + user_id, so the row is changed in place
+   * rather than duplicated. Only the three fields the form owns are sent:
+   * completed, completed_at, tag, description and end_time are left alone.
+   */
+  const handleSubmitTask = async (input: TaskFormInput) => {
+    if (editingTask) {
+      await updateTask.mutateAsync({
+        id: editingTask.id,
+        changes: {
+          title: input.title,
+          scheduled_date: input.scheduled_date,
+          start_time: input.start_time
+        }
+      });
+      return;
+    }
+    await createTask.mutateAsync(input);
+  };
+
+  const mutationError =
+    createTask.error || updateTask.error || deleteTask.error || toggleCompleted.error;
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
@@ -95,7 +137,7 @@ const Tasks = () => {
           <span className="text-white text-base">{dayName}, {dateString}</span>
           <div className="flex items-center gap-3">
             <Button 
-              onClick={() => setShowMeetingModal(true)}
+              onClick={openCreateModal}
               style={{ backgroundColor: '#2f74db' }}
               className="hover:opacity-90 text-white rounded-full h-11 px-4 py-2 flex items-center gap-2"
             >
@@ -188,22 +230,28 @@ const Tasks = () => {
                 tag: toTitleCase(task.tag),
                 completed: task.completed
               }}
-              busy={toggleCompleted.isPending || deleteTask.isPending}
+              busy={toggleCompleted.isPending || deleteTask.isPending || updateTask.isPending}
               onComplete={() => handleCompleteTask(task)}
               onDelete={() => handleDeleteTask(task.id)}
+              onEdit={() => openEditModal(task)}
             />
           ))}
         </PageWorkspace>
       </main>
 
-      {/* Meeting Modal */}
+      {/* Task form — create and edit */}
       <MeetingModal
+        /**
+         * The form returns null while closed but stays mounted, so its state
+         * outlives a close. Keying it per task remounts it on every open, which
+         * is what makes edit A -> edit B -> New Task show the right values.
+         */
+        key={editingTask?.id ?? 'new'}
         isOpen={showMeetingModal}
-        onClose={() => setShowMeetingModal(false)}
-        onCreate={async (input) => {
-          await createTask.mutateAsync(input);
-        }}
-        isSaving={createTask.isPending}
+        task={editingTask}
+        onClose={closeModal}
+        onSubmit={handleSubmitTask}
+        isSaving={createTask.isPending || updateTask.isPending}
       />
 
       <BottomNavigation />
