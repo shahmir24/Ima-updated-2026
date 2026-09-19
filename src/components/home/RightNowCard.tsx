@@ -2,6 +2,7 @@ import React from 'react';
 import { Check, Clock, Play, Brain, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { TaskRow } from '@/hooks/use-tasks';
+import type { RankReason, ReasonCode } from '@/lib/context-engine';
 import { formatStartTime, formatTaskDuration } from '@/hooks/use-home-task-queue';
 
 interface RightNowCardProps {
@@ -19,6 +20,8 @@ interface RightNowCardProps {
   ringFraction: number;
   /** False when advancing would land on the same task. */
   canAdvance: boolean;
+  /** Why this task is the one showing. Null when the engine gave no reason. */
+  reason?: RankReason | null;
   isCompleting: boolean;
   onStart: () => void;
   onStuck: () => void;
@@ -32,6 +35,22 @@ const RING_RADIUS = 26;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 /**
+ * The engine's reason code, said plainly.
+ *
+ * Facts, not consequences: "Overdue", never "You missed this". No day counts —
+ * the card has no design language for a number here, and "overdue by 34 days"
+ * is a reproach rather than information. No exclamation marks, no red, no
+ * warning iconography. It sits in the same quiet metadata row as the start
+ * time, subordinate to the title, which is the point.
+ */
+const REASON_LABEL: Record<ReasonCode, string> = {
+  due_today: 'Today',
+  overdue_recent: 'Overdue',
+  overdue_long: 'Long overdue',
+  overdue_important: 'Important · Overdue'
+};
+
+/**
  * The one thing the home screen is for: the task to do next.
  *
  * Every value on it is real. Only metadata the task actually carries is
@@ -41,11 +60,12 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
  * no UI ever changes, so both would be decoration rather than information.
  */
 const RightNowCard = ({
-  task, greeting, position, total, ringFraction, canAdvance,
+  task, greeting, position, total, ringFraction, canAdvance, reason,
   isCompleting, onStart, onStuck, onNotNow, onToggleComplete, children
 }: RightNowCardProps) => {
   const startTime = formatStartTime(task.start_time);
   const duration = formatTaskDuration(task.start_time, task.end_time);
+  const reasonLabel = reason ? REASON_LABEL[reason.code] : null;
 
   return (
     <section
@@ -98,8 +118,9 @@ const RightNowCard = ({
         </p>
       </div>
 
-      {(startTime || duration) && (
+      {(reasonLabel || startTime || duration) && (
         <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 pl-14 text-sm text-blue-100">
+          {reasonLabel && <span>{reasonLabel}</span>}
           {startTime && (
             <span className="flex items-center gap-2">
               <Clock className="h-4 w-4" aria-hidden="true" />

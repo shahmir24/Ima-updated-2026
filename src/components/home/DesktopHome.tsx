@@ -117,6 +117,7 @@ const DesktopHome = ({
                 total={queue.total}
                 ringFraction={queue.ringFraction}
                 canAdvance={queue.canAdvance}
+                reason={queue.reason}
                 isCompleting={isCompleting}
                 onStart={onStart}
                 onStuck={onStuck}

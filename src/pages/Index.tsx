@@ -273,6 +273,7 @@ const Index = () => {
               total={queue.total}
               ringFraction={queue.ringFraction}
               canAdvance={queue.canAdvance}
+              reason={queue.reason}
               isCompleting={toggleTaskCompleted.isPending}
               onStart={() => navigate(withTask('/focus'))}
               onStuck={() => navigate(withTask('/body-double'))}

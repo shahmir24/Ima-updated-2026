@@ -1,22 +1,24 @@
 import { useCallback, useState } from 'react';
+import { rankTasks, type RankReason } from '@/lib/context-engine';
 import type { TaskRow } from '@/hooks/use-tasks';
 
 /**
  * The "Right Now" queue behind the home screen.
  *
- * Eligibility is every incomplete task scheduled on or before the user's local
- * today. An unfinished task must not vanish from the executive-function layer
- * just because midnight passed, which is exactly what a today-only rule did:
- * a task scheduled yesterday was still listed under /tasks while Home claimed
- * there was nothing to do.
+ * This hook owns the INTERACTION — which task is showing, what is beneath it,
+ * and what "Not now" does. It does not decide the order. That is the Context
+ * Engine's job, and this file deliberately holds no ranking rule of its own:
+ * one authority, so Home cannot drift from what the engine says.
  *
- * Still not a ranking engine. The order is whatever useTasks() already
- * returned (scheduled_date, then start_time with nulls last, then created_at),
- * so Home and /tasks always agree about what comes next, completing a task
- * cannot make the list jump, and the oldest unfinished work simply sorts first
- * because its date is earliest. There is no urgency score, no time-of-day
- * weighting and nothing generated: the same rows always produce the same
- * queue.
+ * Eligibility is still every incomplete task scheduled on or before the user's
+ * local today, now enforced inside the engine. An unfinished task must not
+ * vanish from the executive-function layer just because midnight passed, and a
+ * future task must never be dragged forward to fill the card.
+ *
+ * The engine is deterministic: the same tasks and the same local date always
+ * produce the same queue, in the same order, with the same reasons. Nothing is
+ * generated, nothing is scored in a way the user cannot be told about, and
+ * time of day is not a factor.
  *
  * A backlog does not flood the screen either — the card shows one task, with
  * at most UP_NEXT_LIMIT listed beneath it.
@@ -29,11 +31,17 @@ import type { TaskRow } from '@/hooks/use-tasks';
 export const UP_NEXT_LIMIT = 3;
 
 export interface HomeTaskQueue {
-  /** Incomplete tasks due today or earlier, in the order useTasks() returned them. */
+  /** Incomplete tasks due today or earlier, in the Context Engine's order. */
   eligible: TaskRow[];
   total: number;
   /** The task the Right Now card is showing, or null when there are none. */
   current: TaskRow | null;
+  /**
+   * Why the CURRENT task is the one being shown, straight from the engine.
+   * Structured, not a sentence: the UI owns the wording. Null when there is
+   * no current task.
+   */
+  reason: RankReason | null;
   /** 1-based, for "x of y". 0 when the queue is empty. */
   position: number;
   /** position / total, 0–1, for the queue-position ring. 0 when empty. */
@@ -46,18 +54,14 @@ export interface HomeTaskQueue {
   advance: () => void;
 }
 
-/**
- * Both are local YYYY-MM-DD, which sorts correctly as a plain string, so this
- * needs no Date parsing and cannot drift with the timezone.
- */
-const isDueOrOverdue = (scheduledDate: string, localToday: string) => scheduledDate <= localToday;
-
 export function useHomeTaskQueue(tasks: TaskRow[], localToday: string): HomeTaskQueue {
   const [cursor, setCursor] = useState(0);
 
-  const eligible = tasks.filter(
-    (task) => isDueOrOverdue(task.scheduled_date, localToday) && !task.completed
-  );
+  // The single ranking authority. Recomputed per render like the filter it
+  // replaces: it is a pure function of the two arguments, so there is no
+  // cache to go stale and no dependency array to get wrong.
+  const ranked = rankTasks(tasks, { today: localToday });
+  const eligible = ranked.map((entry) => entry.task);
   const total = eligible.length;
 
   // Read through a modulo rather than trusting the stored cursor: completing a
@@ -65,6 +69,8 @@ export function useHomeTaskQueue(tasks: TaskRow[], localToday: string): HomeTask
   // point past the end or at the wrong task.
   const safeCursor = total > 0 ? ((cursor % total) + total) % total : 0;
   const current = total > 0 ? eligible[safeCursor] : null;
+  // The reason belongs to whichever task is showing, not to the first one.
+  const reason = total > 0 ? ranked[safeCursor].reason : null;
 
   const upNext: TaskRow[] = [];
   for (let step = 1; step <= Math.min(UP_NEXT_LIMIT, total - 1); step++) {
@@ -82,6 +88,7 @@ export function useHomeTaskQueue(tasks: TaskRow[], localToday: string): HomeTask
     eligible,
     total,
     current,
+    reason,
     position: total > 0 ? safeCursor + 1 : 0,
     ringFraction: total > 0 ? (safeCursor + 1) / total : 0,
     upNext,
