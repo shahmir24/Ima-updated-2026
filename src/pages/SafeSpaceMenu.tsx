@@ -41,6 +41,14 @@ const safeSpaceOptions: SafeSpaceOption[] = [
     action: 'emergency-help'
   },
   {
+    id: 'safe-contacts',
+    title: 'Safe Contacts',
+    icon: <Users className="h-6 w-6 sm:h-8 sm:w-8" />,
+    description: 'Your trusted people and support network',
+    color: 'bg-purple-500/20 text-purple-300',
+    route: '/safe-space/contacts'
+  },
+  {
     id: 'grounding-exercises',
     title: 'Grounding Techniques',
     icon: <Heart className="h-6 w-6 sm:h-8 sm:w-8" />,
@@ -55,14 +63,6 @@ const safeSpaceOptions: SafeSpaceOption[] = [
     description: 'Quick breathing exercises for anxiety relief',
     color: 'bg-cyan-500/20 text-cyan-300',
     route: '/breathing'
-  },
-  {
-    id: 'safe-contacts',
-    title: 'Safe Contacts',
-    icon: <Users className="h-6 w-6 sm:h-8 sm:w-8" />,
-    description: 'Your trusted people and support network',
-    color: 'bg-purple-500/20 text-purple-300',
-    route: '/safe-space/contacts'
   }
 ];
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import {
-  Home, CheckSquare, Clock, Users, Heart, BookOpen, Volume2, BarChart3,
+  Home, CheckSquare, Clock, Users, LifeBuoy, Heart, BookOpen, Volume2, BarChart3,
   User, Settings
 } from 'lucide-react';
 
@@ -40,6 +40,16 @@ const PRIMARY_ITEMS: NavItem[] = [
   { label: 'Tasks', to: '/tasks', icon: CheckSquare, match: { kind: 'exact', path: '/tasks' } },
   { label: 'Focus', to: '/focus', icon: Clock, match: { kind: 'exact', path: '/focus' } },
   { label: 'Body Double', to: '/body-double', icon: Users, match: { kind: 'exact', path: '/body-double' } },
+  // Support, so it sits with the support features rather than at the bottom of
+  // the list. Points straight at the contacts page, not the Safe Space hub, and
+  // lights only on that page: an item labelled Safe Contacts must not claim the
+  // chat or grounding screens. LifeBuoy because Users already means Body Double.
+  {
+    label: 'Safe Contacts',
+    to: '/safe-space/contacts',
+    icon: LifeBuoy,
+    match: { kind: 'exact', path: '/safe-space/contacts' }
+  },
   {
     label: 'Wellness',
     to: '/wellness',

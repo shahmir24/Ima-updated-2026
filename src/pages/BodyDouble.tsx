@@ -188,6 +188,17 @@ const BodyDouble = () => {
   const saveJournalEntry = useSaveJournalEntry('body-double');
 
   /**
+   * What the session is about, or null when the user did not say.
+   *
+   * Naming a task and picking a mood are both optional: someone who cannot
+   * put a name to what they are avoiding is precisely the person who needs to
+   * sit down with a body double. The rest of the screen keys off this rather
+   * than off session.intention directly, so a blank can never reach the UI as
+   * "Working on: " with nothing after it, and nothing is invented to fill it.
+   */
+  const taskContext = session.intention.trim() || null;
+
+  /**
    * Suggested steps. Session-local and never persisted: closing the dialog or
    * starting another session drops them.
    */
@@ -357,7 +368,12 @@ const BodyDouble = () => {
     setSession((prev) => ({ ...prev, isActive: timed }));
     setCurrentScreen('session');
 
-    pushSupport('status', `Working on: ${session.intention}`);
+    // No task named means no claim about one. The alternative line states what
+    // is actually true of the session rather than leaving "Working on: " bare.
+    pushSupport(
+      'status',
+      taskContext ? `Working on: ${taskContext}` : 'No task named. We can just start.'
+    );
     pushSupport(
       'nudge',
       timed
@@ -366,7 +382,10 @@ const BodyDouble = () => {
     );
 
     await recorder.start({
-      intention: session.intention,
+      // Sent as-is. use-focus-session turns a blank into null, so an unnamed
+      // task and an unpicked mood are stored as "not answered" rather than as
+      // an empty string the CHECK constraint would reject.
+      intention: taskContext,
       startType: session.startType,
       startMood: session.mood,
       // An untimed session planned no block, so it stores none rather than
@@ -708,10 +727,12 @@ const BodyDouble = () => {
                   : 'No timer. I\u2019ll stay here until you say you\u2019re done.'}
               </p>
 
-              <div className="flex gap-3">
+              {/* They wrap rather than shrink: at 320px the two side by side
+                  pushed "Quick Breath First" 49px off-screen, because the
+                  button base class is whitespace-nowrap. */}
+              <div className="flex flex-wrap gap-3">
                 <Button
                   onClick={startSession}
-                  disabled={!session.mood || !session.intention.trim()}
                   className="flex-1 bg-purple-500 hover:bg-purple-600 text-white"
                 >
                   Start Co-Working
@@ -909,9 +930,11 @@ const BodyDouble = () => {
                 ? 'Here with you'
                 : `${session.phase === 'work' ? 'Focus Time' : 'Break Time'} • Block ${session.cycles + 1}`}
             </p>
-            <p className="text-purple-300 text-sm">
-              Working on: {session.intention}
-            </p>
+            {taskContext && (
+              <p className="text-purple-300 text-sm">
+                Working on: {taskContext}
+              </p>
+            )}
             {nextStep && (
               <p className="text-white/70 text-xs mt-1">
                 Next step: {nextStep}
@@ -1085,27 +1108,41 @@ const BodyDouble = () => {
                   What is the smallest next action you can take?
                 </DialogTitle>
                 <DialogDescription className="text-center text-white/60">
-                  Working on: {session.intention}
+                  {taskContext ? `Working on: ${taskContext}` : 'Whatever you are on right now.'}
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4">
 
-                <StepSuggestions
-                  steps={breakdown.steps}
-                  pending={breakdown.pending}
-                  error={breakdown.error}
-                  requested={breakdown.requested}
-                  canMakeSmaller={breakdown.canMakeSmaller}
-                  onSuggest={() => breakdown.breakDown(session.intention)}
-                  onStartWith={startWithSuggestion}
-                  onMakeSmaller={(step) => breakdown.makeSmaller(session.intention, step)}
-                  onTryAnother={(step) => breakdown.tryAnother(session.intention, step)}
-                />
+                {/* Breaking a task down needs a task. Without one there is
+                    nothing to break down, and asking anyway would only invite
+                    the model to invent the thing the user never said. The
+                    field below is unaffected: a next step can always be
+                    written by hand. */}
+                {taskContext ? (
+                  <StepSuggestions
+                    steps={breakdown.steps}
+                    pending={breakdown.pending}
+                    error={breakdown.error}
+                    requested={breakdown.requested}
+                    canMakeSmaller={breakdown.canMakeSmaller}
+                    onSuggest={() => breakdown.breakDown(taskContext)}
+                    onStartWith={startWithSuggestion}
+                    onMakeSmaller={(step) => breakdown.makeSmaller(taskContext, step)}
+                    onTryAnother={(step) => breakdown.tryAnother(taskContext, step)}
+                  />
+                ) : (
+                  <p className="text-white/60 text-sm text-center">
+                    You have not named a task, so there is nothing for me to break
+                    down. Write the next step yourself below.
+                  </p>
+                )}
 
                 <div className="flex items-center gap-3">
                   <span className="h-px flex-1 bg-white/10" />
-                  <span className="text-white/40 text-xs">or write your own</span>
+                  <span className="text-white/40 text-xs">
+                    {taskContext ? 'or write your own' : 'your next step'}
+                  </span>
                   <span className="h-px flex-1 bg-white/10" />
                 </div>
 

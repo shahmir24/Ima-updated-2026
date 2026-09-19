@@ -7,11 +7,12 @@ export type FocusSessionRow = Database['public']['Tables']['focus_sessions']['Ro
 
 /** What the session was set up to do. Written once, on start. */
 export interface FocusSessionStart {
-  intention: string;
+  /** Empty when the user started without naming anything. Stored as null. */
+  intention: string | null;
   /** focus_sessions_start_type: 'task' | 'scattered' | 'lost'. */
-  startType: string;
+  startType: string | null;
   /** focus_sessions_start_mood: calm | anxious | sleepy | fire | scattered. */
-  startMood: string;
+  startMood: string | null;
   /**
    * Null when the session planned no block at all — Body Double's untimed
    * companionship mode. Both columns are nullable with an `is null or …`
@@ -78,6 +79,20 @@ function messageFrom(cause: unknown): string {
 
 const EMPTY_PROGRESS: FocusSessionProgress = { flowsCompleted: 0, breaksTaken: 0, focusSeconds: 0 };
 
+/**
+ * '' is not "no answer" as far as Postgres is concerned.
+ *
+ * start_type and start_mood are nullable but CHECK-constrained to a fixed
+ * vocabulary. NULL passes such a constraint; an empty string is a value that
+ * is simply not in the list, so sending '' fails the insert outright and the
+ * session records as unrecorded. Now that mood and intention are optional,
+ * every blank has to reach the database as null.
+ */
+const blankToNull = (value: string | null | undefined): string | null => {
+  const trimmed = (value ?? '').trim();
+  return trimmed === '' ? null : trimmed;
+};
+
 export function useFocusSession(): FocusSessionRecorder {
   const { user } = useAuth();
 
@@ -115,9 +130,9 @@ export function useFocusSession(): FocusSessionRecorder {
           user_id: user.id,
           source: 'body-double',
           status: 'active',
-          intention: input.intention,
-          start_type: input.startType,
-          start_mood: input.startMood,
+          intention: blankToNull(input.intention),
+          start_type: blankToNull(input.startType),
+          start_mood: blankToNull(input.startMood),
           planned_block_minutes: input.plannedBlockMinutes,
           planned_break_minutes: input.plannedBreakMinutes
         })
