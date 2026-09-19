@@ -17,11 +17,11 @@
 import {
   sanitiseBreakdownSteps,
   validateBreakdownRequest,
-  type BreakdownAction,
   type BreakdownErrorCode,
   type BreakdownResponse
 } from '../_shared/breakdown-contract.ts';
 import { corsHeaders, isOriginAllowed, jsonResponse } from '../_shared/http.ts';
+import type { ProviderFailure, StepProvider } from '../_shared/provider.ts';
 
 export interface AuthenticatedUser {
   id: string;
@@ -51,6 +51,8 @@ export interface BreakdownLogEvent {
 export interface HandlerDeps {
   resolveUser: UserResolver;
   allowedOrigins: readonly string[];
+  /** Where steps come from. This module never asks which kind it is. */
+  provider: StepProvider;
   log?: (event: BreakdownLogEvent) => void;
 }
 
@@ -68,23 +70,19 @@ const STATUS_BY_CODE: Record<BreakdownErrorCode, number> = {
 };
 
 /**
- * DETERMINISTIC PLACEHOLDER TEXT — NOT MODEL OUTPUT, NOT ADVICE.
+ * What the browser is told when generation fails.
  *
- * These strings are here so step 2 can prove authentication, validation and
- * the response contract without a provider. Nothing generated them and nothing
- * consulted a model. The "Stub:" prefix is deliberate: if this text ever
- * reached a real user it must read as an obvious fault rather than pass for a
- * suggestion. The whole map is deleted in step 4 when the provider adapter
- * replaces it.
+ * Short, neutral and the same shape whatever went wrong upstream. No provider
+ * name, no status code, no upstream body, no account detail. The internal
+ * ProviderFailure is the diagnostic; this is the sentence.
  */
-const STUB_STEPS: Record<BreakdownAction, string[]> = {
-  break_down: [
-    'Stub: open the thing this task lives in',
-    'Stub: write down what finished would look like',
-    'Stub: do the smallest visible piece of it'
-  ],
-  make_smaller: ['Stub: do only the first minute of that step'],
-  try_another: ['Stub: come at that step from a different angle']
+const MESSAGE_BY_FAILURE: Record<ProviderFailure, string> = {
+  not_configured: 'Suggestions are not available right now.',
+  invalid_mode: 'Suggestions are not available right now.',
+  timeout: 'Suggestions took too long to come back. Try again.',
+  upstream_status: 'Could not reach the suggestion service.',
+  upstream_unreachable: 'Could not reach the suggestion service.',
+  malformed_output: 'Could not produce usable steps.'
 };
 
 /**
@@ -195,15 +193,29 @@ export async function handleBreakdownRequest(request: Request, deps: HandlerDeps
     return done(failure(validated.code, validated.message, cors), validated.code);
   }
 
-  // 8. Placeholder text, chosen by action alone. No randomness, no clock, no
-  //    user, no network: the same request always produces the same reply.
-  const steps = STUB_STEPS[validated.value.action];
+  // 8. Steps come from the provider — stub or model, decided server-side at
+  //    boot. Only the validated contract fields are handed over: no user, no
+  //    token, no session, no history.
+  const generated = await deps.provider.generate({
+    action: validated.value.action,
+    task: validated.value.task,
+    currentStep: validated.value.currentStep,
+    depth: validated.value.depth,
+    avoid: validated.value.avoid
+  });
+  if (!generated.ok) {
+    // Looked up, never interpolated. A failure value this table does not know
+    // falls back to the neutral sentence rather than reaching the browser as
+    // text, so a future provider cannot leak detail through this path.
+    const message = MESSAGE_BY_FAILURE[generated.failure] ?? 'Could not reach the suggestion service.';
+    return done(failure(generated.code, message, cors), generated.code);
+  }
 
-  // 9. Our own output goes through the same sanitiser the client will run on
-  //    it. Today that can only catch a mistake in the table above; from step 4
-  //    it is what stops unusable model output leaving the edge.
+  // 9. Whatever produced them, the steps go through the same sanitiser the
+  //    client will run on them. This is what stops unusable model output
+  //    leaving the edge, and it is the authority on length, echoes and count.
   const checked = sanitiseBreakdownSteps(
-    { steps },
+    { steps: generated.steps },
     { task: validated.value.task, currentStep: validated.value.currentStep }
   );
   if (!checked.ok) {
