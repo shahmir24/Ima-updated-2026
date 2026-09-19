@@ -77,7 +77,7 @@ const RideTheWave = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-b from-purple-900 via-blue-800 to-teal-700 text-foreground pb-20">
+    <div className="flex flex-col min-h-screen bg-gradient-to-b from-purple-900 via-blue-800 to-teal-700 text-foreground pb-20 lg:pb-10">
       <WellnessHeader title="Ride the Wave" backPath="/breathing" />
 
       <main className="flex-1 max-w-lg w-full mx-auto px-4 flex flex-col items-center justify-center space-y-8">

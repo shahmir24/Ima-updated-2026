@@ -5,6 +5,12 @@ import { ArrowLeft, Play, Pause, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import WellnessHeader from '@/components/wellness/WellnessHeader';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import VoiceToggle from '@/components/wellness/VoiceToggle';
+import { useUserSettings } from '@/hooks/use-user-settings';
+import { useSpokenGuidance } from '@/hooks/use-spoken-guidance';
+
+const phases = ['Inhale', 'Hold', 'Exhale', 'Hold'];
+const phaseDuration = 4000; // 4 seconds per phase
 
 const SteadySquare = () => {
   const navigate = useNavigate();
@@ -13,8 +19,6 @@ const SteadySquare = () => {
   const [count, setCount] = useState(4);
   const [cycles, setCycles] = useState(0);
 
-  const phases = ['Inhale', 'Hold', 'Exhale', 'Hold'];
-  const phaseDuration = 4000; // 4 seconds per phase
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -40,11 +44,29 @@ const SteadySquare = () => {
     return () => clearInterval(interval);
   }, [isActive]);
 
+
+  const { data: settings } = useUserSettings();
+  const voice = useSpokenGuidance({ volume: (settings?.sound_volume ?? 75) / 100 });
+  const { speak, cancel: cancelVoice, reset: resetVoice } = voice;
+
+  // Speaks the phase the component has actually committed to — never from
+  // inside a state updater, which React is free to re-invoke. Keyed by cycle
+  // and phase, so each phase says its cue exactly once no matter how many
+  // times this re-renders, and silent until the user starts the exercise.
+  useEffect(() => {
+    if (!isActive) return;
+    speak(`${cycles}:${phase}`, phases[phase]);
+  }, [isActive, phase, cycles, speak]);
+
   const toggleBreathing = () => {
+    // Pausing stops a cue mid-word; resuming does not repeat it, because the
+    // phase key has not changed.
+    if (isActive) cancelVoice();
     setIsActive(!isActive);
   };
 
   const resetBreathing = () => {
+    resetVoice();
     setIsActive(false);
     setPhase(0);
     setCount(4);
@@ -52,7 +74,7 @@ const SteadySquare = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
       <WellnessHeader title="Steady Square" backPath="/breathing" />
 
       <main className="flex-1 responsive-container flex flex-col items-center justify-center space-y-6 sm:space-y-8">
@@ -113,10 +135,12 @@ const SteadySquare = () => {
           <Button
             onClick={resetBreathing}
             variant="ghost"
-            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full hover:bg-white/10"
+            className="w-12 h-12 rounded-full hover:bg-white/10"
           >
             <RotateCcw className="h-5 w-5 sm:h-6 sm:w-6 text-white/60" />
           </Button>
+
+          <VoiceToggle supported={voice.supported} muted={voice.muted} onToggle={voice.toggleMuted} />
         </div>
 
         {/* Guidance */}

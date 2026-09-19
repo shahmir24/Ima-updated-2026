@@ -1,9 +1,10 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, Brain, CircleDot, BookOpen, Shield, ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Heart, Brain, CircleDot, BookOpen, Shield } from 'lucide-react';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import PageHeader from '@/components/layout/PageHeader';
+import PageWorkspace from '@/components/layout/PageWorkspace';
 
 interface WellnessOption {
   id: string;
@@ -49,6 +50,8 @@ const wellnessOptions: WellnessOption[] = [
   }
 ];
 
+const WORKSPACE = 'max-w-6xl';
+
 const Wellness = () => {
   const navigate = useNavigate();
 
@@ -58,76 +61,45 @@ const Wellness = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
-      {/* Status Bar */}
-      <div className="w-full max-w-lg mx-auto px-4 pt-2 pb-1">
-        <div className="flex justify-between items-center text-white text-sm font-medium">
-          <span>09:41</span>
-          <div className="flex items-center gap-1">
-            <div className="flex gap-0.5">
-              <div className="w-1 h-1 bg-white rounded-full"></div>
-              <div className="w-1 h-1 bg-white rounded-full"></div>
-              <div className="w-1 h-1 bg-white rounded-full"></div>
-              <div className="w-1 h-1 bg-white/60 rounded-full"></div>
-            </div>
-            <svg className="w-4 h-4 ml-1" fill="white" viewBox="0 0 24 24">
-              <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.07 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/>
-            </svg>
-            <div className="w-6 h-3 border border-white rounded-sm ml-1">
-              <div className="w-4 h-1.5 bg-white rounded-sm m-0.5"></div>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
+      <PageHeader title="Wellness" backPath="/" width={WORKSPACE} />
 
-      {/* Header */}
-      <header className="w-full max-w-lg mx-auto p-4 flex items-center justify-between">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => navigate('/')}
-          className="h-10 w-10 rounded-full p-0 hover:bg-white/10"
-        >
-          <ArrowLeft className="h-6 w-6 text-white" />
-        </Button>
-        
-        <h1 className="text-2xl font-bold text-white">Wellness</h1>
-        
-        <div className="w-10"></div>
-      </header>
-
-      <main className="flex-1 responsive-container">
-        <div className="responsive-grid mb-6">
-          {wellnessOptions.map((option, index) => (
-            <div
-              key={option.id}
-              onClick={() => handleOptionClick(option.route)}
-              className="bg-[#1F1F1F] rounded-3xl p-4 sm:p-6 aspect-square flex flex-col justify-start hover:scale-105 transition-transform duration-200 cursor-pointer"
-              style={{ animationDelay: `${index * 0.1}s` }}
-            >
-              <div className="flex items-center gap-2 sm:gap-3 mb-2">
-                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl ${option.color} flex items-center justify-center`}>
-                  {option.icon}
+      <main className="flex-1">
+        <PageWorkspace width={WORKSPACE}>
+          {/* Four destinations: a single column on a phone, pairs on a tablet,
+              one row across the desktop workspace. */}
+          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-6 xl:grid-cols-4">
+            {wellnessOptions.map((option, index) => (
+              <div
+                key={option.id}
+                onClick={() => handleOptionClick(option.route)}
+                className="bg-[#1F1F1F] rounded-3xl p-4 sm:p-6 aspect-square md:aspect-auto md:min-h-[12rem] flex flex-col justify-start hover:scale-105 transition-transform duration-200 cursor-pointer"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                  <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl ${option.color} flex items-center justify-center`}>
+                    {option.icon}
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-white responsive-subtitle font-medium leading-tight mb-2">
+                    {option.title}
+                  </h3>
+                  <p className="text-white/70 responsive-body leading-relaxed">{option.description}</p>
                 </div>
               </div>
-              <div className="flex-1">
-                <h3 className="text-white responsive-subtitle font-medium leading-tight mb-2">
-                  {option.title}
-                </h3>
-                <p className="text-white/70 responsive-body leading-relaxed">{option.description}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-6 sm:mt-8 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-3xl p-4 sm:p-6">
-          <div className="text-center">
-            <p className="text-white/80 italic responsive-subtitle mb-2">
-              "Your wellness journey is unique to you."
-            </p>
-            <p className="text-white/50 responsive-body">— iMA Wellness</p>
+            ))}
           </div>
-        </div>
+
+          <div className="mt-6 sm:mt-8 lg:mx-auto lg:max-w-3xl bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-3xl p-4 sm:p-6">
+            <div className="text-center">
+              <p className="text-white/80 italic responsive-subtitle mb-2">
+                "Your wellness journey is unique to you."
+              </p>
+              <p className="text-white/50 responsive-body">— iMA Wellness</p>
+            </div>
+          </div>
+        </PageWorkspace>
       </main>
 
       <BottomNavigation />

@@ -1,0 +1,150 @@
+import { useCallback, useState } from 'react';
+import { rankTasks, type RankReason } from '@/lib/context-engine';
+import type { TaskRow } from '@/hooks/use-tasks';
+
+/**
+ * The "Right Now" queue behind the home screen.
+ *
+ * This hook owns the INTERACTION — which task is showing, what is beneath it,
+ * and what "Not now" does. It does not decide the order. That is the Context
+ * Engine's job, and this file deliberately holds no ranking rule of its own:
+ * one authority, so Home cannot drift from what the engine says.
+ *
+ * Eligibility is still every incomplete task scheduled on or before the user's
+ * local today, now enforced inside the engine. An unfinished task must not
+ * vanish from the executive-function layer just because midnight passed, and a
+ * future task must never be dragged forward to fill the card.
+ *
+ * The engine is deterministic: the same tasks and the same local date always
+ * produce the same queue, in the same order, with the same reasons. Nothing is
+ * generated, nothing is scored in a way the user cannot be told about, and
+ * time of day is not a factor.
+ *
+ * A backlog does not flood the screen either — the card shows one task, with
+ * at most UP_NEXT_LIMIT listed beneath it.
+ *
+ * The cursor is session state and nothing more. "Not now" moves it; a refresh
+ * puts it back to the first task. Nothing here writes anything.
+ */
+
+/** How many upcoming tasks the home screen lists under the current one. */
+export const UP_NEXT_LIMIT = 3;
+
+export interface HomeTaskQueue {
+  /** Incomplete tasks due today or earlier, in the Context Engine's order. */
+  eligible: TaskRow[];
+  total: number;
+  /** The task the Right Now card is showing, or null when there are none. */
+  current: TaskRow | null;
+  /**
+   * Why the CURRENT task is the one being shown, straight from the engine.
+   * Structured, not a sentence: the UI owns the wording. Null when there is
+   * no current task.
+   */
+  reason: RankReason | null;
+  /** 1-based, for "x of y". 0 when the queue is empty. */
+  position: number;
+  /** position / total, 0–1, for the queue-position ring. 0 when empty. */
+  ringFraction: number;
+  /** The next tasks after the current one, wrapping, capped and never the current one. */
+  upNext: TaskRow[];
+  /** True only when advancing would actually change the task. */
+  canAdvance: boolean;
+  /** Session-local. Advances one place and wraps at the end. */
+  advance: () => void;
+}
+
+export function useHomeTaskQueue(tasks: TaskRow[], localToday: string): HomeTaskQueue {
+  const [cursor, setCursor] = useState(0);
+
+  // The single ranking authority. Recomputed per render like the filter it
+  // replaces: it is a pure function of the two arguments, so there is no
+  // cache to go stale and no dependency array to get wrong.
+  const ranked = rankTasks(tasks, { today: localToday });
+  const eligible = ranked.map((entry) => entry.task);
+  const total = eligible.length;
+
+  // Read through a modulo rather than trusting the stored cursor: completing a
+  // task shrinks the queue underneath it, and a stale index would otherwise
+  // point past the end or at the wrong task.
+  const safeCursor = total > 0 ? ((cursor % total) + total) % total : 0;
+  const current = total > 0 ? eligible[safeCursor] : null;
+  // The reason belongs to whichever task is showing, not to the first one.
+  const reason = total > 0 ? ranked[safeCursor].reason : null;
+
+  const upNext: TaskRow[] = [];
+  for (let step = 1; step <= Math.min(UP_NEXT_LIMIT, total - 1); step++) {
+    upNext.push(eligible[(safeCursor + step) % total]);
+  }
+
+  const advance = useCallback(() => {
+    // Wrapping is the least confusing option: stopping at the end would leave
+    // the card empty with no way back short of a reload, and the "x of y"
+    // label right beside the control makes the wrap legible.
+    setCursor((previous) => previous + 1);
+  }, []);
+
+  return {
+    eligible,
+    total,
+    current,
+    reason,
+    position: total > 0 ? safeCursor + 1 : 0,
+    ringFraction: total > 0 ? (safeCursor + 1) / total : 0,
+    upNext,
+    canAdvance: total > 1,
+    advance
+  };
+}
+
+/** '14:00:00' -> '2:00 PM'. Null when the task has no start time — the column
+ *  is nullable and a time must never be invented for a task that has none. */
+export function formatStartTime(value: string | null): string | null {
+  if (!value) return null;
+  const [hours, minutes] = value.split(':');
+  const parsed = new Date(2000, 0, 1, Number(hours), Number(minutes));
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+/**
+ * The exact length of a task, derived from the two times it actually has.
+ *
+ * Null unless BOTH are present: no task the app can currently create sets
+ * end_time, so in practice this returns null today. It is written this way so
+ * that the day an end time exists the card shows a real figure — never an
+ * estimate, and never a "~".
+ */
+export function formatTaskDuration(startTime: string | null, endTime: string | null): string | null {
+  if (!startTime || !endTime) return null;
+
+  const toMinutes = (value: string) => {
+    const [hours, minutes] = value.split(':');
+    const h = Number(hours);
+    const m = Number(minutes);
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+    return h * 60 + m;
+  };
+
+  const start = toMinutes(startTime);
+  const end = toMinutes(endTime);
+  if (start === null || end === null) return null;
+
+  // The tasks_time_order CHECK guarantees end > start, but a row could still
+  // arrive from anywhere, so a non-positive span is reported as no duration.
+  const span = end - start;
+  if (span <= 0) return null;
+
+  const hours = Math.floor(span / 60);
+  const minutes = span % 60;
+  if (hours === 0) return `${minutes} min`;
+  if (minutes === 0) return `${hours} hr`;
+  return `${hours} hr ${minutes} min`;
+}
+
+/** Local-time greeting. Never includes a name; the caller adds one if it has one. */
+export function greetingForHour(hour: number): string {
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}

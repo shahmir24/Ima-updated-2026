@@ -2,8 +2,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Footprints, RefreshCw } from 'lucide-react';
-import WellnessHeader from '@/components/wellness/WellnessHeader';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import PageHeader from '@/components/layout/PageHeader';
+import PageWorkspace from '@/components/layout/PageWorkspace';
 
 interface WalkingOption {
   id: string;
@@ -36,6 +37,8 @@ const walkingOptions: WalkingOption[] = [
   }
 ];
 
+const WORKSPACE = 'max-w-4xl';
+
 const MindfulWalkingMenu = () => {
   const navigate = useNavigate();
 
@@ -45,43 +48,48 @@ const MindfulWalkingMenu = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
-      <WellnessHeader title="Mindful Walking" backPath="/wellness/mindfulness" />
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
+      <PageHeader title="Mindful Walking" backPath="/wellness/mindfulness" width={WORKSPACE} />
 
-      <main className="flex-1 max-w-lg w-full mx-auto px-4 space-y-6">
-        {walkingOptions.map((option, index) => (
-          <div
-            key={option.id}
-            onClick={() => handleOptionClick(option.route)}
-            className="bg-secondary/40 rounded-3xl p-6 hover:bg-secondary/60 transition-all duration-300 cursor-pointer card-hover animate-fade-in"
-            style={{ animationDelay: `${index * 0.1}s` }}
-          >
-            <div className="flex items-start space-x-4">
-              <div className={`w-16 h-16 rounded-2xl ${option.color} flex items-center justify-center flex-shrink-0`}>
-                {option.icon}
+      <main className="flex-1">
+        <PageWorkspace width={WORKSPACE} className="space-y-6">
+          {/* Two practices: stacked on a phone, side by side once there is room. */}
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            {walkingOptions.map((option, index) => (
+              <div
+                key={option.id}
+                onClick={() => handleOptionClick(option.route)}
+                className="bg-secondary/40 rounded-3xl p-6 hover:bg-secondary/60 transition-all duration-300 cursor-pointer card-hover animate-fade-in"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className="flex items-start space-x-4">
+                  <div className={`w-16 h-16 rounded-2xl ${option.color} flex items-center justify-center flex-shrink-0`}>
+                    {option.icon}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-xl font-semibold text-white mb-1">{option.title}</h3>
+                    <p className="text-green-300 text-sm font-medium mb-2">{option.subtitle}</p>
+                    <p className="text-white/70 text-sm leading-relaxed">{option.description}</p>
+                  </div>
+                  <div className="text-white/40">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
               </div>
-              <div className="flex-1">
-                <h3 className="text-xl font-semibold text-white mb-1">{option.title}</h3>
-                <p className="text-green-300 text-sm font-medium mb-2">{option.subtitle}</p>
-                <p className="text-white/70 text-sm leading-relaxed">{option.description}</p>
-              </div>
-              <div className="text-white/40">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
+            ))}
+          </div>
+
+          <div className="mt-8 lg:mx-auto lg:max-w-3xl bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-3xl p-6">
+            <div className="text-center">
+              <p className="text-white/80 italic text-lg mb-2">
+                "With every step, you return to yourself."
+              </p>
+              <p className="text-white/50 text-sm">— Mindful Walking</p>
             </div>
           </div>
-        ))}
-
-        <div className="mt-8 bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-3xl p-6">
-          <div className="text-center">
-            <p className="text-white/80 italic text-lg mb-2">
-              "With every step, you return to yourself."
-            </p>
-            <p className="text-white/50 text-sm">— Mindful Walking</p>
-          </div>
-        </div>
+        </PageWorkspace>
       </main>
 
       <BottomNavigation />

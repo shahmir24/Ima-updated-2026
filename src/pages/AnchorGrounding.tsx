@@ -54,7 +54,7 @@ const AnchorGrounding = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
       <WellnessHeader title="Anchor Grounding" backPath={backPath} />
 
       <main className="flex-1 responsive-container flex flex-col items-center justify-center space-y-6 sm:space-y-8">

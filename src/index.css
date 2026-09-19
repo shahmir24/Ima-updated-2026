@@ -54,6 +54,18 @@
 }
 
 @layer utilities {
+  /* Home only, for now. The fixed bottom navigation sits on top of the home
+     indicator on notched phones, and the page needs room so a card or an
+     action button never ends up underneath the bar. The app-wide navigation
+     pass is a later batch. */
+  .nav-safe-area {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .pb-fixed-nav {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
   .gradient-blue {
     background: linear-gradient(135deg, #0e3b58 0%, #1e5a8c 100%);
   }

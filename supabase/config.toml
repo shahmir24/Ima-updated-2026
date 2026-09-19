@@ -1,1 +1,9 @@
 project_id = "txvwvxihvfltnidejfcs"
+
+# Body Double AI — "Break it down". Gateway JWT verification stays ON: an
+# unauthenticated call is refused before the function runs, and before any
+# work is done on it. The function verifies the user again from the
+# Authorization header, and holds no service-role key because it reads and
+# writes no table.
+[functions.ai-breakdown]
+verify_jwt = true

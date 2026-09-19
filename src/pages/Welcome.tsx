@@ -2,9 +2,20 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/auth-context';
 
 const Welcome = () => {
   const navigate = useNavigate();
+  const { signOut } = useAuth();
+
+  // "Already have an account?" is reachable only WITH a session — this screen
+  // sits behind <OnboardingRoute>. Navigating straight to /auth therefore does
+  // nothing: <PublicOnlyRoute> sees the session and sends the browser right
+  // back here. Signing out first is what actually gets the person to the
+  // sign-in form, e.g. when a shared device confirmed the wrong account.
+  const handleSignInInstead = () => {
+    void signOut();
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center px-6">
@@ -35,7 +46,7 @@ const Welcome = () => {
           </Button>
           
           <button
-            onClick={() => navigate('/auth')}
+            onClick={handleSignInInstead}
             className="text-lg text-primary hover:underline"
           >
             Already have an account? Sign in

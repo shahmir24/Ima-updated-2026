@@ -83,7 +83,7 @@ const BreakLoopWalk = () => {
 
             <Button
               onClick={handleStart}
-              className="bg-blue-500 hover:bg-blue-600 text-white rounded-2xl py-4 text-lg font-medium"
+              className="bg-blue-500 hover:bg-blue-600 text-white rounded-2xl h-12 py-4 text-lg font-medium"
             >
               Break the Loop
             </Button>
@@ -149,7 +149,7 @@ const BreakLoopWalk = () => {
             <div className="space-y-4">
               <Button
                 onClick={handleRestart}
-                className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-2xl py-4 text-lg font-medium"
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-2xl h-12 py-4 text-lg font-medium"
               >
                 Break Another Loop
               </Button>

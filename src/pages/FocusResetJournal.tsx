@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Target, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,19 +7,24 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import WellnessHeader from '@/components/wellness/WellnessHeader';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import { useJournalEntryForm } from '@/hooks/use-journal';
 
 const FocusResetJournal = () => {
   const navigate = useNavigate();
-  const [whatMatters, setWhatMatters] = useState('');
-  const [justNoise, setJustNoise] = useState('');
+  // Today's entry for this journal type, loaded from Supabase so the
+  // writing comes back after a refresh. The shape below is exactly what
+  // journal_entries.responses stores for 'focus-reset'.
+  const journal = useJournalEntryForm('focus-reset', { whatMatters: '', justNoise: '' });
+  const { whatMatters, justNoise } = journal.values;
 
-  const handleSave = () => {
-    console.log('Saving focus reset journal:', { whatMatters, justNoise });
-    navigate('/journaling');
+  const handleSave = async () => {
+    // Navigate only once the write has landed, so a failure leaves the
+    // page (and what was written) intact instead of discarding it.
+    if ((await journal.save()) === 'saved') navigate('/journaling');
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
       <WellnessHeader title="Zoom In" backPath="/journaling" />
 
       <main className="flex-1 max-w-lg w-full mx-auto px-4 space-y-6">
@@ -41,9 +46,9 @@ const FocusResetJournal = () => {
                 <label className="text-white/90 text-sm block mb-2">✍️ What actually matters right now?</label>
                 <Textarea
                   value={whatMatters}
-                  onChange={(e) => setWhatMatters(e.target.value)}
+                  onChange={(e) => journal.setValue('whatMatters', e.target.value)}
                   placeholder="Focus on what truly matters..."
-                  className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50"
+                  className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50 min-h-[120px]"
                 />
               </div>
 
@@ -51,9 +56,9 @@ const FocusResetJournal = () => {
                 <label className="text-white/90 text-sm block mb-2">✍️ What's just noise?</label>
                 <Textarea
                   value={justNoise}
-                  onChange={(e) => setJustNoise(e.target.value)}
+                  onChange={(e) => journal.setValue('justNoise', e.target.value)}
                   placeholder="What can you let go of..."
-                  className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50"
+                  className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50 min-h-[120px]"
                 />
               </div>
             </div>
@@ -64,10 +69,11 @@ const FocusResetJournal = () => {
 
             <Button
               onClick={handleSave}
-              className="w-full bg-green-500 hover:bg-green-600 text-white"
+              disabled={journal.isBusy}
+              className="w-full h-12 bg-green-500 hover:bg-green-600 text-white"
             >
               <Save className="h-4 w-4 mr-2" />
-              Save Focus Reset
+              {journal.isSaving ? 'Saving…' : 'Save Focus Reset'}
             </Button>
           </CardContent>
         </Card>

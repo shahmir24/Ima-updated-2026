@@ -1,24 +1,89 @@
 
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import TimerBox from '@/components/focus/TimerBox';
 import ControlButtons from '@/components/focus/ControlButtons';
 import FloatingSettings from '@/components/focus/FloatingSettings';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import PageWorkspace from '@/components/layout/PageWorkspace';
+import { useUserSettings } from '@/hooks/use-user-settings';
+import { useTasks } from '@/hooks/use-tasks';
+
+/**
+ * Used until the saved settings arrive, and when a user has no settings row.
+ * These are the same values user_settings declares as its column defaults, so
+ * the screen never shows one thing before the row loads and another after.
+ */
+const FALLBACK_BLOCK_MINUTES = 25;
+const FALLBACK_BUFFER_MINUTES = 5;
+const FALLBACK_FLOWS = 4;
+
+/**
+ * Deliberately narrower than the card hubs. This is a concentration screen, so
+ * the timer stays centred and close to itself rather than spreading across the
+ * desktop workspace.
+ */
+const WORKSPACE = 'max-w-2xl';
 
 const Focus = () => {
   const navigate = useNavigate();
+
+  /**
+   * Optional context. Home passes the id of the task it was showing under
+   * Right Now; the title is resolved from the user's own tasks rather than
+   * carried in the URL, so it survives a refresh, exposes nothing, and stays
+   * subject to the same RLS as every other read. An unknown or absent id
+   * simply leaves this the generic Focus Timer.
+   */
+  const [searchParams] = useSearchParams();
+  const requestedTaskId = searchParams.get('task');
+  const { data: tasks = [] } = useTasks();
+  const focusTask = requestedTaskId
+    ? tasks.find((task) => task.id === requestedTaskId) ?? null
+    : null;
   const [isPlaying, setIsPlaying] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(1500); // 25 minutes default
+  const [timeLeft, setTimeLeft] = useState(FALLBACK_BLOCK_MINUTES * 60);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [timeBoxDuration, setTimeBoxDuration] = useState(25);
-  const [intervalDuration, setIntervalDuration] = useState(5);
-  const [numberOfFlows, setNumberOfFlows] = useState(4);
+  const [timeBoxDuration, setTimeBoxDuration] = useState(FALLBACK_BLOCK_MINUTES);
+  const [intervalDuration, setIntervalDuration] = useState(FALLBACK_BUFFER_MINUTES);
+  const [numberOfFlows, setNumberOfFlows] = useState(FALLBACK_FLOWS);
   const [isLocked, setIsLocked] = useState(false);
   const [flowsCompleted, setFlowsCompleted] = useState(0);
   const [currentPhase, setCurrentPhase] = useState('focus'); // 'focus' or 'break'
+
+  // The timer used to hardcode 25 / 5 / 4 and ignore what the user had saved
+  // in App Settings entirely.
+  const { data: settings, isFetched: settingsLoaded } = useUserSettings();
+
+  // Seeding happens exactly once, and only before the user has touched
+  // anything. Two refs rather than reading state in the effect:
+  //   * seededRef stops a refetch — React Query refetches on window focus —
+  //     from ever re-applying the saved values to a timer in progress.
+  //   * interactedRef closes the seeding window the moment the user presses
+  //     play, resets, or changes a setting. Without it, settings arriving
+  //     late (or a pause after an early play) could overwrite a session
+  //     already under way.
+  const seededRef = useRef(false);
+  const interactedRef = useRef(false);
+
+  useEffect(() => {
+    if (seededRef.current || interactedRef.current || !settingsLoaded) return;
+    seededRef.current = true;
+
+    // No row: the fallbacks already in state are the schema's own defaults.
+    if (!settings) return;
+
+    setTimeBoxDuration(settings.focus_block_minutes);
+    setIntervalDuration(settings.buffer_minutes);
+    setNumberOfFlows(settings.default_flows);
+    // The timer has not started, so the displayed time follows the block.
+    setTimeLeft(settings.focus_block_minutes * 60);
+  }, [settingsLoaded, settings]);
+
+  /** Whether to show the pre-session encouragement line. */
+  const showEncouragement = settings?.encouragement ?? true;
 
   // Timer functionality
   useEffect(() => {
@@ -53,19 +118,25 @@ const Focus = () => {
 
   const handlePlayPause = () => {
     if (isLocked) return;
+    interactedRef.current = true;
     setIsPlaying(!isPlaying);
   };
 
   const handleReset = () => {
     if (isLocked) return;
+    interactedRef.current = true;
     setIsPlaying(false);
     setTimeLeft(timeBoxDuration * 60);
     setFlowsCompleted(0);
     setCurrentPhase('focus');
   };
 
+  // Session-scoped by design: App Settings holds the persistent default (its
+  // label reads "Default Block Length"), and this panel adjusts the session in
+  // front of you. A tweak here does not rewrite the saved default.
   const handleSettingChange = (setting: string, value: number) => {
     if (isLocked) return;
+    interactedRef.current = true;
     switch (setting) {
       case 'timeBox':
         setTimeBoxDuration(value);
@@ -99,7 +170,7 @@ const Focus = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground w-[480px] mx-auto relative">
+    <div className="flex flex-col min-h-screen bg-background text-foreground relative">
       {/* Lock Overlay */}
       {isLocked && (
         <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px] z-40 flex items-center justify-center">
@@ -111,34 +182,13 @@ const Focus = () => {
         </div>
       )}
 
-      {/* Status Bar */}
-      <div className="w-full px-4 pt-2 pb-1">
-        <div className="flex justify-between items-center text-white text-sm font-medium">
-          <span>09:41</span>
-          <div className="flex items-center gap-1">
-            <div className="flex gap-0.5">
-              <div className="w-1 h-1 bg-white rounded-full"></div>
-              <div className="w-1 h-1 bg-white rounded-full"></div>
-              <div className="w-1 h-1 bg-white rounded-full"></div>
-              <div className="w-1 h-1 bg-white/60 rounded-full"></div>
-            </div>
-            <svg className="w-4 h-4 ml-1" fill="white" viewBox="0 0 24 24">
-              <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.07 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/>
-            </svg>
-            <div className="w-6 h-3 border border-white rounded-sm ml-1">
-              <div className="w-4 h-1.5 bg-white rounded-sm m-0.5"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Header */}
-      <header className="w-full p-4 flex items-center justify-between">
+      <PageWorkspace width={WORKSPACE} className="flex items-center justify-between py-4">
         <Button 
           variant="ghost" 
           size="icon" 
           onClick={() => !isLocked && navigate('/productivity')}
-          className="h-10 w-10 rounded-full p-0 hover:bg-white/10"
+          className="h-11 w-11 rounded-full p-0 hover:bg-white/10"
           disabled={isLocked}
         >
           <ArrowLeft className="h-6 w-6 text-white" />
@@ -150,49 +200,51 @@ const Focus = () => {
           variant="ghost" 
           size="icon" 
           onClick={handleLockToggle}
-          className="h-10 w-10 rounded-full p-0 hover:bg-white/10 z-50"
+          className="h-11 w-11 rounded-full p-0 hover:bg-white/10 z-50"
         >
           <Lock className="h-5 w-5 text-white" />
         </Button>
-      </header>
+      </PageWorkspace>
 
       {/* Flows Counter & Affirmation */}
-      <div className="w-full px-4 mb-4">
+      <PageWorkspace width={WORKSPACE} className="mb-4">
         <div className="text-center">
           <div className="text-white/60 text-sm mb-1">
             {flowsCompleted}/{numberOfFlows}
           </div>
-          {!isPlaying && (
-            <>
-              {flowsCompleted === 0 && (
-                <div className="text-white/80 text-xs font-light">
-                  {getAffirmationMessage()}
-                </div>
-              )}
-              {flowsCompleted > 0 && (
-                <div className="text-white/80 text-xs font-light">
-                  {getAffirmationMessage()}
-                </div>
-              )}
-            </>
+          {/* "Send me a little boost before I begin" in App Settings. The two
+              branches this replaces rendered exactly the same thing for
+              flowsCompleted === 0 and > 0. */}
+          {!isPlaying && showEncouragement && (
+            <div className="text-white/80 text-xs font-light">
+              {getAffirmationMessage()}
+            </div>
           )}
           {currentPhase === 'break' && (
             <div className="text-orange-300/80 text-xs mt-1">
               Break time - recharge for your next flow
             </div>
           )}
+          {focusTask && (
+            <div className="mt-3">
+              <p className="text-white/50 text-xs">Working on</p>
+              <p className="text-white text-sm font-medium">{focusTask.title}</p>
+            </div>
+          )}
         </div>
-      </div>
+      </PageWorkspace>
 
       {/* Main Content */}
-      <main className="flex-1 w-full px-4 flex flex-col items-center justify-center pb-20">
-        <TimerBox timeLeft={timeLeft} isBreak={currentPhase === 'break'} />
-        <ControlButtons 
-          isPlaying={isPlaying}
-          onPlayPause={handlePlayPause}
-          onReset={handleReset}
-          disabled={isLocked}
-        />
+      <main className="flex-1 flex flex-col items-center justify-center pb-20 lg:pb-10">
+        <PageWorkspace width={WORKSPACE} className="flex flex-col items-center justify-center">
+          <TimerBox timeLeft={timeLeft} isBreak={currentPhase === 'break'} />
+          <ControlButtons
+            isPlaying={isPlaying}
+            onPlayPause={handlePlayPause}
+            onReset={handleReset}
+            disabled={isLocked}
+          />
+        </PageWorkspace>
       </main>
 
       {/* Floating Settings */}

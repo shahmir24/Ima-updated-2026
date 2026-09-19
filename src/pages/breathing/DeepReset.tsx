@@ -5,6 +5,14 @@ import { ArrowLeft, Play, Pause, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import WellnessHeader from '@/components/wellness/WellnessHeader';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import VoiceToggle from '@/components/wellness/VoiceToggle';
+import { useUserSettings } from '@/hooks/use-user-settings';
+import { useSpokenGuidance } from '@/hooks/use-spoken-guidance';
+
+const phases = ['Inhale', 'Hold', 'Exhale', 'Hold'];
+/** Counts per phase: the advertised Inhale 4 -> Hold 4 -> Exhale 8 -> Hold 4. */
+const phaseCounts = [4, 4, 8, 4];
+const phaseDurations = [4000, 4000, 8000, 4000];
 
 const DeepReset = () => {
   const navigate = useNavigate();
@@ -14,15 +22,13 @@ const DeepReset = () => {
   const [cycles, setCycles] = useState(0);
   const [ripple, setRipple] = useState(false);
 
-  const phases = ['Inhale', 'Hold', 'Exhale', 'Hold'];
-  const phaseDurations = [4000, 4000, 8000, 4000]; // inhale 4s, hold 4s, exhale 8s, hold 4s
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
     if (isActive) {
       const currentDuration = phaseDurations[phase];
-      const countsInPhase = phase === 2 ? 8 : 4;
+      const countsInPhase = phaseCounts[phase];
       
       interval = setInterval(() => {
         setCount((prev) => {
@@ -36,7 +42,10 @@ const DeepReset = () => {
               }
               return nextPhase;
             });
-            return phase === 2 ? 8 : 4; // Set next phase count
+            // The count belongs to the phase that is STARTING. Taking it
+            // from the phase that had just ended put the 8 on the closing
+            // hold and left the exhale at 4, so this ran 4-4-4-8.
+            return phaseCounts[(phase + 1) % phaseCounts.length];
           }
           return prev - 1;
         });
@@ -46,20 +55,38 @@ const DeepReset = () => {
     return () => clearInterval(interval);
   }, [isActive, phase]);
 
+
+  const { data: settings } = useUserSettings();
+  const voice = useSpokenGuidance({ volume: (settings?.sound_volume ?? 75) / 100 });
+  const { speak, cancel: cancelVoice, reset: resetVoice } = voice;
+
+  // Speaks the phase the component has actually committed to — never from
+  // inside a state updater, which React is free to re-invoke. Keyed by cycle
+  // and phase, so each phase says its cue exactly once no matter how many
+  // times this re-renders, and silent until the user starts the exercise.
+  useEffect(() => {
+    if (!isActive) return;
+    speak(`${cycles}:${phase}`, phases[phase]);
+  }, [isActive, phase, cycles, speak]);
+
   const toggleBreathing = () => {
+    // Pausing stops a cue mid-word; resuming does not repeat it, because the
+    // phase key has not changed.
+    if (isActive) cancelVoice();
     setIsActive(!isActive);
   };
 
   const resetBreathing = () => {
+    resetVoice();
     setIsActive(false);
     setPhase(0);
-    setCount(4);
+    setCount(phaseCounts[0]);
     setCycles(0);
     setRipple(false);
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
       <WellnessHeader title="Deep Reset" backPath="/breathing" />
 
       <main className="flex-1 max-w-lg w-full mx-auto px-4 flex flex-col items-center justify-center space-y-8">
@@ -132,6 +159,8 @@ const DeepReset = () => {
           >
             <RotateCcw className="h-6 w-6 text-white/60" />
           </Button>
+
+          <VoiceToggle supported={voice.supported} muted={voice.muted} onToggle={voice.toggleMuted} />
         </div>
 
         {/* Guidance */}

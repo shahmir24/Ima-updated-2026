@@ -4,8 +4,10 @@ import ProductivityHeader from '@/components/productivity/ProductivityHeader';
 import ProductivitySearchBar from '@/components/productivity/ProductivitySearchBar';
 import { ToolCardsGrid, toolCards } from '@/components/productivity/ToolCardsGrid';
 import FidgetButton from '@/components/productivity/FidgetButton';
-import GoalsSection from '@/components/productivity/GoalsSection';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import PageWorkspace from '@/components/layout/PageWorkspace';
+
+const WORKSPACE = 'max-w-6xl';
 
 const Productivity = () => {
   const [fidgetColor, setFidgetColor] = useState('#2F74DB');
@@ -28,29 +30,24 @@ const Productivity = () => {
   }, [searchTerm]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
-      <ProductivityHeader />
-      
-      <ProductivitySearchBar 
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
+      <ProductivityHeader width={WORKSPACE} />
+
+      <ProductivitySearchBar
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
+        width={WORKSPACE}
       />
 
-      <main className="flex-1 max-w-lg w-full mx-auto px-4">
-        <ToolCardsGrid filteredTools={filteredTools} />
+      <main className="flex-1">
+        <PageWorkspace width={WORKSPACE}>
+          <ToolCardsGrid filteredTools={filteredTools} />
 
-        <FidgetButton 
-          fidgetColor={fidgetColor}
-          onFidgetClick={handleFidgetClick}
-        />
-
-        <GoalsSection />
-
-        {/* Empty Card Space */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-secondary/50 rounded-3xl p-6 aspect-square border-2 border-dashed border-muted"></div>
-          <div className="bg-secondary/50 rounded-3xl p-6 aspect-square border-2 border-dashed border-muted"></div>
-        </div>
+          <FidgetButton
+            fidgetColor={fidgetColor}
+            onFidgetClick={handleFidgetClick}
+          />
+        </PageWorkspace>
       </main>
 
       <BottomNavigation />

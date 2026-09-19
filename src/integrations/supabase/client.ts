@@ -18,4 +18,30 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    // Keep the session in localStorage and refresh it in the background, so a
+    // page refresh does not sign the user out. Both default to true; they are
+    // written out because the whole "refresh stays authenticated" requirement
+    // rests on them.
+    persistSession: true,
+    autoRefreshToken: true,
+
+    // Read the tokens Supabase appends to the URL after an email confirmation
+    // link is followed, then store them as a session. Without this the
+    // confirmation link lands on the app and nothing happens.
+    detectSessionInUrl: true,
+
+    // Implicit, NOT pkce, and deliberately so.
+    //
+    // PKCE stores a code verifier in localStorage at signUp time and requires
+    // it back when the emailed link is opened. Confirmation links are routinely
+    // opened somewhere else — the mail app's in-app browser, a phone, a
+    // different profile — where that verifier does not exist, and the exchange
+    // fails with "code verifier should be non-empty". The implicit flow carries
+    // the tokens in the redirect fragment itself, so the link works in whatever
+    // browser opens it. Email/password is the only auth method in the MVP, so
+    // there is no OAuth provider that would need PKCE.
+    flowType: 'implicit'
+  }
+});

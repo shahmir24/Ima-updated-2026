@@ -1,14 +1,18 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
+import { getEmailRedirectTo, consumeAuthCallbackError } from '@/lib/auth-redirect';
 import { useToast } from '@/hooks/use-toast';
 
 const Auth = () => {
   const { toast } = useToast();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,6 +24,29 @@ const Auth = () => {
   // session is sent to / or /welcome before this page renders. Signing in
   // below updates AuthProvider via onAuthStateChange, which re-runs that
   // guard — so this screen does not navigate on its own.
+
+  // Report a failed email link. /auth/callback forwards the reason in the
+  // navigation state; consumeAuthCallbackError() is the fallback for a link
+  // that landed somewhere else (an older `emailRedirectTo`, or the project's
+  // Site URL when the redirect was not allow-listed) and was bounced here by a
+  // guard, which drops the URL fragment on the way.
+  const routedMessage = (location.state as { authMessage?: string } | null)?.authMessage ?? null;
+
+  useEffect(() => {
+    const message = routedMessage ?? consumeAuthCallbackError();
+    if (!message) return;
+
+    toast({
+      title: 'Sign-in link problem',
+      description: message,
+      variant: 'destructive'
+    });
+
+    // Drop the message from history so a refresh does not replay it.
+    if (routedMessage) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [routedMessage, location.pathname, navigate, toast]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,24 +73,41 @@ const Auth = () => {
 
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/`,
+            // Must be an allow-listed Redirect URL in the Supabase dashboard,
+            // or Supabase quietly substitutes the project's Site URL and the
+            // confirmation link lands somewhere that is not this app. See
+            // docs/auth-configuration.md.
+            emailRedirectTo: getEmailRedirectTo(),
             data: {
               full_name: fullName
             }
           }
         });
-        
+
         if (error) throw error;
-        
+
+        if (data.session) {
+          // Email confirmation is switched off for this project: signUp
+          // returned a live session, so the user is already signed in and
+          // <PublicOnlyRoute> is about to send them to /welcome. Telling them
+          // to go and check their email would strand them on a screen they
+          // are leaving.
+          toast({
+            title: "Welcome to iMA! 🌿",
+            description: "Your account is ready."
+          });
+          return;
+        }
+
         toast({
           title: "Welcome to iMA! 🌿",
           description: "Please check your email to verify your account before signing in."
         });
-        
+
         // Switch to sign in mode after successful signup
         setIsSignUp(false);
         setPassword('');

@@ -1,10 +1,18 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Play, Pause, RotateCcw, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import WellnessHeader from '@/components/wellness/WellnessHeader';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import VoiceToggle from '@/components/wellness/VoiceToggle';
+import { useUserSettings } from '@/hooks/use-user-settings';
+import { useSpokenGuidance } from '@/hooks/use-spoken-guidance';
+
+const phases = ['Inhale', 'Hold', 'Exhale'];
+/** Counts per phase: the advertised Inhale 4 -> Hold 7 -> Exhale 8. */
+const phaseCounts = [4, 7, 8];
+const phaseDurations = [4000, 7000, 8000];
 
 const SleepSwitch = () => {
   const navigate = useNavigate();
@@ -15,15 +23,13 @@ const SleepSwitch = () => {
   const [moonScale, setMoonScale] = useState(1);
   const [starOpacity, setStarOpacity] = useState(0.3);
 
-  const phases = ['Inhale', 'Hold', 'Exhale'];
-  const phaseDurations = [4000, 7000, 8000]; // inhale 4s, hold 7s, exhale 8s
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
     if (isActive) {
       const currentDuration = phaseDurations[phase];
-      const countsInPhase = phase === 0 ? 4 : phase === 1 ? 7 : 8;
+      const countsInPhase = phaseCounts[phase];
       
       interval = setInterval(() => {
         setCount((prev) => {
@@ -35,7 +41,8 @@ const SleepSwitch = () => {
               }
               return nextPhase;
             });
-            return phase === 0 ? 7 : phase === 1 ? 8 : 4; // Set next phase count
+            // The count belongs to the phase that is STARTING.
+            return phaseCounts[(phase + 1) % phaseCounts.length];
           }
           return prev - 1;
         });
@@ -57,35 +64,64 @@ const SleepSwitch = () => {
     return () => clearInterval(interval);
   }, [isActive, phase]);
 
+
+  const { data: settings } = useUserSettings();
+  const voice = useSpokenGuidance({ volume: (settings?.sound_volume ?? 75) / 100 });
+  const { speak, cancel: cancelVoice, reset: resetVoice } = voice;
+
+  // Speaks the phase the component has actually committed to — never from
+  // inside a state updater, which React is free to re-invoke. Keyed by cycle
+  // and phase, so each phase says its cue exactly once no matter how many
+  // times this re-renders, and silent until the user starts the exercise.
+  useEffect(() => {
+    if (!isActive) return;
+    speak(`${cycles}:${phase}`, phases[phase]);
+  }, [isActive, phase, cycles, speak]);
+
   const toggleBreathing = () => {
+    // Pausing stops a cue mid-word; resuming does not repeat it, because the
+    // phase key has not changed.
+    if (isActive) cancelVoice();
     setIsActive(!isActive);
   };
 
   const resetBreathing = () => {
+    resetVoice();
     setIsActive(false);
     setPhase(0);
-    setCount(4);
+    setCount(phaseCounts[0]);
     setCycles(0);
     setMoonScale(1);
     setStarOpacity(0.3);
   };
 
+  const stars = useMemo(
+    () =>
+      Array.from({ length: 20 }, () => ({
+        left: `${Math.random() * 100}%`,
+        top: `${Math.random() * 100}%`,
+        delay: `${Math.random() * 3}s`
+      })),
+    []
+  );
+
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-b from-indigo-900 via-purple-900 to-indigo-800 text-foreground pb-20">
+    <div className="flex flex-col min-h-screen bg-gradient-to-b from-indigo-900 via-purple-900 to-indigo-800 text-foreground pb-20 lg:pb-10">
       <WellnessHeader title="Sleep Switch" backPath="/breathing" />
 
       <main className="flex-1 max-w-lg w-full mx-auto px-4 flex flex-col items-center justify-center space-y-8">
-        {/* Stars background */}
+        {/* Stars background — positions fixed once, so they do not jump on
+            every re-render of the running timer. */}
         <div className="absolute inset-0 overflow-hidden">
-          {Array.from({ length: 20 }).map((_, i) => (
+          {stars.map((star, i) => (
             <div
               key={i}
               className="absolute w-1 h-1 bg-white rounded-full animate-pulse"
               style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
+                left: star.left,
+                top: star.top,
                 opacity: starOpacity,
-                animationDelay: `${Math.random() * 3}s`,
+                animationDelay: star.delay,
                 transition: 'opacity 1s ease-in-out'
               }}
             />
@@ -145,6 +181,8 @@ const SleepSwitch = () => {
           >
             <RotateCcw className="h-6 w-6 text-white/60" />
           </Button>
+
+          <VoiceToggle supported={voice.supported} muted={voice.muted} onToggle={voice.toggleMuted} />
         </div>
 
         {/* Guidance */}

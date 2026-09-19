@@ -1,9 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Heart, Circle, Clock, Calendar, MessageSquare, Activity, Smile, Frown, Meh, Zap, Brain, User, Settings, HelpCircle, LogOut, Check } from 'lucide-react';
+import {
+  Heart, Circle, Clock, Calendar, Activity, Smile, Frown, Zap, Brain,
+  User, Settings, LogOut, Users
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,16 +15,104 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/auth-context';
+import { useToast } from '@/hooks/use-toast';
+import { useTodayMood, useSaveMoodCheckin, toMoodLabel, isMoodValue } from '@/hooks/use-mood';
+import { useTasks, useToggleTaskCompleted, type TaskRow } from '@/hooks/use-tasks';
+import { useProfile } from '@/hooks/use-profile';
+import { useHomeTaskQueue, greetingForHour } from '@/hooks/use-home-task-queue';
+import RightNowCard from '@/components/home/RightNowCard';
+import UpNextRow from '@/components/home/UpNextRow';
+import DesktopHome from '@/components/home/DesktopHome';
+
+/** Local YYYY-MM-DD, so "today" is the user's calendar day, not a UTC one. */
+const toLocalISODate = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
 const Index = () => {
   const navigate = useNavigate();
   const { signOut } = useAuth();
-  const [selectedMood, setSelectedMood] = useState<string | null>(null);
-  const [tasks, setTasks] = useState([
-    { id: 1, title: "Team meeting", time: "10:00 AM", completed: false },
-    { id: 2, title: "Project proposal", time: "12:30 PM", completed: false },
-    { id: 3, title: "Review designs", time: "3:00 PM", completed: false }
-  ]);
+  const { toast } = useToast();
+
+  // Today's check-in comes from the database, so the selection survives a
+  // refresh. `pendingMood` shows the tap immediately while the insert is in
+  // flight, and is cleared either way once it settles.
+  const { data: todayMood } = useTodayMood();
+  const saveMood = useSaveMoodCheckin();
+  const [pendingMood, setPendingMood] = useState<string | null>(null);
+
+  // A ref, not saveMood.isPending: two taps in the same tick both read the
+  // same render's isPending (still false) and would both insert. A ref is
+  // updated synchronously, so the second tap of a double-tap sees it.
+  const savingRef = useRef(false);
+
+  const selectedMood = pendingMood ?? (todayMood ? toMoodLabel(todayMood.mood) : null);
+
+  const handleSelectMood = (label: string) => {
+    // Two guards, because a tap on this row is cheap and easy to repeat:
+    //   * while an insert is in flight, further taps are ignored, so a
+    //     double-tap cannot write twice.
+    //   * a second tap on the mood already recorded is a no-op, not a new row.
+    //     The picker reads as a selection, so re-tapping the highlighted mood
+    //     means "yes, still that" — it should not append a duplicate.
+    // Choosing a DIFFERENT mood later still appends: the table is an
+    // append-only log and the day's series is the point of it.
+    if (savingRef.current || selectedMood === label) return;
+
+    const mood = label.toLowerCase();
+    if (!isMoodValue(mood)) return;
+
+    savingRef.current = true;
+    setPendingMood(label);
+    saveMood.mutate(
+      { mood },
+      {
+        onError: (error) => {
+          toast({
+            title: 'Could not save your mood',
+            description: error instanceof Error ? error.message : 'Please try again.',
+            variant: 'destructive'
+          });
+        },
+        onSettled: () => {
+          savingRef.current = false;
+          setPendingMood(null);
+        }
+      }
+    );
+  };
+
+  // The same persisted tasks the /tasks screen reads.
+  const { data: allTasks = [], isPending: tasksLoading, isError: tasksFailed } = useTasks();
+  const toggleTaskCompleted = useToggleTaskCompleted();
+  const { data: profile } = useProfile();
+
+  const today = toLocalISODate(new Date());
+  const queue = useHomeTaskQueue(allTasks, today);
+
+  /**
+   * Hand the Right Now task to whichever screen the user is sent to, so they
+   * do not have to remember what the app just told them. Both destinations
+   * still work with no task at all when reached from anywhere else.
+   */
+  const withTask = (path: string) =>
+    queue.current ? `${path}?task=${encodeURIComponent(queue.current.id)}` : path;
+
+  // The name is only ever the stored one; there is no fallback that guesses at
+  // a first name from anything else.
+  const firstName = profile?.first_name?.trim();
+  const greeting = firstName
+    ? `${greetingForHour(new Date().getHours())}, ${firstName}`
+    : greetingForHour(new Date().getHours());
+
+  const handleToggleTask = (task: TaskRow) => {
+    // No optimistic removal: a failed write must leave the task exactly where
+    // it was rather than quietly dropping it out of the queue. The hook
+    // invalidates on success, which is what takes a completed task out.
+    toggleTaskCompleted.toggle(task).catch(() => { /* surfaced via taskError */ });
+  };
+
+  const taskError = toggleTaskCompleted.error;
+  const todaysTasks = allTasks.filter((task) => task.scheduled_date === today);
 
   const moods = [
     { name: "Happy", icon: Smile, color: "from-yellow-400 to-orange-400" },
@@ -32,43 +122,79 @@ const Index = () => {
     { name: "Focused", icon: Brain, color: "from-purple-400 to-purple-600" }
   ];
 
-  const toggleTask = (taskId: number) => {
-    setTasks(tasks.map(task => 
-      task.id === taskId ? { ...task, completed: !task.completed } : task
-    ));
+  /**
+   * Nothing to do right now — said plainly, and never as an empty task card.
+   * Computed once here so the mobile card and the desktop hero cannot drift
+   * apart on which of the three situations the user is actually in.
+   */
+  const emptyState =
+    allTasks.length === 0
+      ? { message: 'No tasks yet.', action: 'Add one' }
+      : todaysTasks.length > 0
+        ? { message: 'All done for today.', action: 'View tasks' }
+        : { message: 'Nothing scheduled for today.', action: 'See all' };
+
+  /** The date, for quiet context on the desktop dashboard. */
+  const dateLabel = new Date().toLocaleDateString(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
+
+  const renderEmptyState = () => {
+    const { message, action } = emptyState;
+
+    return (
+      <section
+        aria-label="Right now"
+        className="rounded-3xl bg-secondary/60 p-5 sm:p-7"
+      >
+        <p className="text-sm text-muted-foreground">{greeting}</p>
+        <h2 className="mt-2 text-2xl sm:text-3xl font-bold text-foreground">Right now</h2>
+        <p className="mt-3 text-base text-muted-foreground">{message}</p>
+        <Button
+          onClick={() => navigate('/tasks')}
+          className="mt-5 h-12 rounded-full bg-primary px-6 text-primary-foreground hover:bg-primary/90"
+        >
+          {action}
+        </Button>
+      </section>
+    );
   };
 
-  const completedTasks = tasks.filter(task => task.completed).length;
-  const progressPercentage = (completedTasks / tasks.length) * 100;
-
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
+    <>
+      {/* ------------------------------------------------ mobile and tablet.
+          Unchanged from the Phase 3 Home, header and bottom bar included. The
+          whole tree is gated so desktop never inherits its chrome — notably
+          the logo and wordmark, which the sidebar already carries. */}
+      <div data-testid="mobile-home" className="flex min-h-screen flex-col bg-background text-foreground pb-fixed-nav lg:hidden">
       {/* Header */}
-      <header className="w-full max-w-lg mx-auto p-4 flex items-center justify-between">
-        {/* Logo in top left */}
-        <div className="h-12 w-16 flex items-center justify-center">
-          <img 
-            src="/lovable-uploads/d8549ee1-5d5d-4efb-9c1b49629e14.png" 
-            alt="iMA Logo" 
+      <header className="mx-auto flex w-full max-w-lg items-center justify-between p-4 md:max-w-2xl lg:max-w-3xl">
+        <div className="flex h-12 w-16 items-center justify-center">
+          <img
+            src="/lovable-uploads/d8549ee1-5d5d-4efb-9c5b-9c1b49629e14.png"
+            alt="iMA Logo"
             className="h-10 w-auto object-contain"
           />
         </div>
-        
-        {/* Centered Title */}
-        <div className="flex-1 flex items-center justify-center">
+
+        <div className="flex flex-1 items-center justify-center">
           <h1 className="text-3xl font-bold font-morisawa">iMA</h1>
         </div>
-        
-        {/* Profile dropdown in top right */}
+
+        {/* Profile dropdown in top right. The dead "Help" item that used to sit
+            between Settings and Log Out is gone — it had no handler. */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-10 w-10 rounded-full p-0">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+            <Button variant="ghost" aria-label="Account menu" className="h-11 w-11 rounded-full p-0">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600">
                 <User className="h-4 w-4 text-white" />
               </div>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 bg-background border border-border">
+          <DropdownMenuContent align="end" className="w-56 border border-border bg-background">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => navigate('/profile-settings?tab=profile')}>
@@ -79,10 +205,6 @@ const Index = () => {
               <Settings className="mr-2 h-4 w-4" />
               <span>Settings</span>
             </DropdownMenuItem>
-            <DropdownMenuItem>
-              <HelpCircle className="mr-2 h-4 w-4" />
-              <span>Help</span>
-            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={signOut}>
               <LogOut className="mr-2 h-4 w-4" />
@@ -92,35 +214,40 @@ const Index = () => {
         </DropdownMenu>
       </header>
 
-      {/* Main content */}
-      <main className="flex-1 max-w-lg w-full mx-auto px-4 py-6 flex flex-col gap-6">
-        {/* Question */}
-        <div className="text-center mb-6">
-          <h2 className="text-xl font-medium text-foreground">How are you feeling today?</h2>
-        </div>
-
-        {/* Mood selection */}
-        <div className="flex justify-center gap-4 mb-8 overflow-x-auto pb-2">
-          {moods.map((mood, index) => {
+      <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 px-4 py-2 sm:px-6 md:max-w-2xl lg:max-w-3xl">
+        {/* Mood — unchanged behaviour, repositioned above the Right Now card. */}
+        <div
+          role="group"
+          aria-label="How are you feeling today?"
+          className="flex justify-between gap-1 sm:justify-center sm:gap-6"
+        >
+          {moods.map((mood) => {
             const IconComponent = mood.icon;
             const isSelected = selectedMood === mood.name;
-            
+
             return (
-              <button 
-                key={index} 
-                onClick={() => setSelectedMood(mood.name)}
-                className="flex flex-col items-center min-w-[80px] transition-all duration-200"
+              <button
+                key={mood.name}
+                onClick={() => handleSelectMood(mood.name)}
+                aria-pressed={isSelected}
+                className="flex min-w-0 flex-1 flex-col items-center gap-2 transition-all duration-200 sm:flex-none sm:basis-20"
               >
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-2 transition-all duration-200 ${
-                  isSelected 
-                    ? `bg-gradient-to-br ${mood.color} shadow-lg scale-110` 
-                    : "bg-secondary hover:bg-secondary/80"
-                }`}>
-                  <IconComponent className={`h-7 w-7 ${isSelected ? 'text-white' : 'text-muted-foreground'}`} />
-                </div>
-                <span className={`text-sm font-medium transition-colors ${
-                  isSelected ? 'text-foreground' : 'text-muted-foreground'
-                }`}>
+                <span
+                  className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 sm:h-14 sm:w-14 ${
+                    isSelected
+                      ? `bg-gradient-to-br ${mood.color} shadow-lg scale-110`
+                      : 'bg-secondary hover:bg-secondary/80'
+                  }`}
+                >
+                  <IconComponent
+                    className={`h-6 w-6 ${isSelected ? 'text-white' : 'text-muted-foreground'}`}
+                  />
+                </span>
+                <span
+                  className={`text-[11px] font-medium transition-colors sm:text-sm ${
+                    isSelected ? 'text-foreground' : 'text-muted-foreground'
+                  }`}
+                >
                   {mood.name}
                 </span>
               </button>
@@ -128,194 +255,163 @@ const Index = () => {
           })}
         </div>
 
-        {/* Feature cards grid - Updated for better mobile responsiveness */}
-        <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 sm:gap-4">
-          <Link to="/breathe" className="col-span-2 sm:col-span-6 rounded-3xl overflow-hidden">
-            <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-3xl p-4 sm:p-6 aspect-[2/1] flex flex-col justify-between card-hover glow relative">
-              <div className="absolute inset-0 flex items-center justify-center opacity-30">
-                <div className="w-32 sm:w-40 h-32 sm:h-40 rounded-full bg-blue-400/20 animate-breathe"></div>
-                <div className="w-24 sm:w-32 h-24 sm:h-32 rounded-full bg-teal-400/30 absolute animate-breathe" style={{ animationDelay: '1s' }}></div>
-              </div>
-              <div className="z-10">
-                <span className="text-blue-200 text-xs sm:text-sm">Feeling anxious?</span>
-                <h3 className="text-lg sm:text-xl font-bold">Quick breathing exercise</h3>
-              </div>
-              <div className="flex items-end justify-between z-10">
-                <span className="text-blue-200 text-xs sm:text-sm">2 min</span>
-                <Circle className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
-              </div>
-            </div>
-          </Link>
-          
-          <Link to="/productivity" className="col-span-1 sm:col-span-2 rounded-3xl overflow-hidden">
-            <div className="bg-gradient-to-br from-amber-600 to-amber-900 rounded-3xl p-3 sm:p-5 h-32 sm:h-auto flex flex-col justify-between card-hover">
-              <div>
-                <h3 className="text-sm sm:text-lg font-bold mb-1">Productivity</h3>
-                <p className="text-xs sm:text-sm text-amber-200">Tasks</p>
-              </div>
-              <div className="mt-auto flex justify-end">
-                <Activity className="h-5 w-5 sm:h-7 sm:w-7 text-white/90" />
-              </div>
-            </div>
-          </Link>
+        {/* Right now */}
+        {tasksLoading && (
+          <p className="text-sm text-muted-foreground">Loading your tasks…</p>
+        )}
 
-          <Link to="/wellness" className="col-span-1 sm:col-span-2 rounded-3xl overflow-hidden">
-            <div className="bg-gradient-to-br from-emerald-600 to-emerald-900 rounded-3xl p-3 sm:p-5 h-32 sm:h-auto flex flex-col justify-between card-hover">
-              <div>
-                <h3 className="text-sm sm:text-lg font-bold mb-1">Wellness</h3>
-                <p className="text-xs sm:text-sm text-emerald-200">Health</p>
-              </div>
-              <div className="mt-auto flex justify-end">
-                <Heart className="h-5 w-5 sm:h-7 sm:w-7 text-white/90" />
-              </div>
-            </div>
-          </Link>
+        {tasksFailed && !tasksLoading && (
+          <p className="text-sm text-red-300">Could not load your tasks.</p>
+        )}
 
-          <Link to="/body-double" className="col-span-2 sm:col-span-2 rounded-3xl overflow-hidden">
-            <div className="bg-gradient-to-br from-cyan-600 to-cyan-900 rounded-3xl p-3 sm:p-5 h-32 sm:h-auto flex flex-col justify-between card-hover">
-              <div className="flex items-center gap-2 mb-1">
-                <img 
-                  src="/lovable-uploads/a89d4002-b0ce-4d98-b91b-70576e972e1f.png" 
-                  alt="AI Chat Logo" 
-                  className="h-4 w-4 sm:h-5 sm:w-5 object-contain"
-                />
-                <h3 className="text-sm sm:text-lg font-bold">iMA Chat</h3>
-              </div>
-              <p className="text-xs sm:text-sm text-cyan-200 mb-auto">AI Assistant</p>
-              <div className="mt-auto flex justify-end">
-                <MessageSquare className="h-5 w-5 sm:h-7 sm:w-7 text-white/90" />
-              </div>
-            </div>
-          </Link>
-          
-          <Link to="/focus" className="col-span-1 sm:col-span-3 rounded-3xl overflow-hidden">
-            <div className="bg-gradient-to-br from-purple-600 to-purple-900 rounded-3xl p-3 sm:p-5 h-32 sm:h-auto flex flex-col justify-between card-hover">
-              <div>
-                <h3 className="text-sm sm:text-lg font-bold mb-1">Focus time</h3>
-                <p className="text-xs sm:text-sm text-purple-200">Pomodoro</p>
-              </div>
-              <div className="mt-auto flex justify-end">
-                <Clock className="h-5 w-5 sm:h-7 sm:w-7 text-white/90" />
-              </div>
-            </div>
-          </Link>
-          
-          <Link to="/soundscape" className="col-span-1 sm:col-span-3 rounded-3xl overflow-hidden">
-            <div className="bg-gradient-to-br from-indigo-600 to-indigo-900 rounded-3xl p-3 sm:p-5 h-32 sm:h-auto flex flex-col justify-between card-hover">
-              <div>
-                <h3 className="text-sm sm:text-lg font-bold mb-1">Soundscaping</h3>
-                <p className="text-xs sm:text-sm text-indigo-200">Focus sounds</p>
-              </div>
-              <div className="mt-auto flex justify-end">
-                <div className="relative">
-                  <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-full bg-white/20 flex items-center justify-center">
-                    <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-white/80"></div>
-                  </div>
-                  <div className="absolute inset-0 w-5 h-5 sm:w-7 sm:h-7 rounded-full bg-white/10 animate-ping"></div>
-                </div>
-              </div>
-            </div>
-          </Link>
-          
-          <Link to="/journal" className="col-span-2 sm:col-span-6 rounded-3xl overflow-hidden">
-            <div className="bg-gradient-to-br from-teal-600 to-teal-900 rounded-3xl p-3 sm:p-5 h-32 sm:h-auto flex flex-col justify-between card-hover">
-              <div>
-                <h3 className="text-sm sm:text-lg font-bold mb-1">Daily journal</h3>
-                <p className="text-xs sm:text-sm text-teal-200">Check in</p>
-              </div>
-              <div className="mt-auto flex justify-end">
-                <Heart className="h-5 w-5 sm:h-7 sm:w-7 text-white/90" />
-              </div>
-            </div>
-          </Link>
-        </div>
+        {!tasksLoading && !tasksFailed && (
+          queue.current ? (
+            <RightNowCard
+              task={queue.current}
+              greeting={greeting}
+              position={queue.position}
+              total={queue.total}
+              ringFraction={queue.ringFraction}
+              canAdvance={queue.canAdvance}
+              reason={queue.reason}
+              isCompleting={toggleTaskCompleted.isPending}
+              onStart={() => navigate(withTask('/focus'))}
+              onStuck={() => navigate(withTask('/body-double'))}
+              onNotNow={queue.advance}
+              onToggleComplete={() => handleToggleTask(queue.current as TaskRow)}
+            >
+              <UpNextRow
+                tasks={queue.upNext}
+                isCompleting={toggleTaskCompleted.isPending}
+                onToggleComplete={handleToggleTask}
+              />
+            </RightNowCard>
+          ) : (
+            renderEmptyState()
+          )
+        )}
 
-        {/* Tasks section */}
-        <div className="mt-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Today's tasks</h2>
-            <Button variant="ghost" size="sm" className="text-primary">View all</Button>
-          </div>
-          
-          <div className="space-y-3">
-            {tasks.map((task) => (
-              <div key={task.id} className="bg-secondary rounded-2xl p-4 flex items-center justify-between animate-slide-up">
-                <div className="flex items-center gap-3">
-                  <button 
-                    onClick={() => toggleTask(task.id)}
-                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                      task.completed 
-                        ? 'bg-blue-500 border-blue-500' 
-                        : 'border-muted-foreground hover:border-blue-500'
-                    }`}
-                  >
-                    {task.completed && <Check className="w-4 h-4 text-white" />}
-                  </button>
-                  <div>
-                    <h3 className="text-lg font-medium">{task.title}</h3>
-                    <p className="text-sm text-muted-foreground">{task.time}</p>
-                  </div>
-                </div>
-                <Button variant="ghost" size="sm" className="text-primary">Edit</Button>
-              </div>
-            ))}
-          </div>
-        </div>
+        {taskError && (
+          <p className="text-sm text-red-300">{(taskError as Error).message}</p>
+        )}
 
-        {/* Personal goal card */}
-        <Card className="mt-4 bg-secondary border-0 rounded-3xl p-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <h3 className="text-lg font-semibold mb-1">Personal goal</h3>
-              <p className="text-muted-foreground text-sm mb-3">Daily meditation</p>
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-blue-500 to-teal-400 rounded-full transition-all duration-300" 
-                    style={{ width: `${progressPercentage}%` }}
-                  ></div>
-                </div>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">{Math.round(progressPercentage)}%</span>
-              </div>
-            </div>
-            <Button variant="ghost" size="sm" className="rounded-full h-10 w-10 p-2 bg-muted flex items-center justify-center">
-              <Calendar className="h-5 w-5" />
+        {/* Tasks live on their own screen; this keeps them one tap away. */}
+        {!tasksLoading && !tasksFailed && queue.current && (
+          <div className="-mt-2 flex justify-end">
+            <Button
+              variant="ghost"
+              className="h-11 px-4 text-primary"
+              onClick={() => navigate('/tasks')}
+            >
+              View all tasks
             </Button>
           </div>
-        </Card>
+        )}
+
+        {/* Feature cards. Breathing, Focus, Soundscaping and Daily Journal all
+            keep a route: Focus and Journal sit in the bottom navigation,
+            Breathing inside Wellness, Soundscaping inside Productivity. */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+          <Link to="/productivity" className="rounded-3xl">
+            <div className="flex min-h-[8rem] flex-col justify-between rounded-3xl bg-gradient-to-br from-amber-600 to-amber-900 p-5 card-hover sm:min-h-[10rem]">
+              <div>
+                <h3 className="text-lg font-bold">Productivity</h3>
+                <p className="text-sm text-amber-200">Tasks, focus &amp; sounds</p>
+              </div>
+              <div className="mt-auto flex justify-end">
+                <Activity className="h-7 w-7 text-white/90" />
+              </div>
+            </div>
+          </Link>
+
+          <Link to="/wellness" className="rounded-3xl">
+            <div className="flex min-h-[8rem] flex-col justify-between rounded-3xl bg-gradient-to-br from-emerald-600 to-emerald-900 p-5 card-hover sm:min-h-[10rem]">
+              <div>
+                <h3 className="text-lg font-bold">Wellness</h3>
+                <p className="text-sm text-emerald-200">Breathing, journal &amp; calm</p>
+              </div>
+              <div className="mt-auto flex justify-end">
+                <Heart className="h-7 w-7 text-white/90" />
+              </div>
+            </div>
+          </Link>
+
+          {/* No AI claim: there is no model behind Body Double, and its own
+              screen is careful not to imply one. */}
+          <Link to="/body-double" className="rounded-3xl">
+            <div className="flex min-h-[8rem] flex-col justify-between rounded-3xl bg-gradient-to-br from-cyan-600 to-cyan-900 p-5 card-hover sm:min-h-[10rem]">
+              <div>
+                <h3 className="text-lg font-bold">Body Double</h3>
+                <p className="text-sm text-cyan-200">
+                  Quiet co-working support for focus &amp; accountability
+                </p>
+              </div>
+              <div className="mt-auto flex justify-end">
+                <Users className="h-7 w-7 text-white/90" />
+              </div>
+            </div>
+          </Link>
+        </div>
       </main>
 
-      {/* Bottom navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-lg border-t border-border">
-        <div className="max-w-lg mx-auto flex justify-around items-center py-2 px-4">
-          <Button variant="ghost" size="icon" className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-2xl min-w-[60px]">
+      {/* Bottom navigation.
+          Home keeps its own labelled nav rather than the shared component,
+          which has no labels and no logo button — swapping it in would change
+          how Home looks. Each button goes where its own label says. Hidden
+          from lg up, where the desktop sidebar takes over. */}
+      <nav className="fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur-lg nav-safe-area lg:hidden">
+        <div className="mx-auto flex max-w-lg items-center justify-around px-4 py-2 md:max-w-2xl">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/wellness')} aria-label="Wellness" className="flex h-auto min-w-[60px] flex-col items-center gap-1 rounded-2xl px-3 py-2">
             <Heart className="h-6 w-6" />
             <span className="text-xs">Wellness</span>
           </Button>
-          <Button variant="ghost" size="icon" className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-2xl min-w-[60px]">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/focus')} aria-label="Focus" className="flex h-auto min-w-[60px] flex-col items-center gap-1 rounded-2xl px-3 py-2">
             <Clock className="h-6 w-6" />
             <span className="text-xs">Focus</span>
           </Button>
-          <Button variant="ghost" size="icon" className="flex flex-col items-center p-2 rounded-full bg-gradient-to-br from-blue-500 to-teal-400 -translate-y-2 shadow-lg">
-            <img 
-              src="/lovable-uploads/d8549ee1-5d5d-4efb-9c5b-9c1b49629e14.png" 
-              alt="iMA Logo" 
+          <Button variant="ghost" size="icon" onClick={() => navigate('/')} aria-label="Home" aria-current="page" className="-translate-y-2 flex h-11 w-11 flex-col items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-teal-400 shadow-lg">
+            <img
+              src="/lovable-uploads/d8549ee1-5d5d-4efb-9c5b-9c1b49629e14.png"
+              alt="iMA Logo"
               className="h-8 w-8 object-contain"
             />
           </Button>
-          <Button variant="ghost" size="icon" className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-2xl min-w-[60px]">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/journaling')} aria-label="Journal" className="flex h-auto min-w-[60px] flex-col items-center gap-1 rounded-2xl px-3 py-2">
             <Calendar className="h-6 w-6" />
             <span className="text-xs">Journal</span>
           </Button>
-          <Button variant="ghost" size="icon" className="flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-2xl min-w-[60px]">
-            <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/profile-settings?tab=profile')} aria-label="Profile" className="flex h-auto min-w-[60px] flex-col items-center gap-1 rounded-2xl px-3 py-2">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-700">
               <User className="h-4 w-4 text-white" />
             </div>
             <span className="text-xs">Profile</span>
           </Button>
         </div>
       </nav>
-    </div>
+      </div>
+
+      {/* -------------------------------------------------------- desktop.
+          The same profile, mood, tasks, queue, mutation and handlers — only
+          the arrangement differs. */}
+      <DesktopHome
+        greeting={greeting}
+        dateLabel={dateLabel}
+        moods={moods}
+        selectedMood={selectedMood}
+        onSelectMood={handleSelectMood}
+        queue={queue}
+        todaysTasks={todaysTasks}
+        tasksLoading={tasksLoading}
+        tasksFailed={tasksFailed}
+        taskErrorMessage={taskError ? (taskError as Error).message : null}
+        isCompleting={toggleTaskCompleted.isPending}
+        onToggleTask={handleToggleTask}
+        onStart={() => navigate(withTask('/focus'))}
+        onStuck={() => navigate(withTask('/body-double'))}
+        emptyState={emptyState}
+        onEmptyStateAction={() => navigate('/tasks')}
+      />
+    </>
   );
 };
 

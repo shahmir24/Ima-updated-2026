@@ -99,7 +99,7 @@ const BreathSyncWalk = () => {
 
             <Button
               onClick={handleStart}
-              className="bg-green-500 hover:bg-green-600 text-white rounded-2xl py-4 text-lg font-medium"
+              className="bg-green-500 hover:bg-green-600 text-white rounded-2xl h-12 py-4 text-lg font-medium"
             >
               Start Walking
             </Button>
@@ -221,7 +221,7 @@ const BreathSyncWalk = () => {
             <div className="space-y-4">
               <Button
                 onClick={handleRestart}
-                className="w-full bg-green-500 hover:bg-green-600 text-white rounded-2xl py-4 text-lg font-medium"
+                className="w-full bg-green-500 hover:bg-green-600 text-white rounded-2xl h-12 py-4 text-lg font-medium"
               >
                 Walk Again
               </Button>

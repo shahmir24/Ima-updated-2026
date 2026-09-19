@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { ArrowLeft, Camera, Upload, Smile, User, Settings, Moon, Sun, Volume2, Zap, Clock, Shield, MessageSquare, HelpCircle } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, Camera, Upload, Smile, User, Settings, Moon, Sun, Volume2, Zap, Clock, Shield, MessageSquare, HelpCircle, LogOut } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,23 +11,110 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
+import PageWorkspace from '@/components/layout/PageWorkspace';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { useAutoSave } from '@/hooks/use-autosave';
+import { useAuth } from '@/contexts/auth-context';
+import { useProfile, useUpdateProfile, type ProfilePatch } from '@/hooks/use-profile';
+import { useUserSettings, useUpdateUserSettings, type UserSettingsPatch } from '@/hooks/use-user-settings';
+
+/** Local YYYY-MM-DD, so "today" is the user's calendar day. */
+const toLocalISODate = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+/**
+ * The profiles_dob_sane CHECK requires a date after 1900-01-01 and strictly
+ * before today. Validating here keeps a mistyped year out of the request
+ * instead of surfacing a raw constraint violation.
+ */
+const isStorableDateOfBirth = (value: string) =>
+  value > '1900-01-01' && value < toLocalISODate(new Date());
+
+/** A settings form: wide enough to feel deliberate, narrow enough to read. */
+const WORKSPACE = 'max-w-3xl';
 
 const ProfileSettings = () => {
+  const { signOut } = useAuth();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    // The guard redirects on a cleared session, so there is nothing to
+    // navigate here. The flag only stops a second click mid-request.
+    setLoggingOut(true);
+    try {
+      await signOut();
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') || 'profile';
   
+  const { toast } = useToast();
+
+  // --- persistence -------------------------------------------------------
+  // This screen has no Save button, so every control writes its own column as
+  // it changes. Saves are fired from the change handlers rather than from an
+  // effect, so hydrating the form below can never write over what was loaded.
+  const { data: profile, isError: profileFailed, error: profileError } = useProfile();
+  const { data: settings, isError: settingsFailed, error: settingsError } = useUserSettings();
+  const updateProfile = useUpdateProfile();
+  const updateSettings = useUpdateUserSettings();
+
+  const reportSaveFailure = (what: string, error: unknown) => {
+    toast({
+      title: `Could not save your ${what}`,
+      description: error instanceof Error ? error.message : 'Please try again.',
+      variant: 'destructive'
+    });
+  };
+
+  const profileSave = useAutoSave<ProfilePatch>(async (patch) => {
+    try {
+      await updateProfile.mutateAsync(patch);
+    } catch (error) {
+      reportSaveFailure('profile', error);
+    }
+  });
+
+  const settingsSave = useAutoSave<UserSettingsPatch>(async (patch) => {
+    try {
+      await updateSettings.mutateAsync(patch);
+    } catch (error) {
+      reportSaveFailure('settings', error);
+    }
+  });
+
+  // --- profile fields ----------------------------------------------------
+  // Local only: the column stores a Storage object path in the private
+  // `avatars` bucket, not an image, and this page has no upload pipeline.
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
   const [useEmojiProfile, setUseEmojiProfile] = useState(false);
   const [selectedEmoji, setSelectedEmoji] = useState('😊');
-  const [darkMode, setDarkMode] = useState(false);
+  const [firstName, setFirstName] = useState('');
+  const [pronouns, setPronouns] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [moodFrequency, setMoodFrequency] = useState('');
+  const [focusGoal, setFocusGoal] = useState('');
+
+  // --- settings fields ---------------------------------------------------
+  // Defaults match the schema's, so a user whose settings row is somehow
+  // missing sees what the database would actually give them. The app's
+  // palette is dark (--background is near-black) and user_settings.theme
+  // defaults to 'dark'; useState(false) claimed light and matched neither.
+  const [darkMode, setDarkMode] = useState(true);
   const [adhdMode, setAdhdMode] = useState(false);
+  const [encouragement, setEncouragement] = useState(true);
   const [soundVolume, setSoundVolume] = useState([75]);
   const [animationSpeed, setAnimationSpeed] = useState('normal');
+  const [aiCompanionName, setAiCompanionName] = useState('');
   const [focusBlockLength, setFocusBlockLength] = useState('25');
   const [bufferTime, setBufferTime] = useState('5');
+  const [timeboxingStyle, setTimeboxingStyle] = useState('');
+  const [dailyFocusGoal, setDailyFocusGoal] = useState('');
 
   const moodEmojis = ['😊', '🥰', '😌', '🤗', '✨', '🌈', '🦋', '🌸'];
   const preferredModes = [
@@ -37,6 +124,75 @@ const ProfileSettings = () => {
   ];
 
   const [selectedMode, setSelectedMode] = useState('calm');
+
+  // Fill the form from the saved row, once. Re-applying it on a later render
+  // would overwrite whatever the user has changed since.
+  const profileHydrated = useRef(false);
+  useEffect(() => {
+    if (profileHydrated.current || !profile) return;
+    profileHydrated.current = true;
+
+    setFirstName(profile.first_name ?? '');
+    setPronouns(profile.pronouns ?? '');
+    setDateOfBirth(profile.date_of_birth ?? '');
+    setMoodFrequency(profile.mood_checkin_frequency ?? '');
+    setFocusGoal(profile.focus_goal ?? '');
+    setUseEmojiProfile(profile.use_emoji_avatar);
+    if (profile.avatar_emoji) setSelectedEmoji(profile.avatar_emoji);
+    if (profile.preferred_mode) setSelectedMode(profile.preferred_mode);
+  }, [profile]);
+
+  const settingsHydrated = useRef(false);
+  useEffect(() => {
+    if (settingsHydrated.current || !settings) return;
+    settingsHydrated.current = true;
+
+    setDarkMode(settings.theme === 'dark');
+    setAdhdMode(settings.adhd_mode);
+    setEncouragement(settings.encouragement);
+    setSoundVolume([settings.sound_volume]);
+    setAnimationSpeed(settings.animation_speed);
+    setAiCompanionName(settings.ai_companion_name ?? '');
+    setFocusBlockLength(String(settings.focus_block_minutes));
+    setBufferTime(String(settings.buffer_minutes));
+    setTimeboxingStyle(settings.timeboxing_style ?? '');
+    setDailyFocusGoal(settings.daily_focus_goal ?? '');
+  }, [settings]);
+
+  const loadFailureShown = useRef(false);
+  useEffect(() => {
+    if (loadFailureShown.current || (!profileFailed && !settingsFailed)) return;
+    loadFailureShown.current = true;
+    const cause = profileFailed ? profileError : settingsError;
+    toast({
+      title: 'Could not load your profile',
+      description:
+        cause instanceof Error
+          ? cause.message
+          : 'Showing defaults. Changes you make can still be saved.',
+      variant: 'destructive'
+    });
+  }, [profileFailed, settingsFailed, profileError, settingsError, toast]);
+
+  const handleDateOfBirthChange = (value: string) => {
+    setDateOfBirth(value);
+
+    if (!value) {
+      profileSave.saveSoon({ date_of_birth: null });
+      return;
+    }
+
+    if (isStorableDateOfBirth(value)) {
+      profileSave.saveSoon({ date_of_birth: value });
+    } else if (value.length === 10) {
+      // Only complain about a complete date, not about one mid-entry.
+      toast({
+        title: 'Check that date of birth',
+        description: 'It needs to be a past date after 1900.',
+        variant: 'destructive'
+      });
+    }
+  };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -56,26 +212,29 @@ const ProfileSettings = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Header */}
-      <header className="w-full max-w-lg mx-auto p-4 flex items-center justify-between border-b border-border/20">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="rounded-full"
-          onClick={handleBackClick}
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-xl font-semibold">Profile & Settings</h1>
-        <div className="w-10" />
+      {/* Header — the rule spans the page, the row inside it is the workspace */}
+      <header className="w-full border-b border-border/20">
+        <PageWorkspace width={WORKSPACE} className="flex items-center justify-between py-4 lg:justify-start lg:gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11 rounded-full"
+            aria-label="Go back"
+            onClick={handleBackClick}
+          >
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+          <h1 className="text-2xl font-bold lg:text-3xl">Profile &amp; Settings</h1>
+          <div className="w-10 lg:hidden" />
+        </PageWorkspace>
       </header>
 
-      <div className="max-w-lg mx-auto px-4 py-6">
+      <PageWorkspace width={WORKSPACE} className="py-6">
         <Tabs value={initialTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-8 bg-secondary/50 rounded-2xl p-1">
             <TabsTrigger 
               value="profile" 
-              className="rounded-xl font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              className="h-11 rounded-2xl font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
               onClick={() => navigate('/profile-settings?tab=profile')}
             >
               <User className="h-4 w-4 mr-2" />
@@ -83,7 +242,7 @@ const ProfileSettings = () => {
             </TabsTrigger>
             <TabsTrigger 
               value="settings" 
-              className="rounded-xl font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              className="h-11 rounded-2xl font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
               onClick={() => navigate('/profile-settings?tab=settings')}
             >
               <Settings className="h-4 w-4 mr-2" />
@@ -126,7 +285,7 @@ const ProfileSettings = () => {
                 </div>
                 
                 <div className="text-center">
-                  <p className="text-sm text-muted-foreground mb-3">Tap to upload a profile photo</p>
+                  <p className="text-sm text-muted-foreground mb-3">Preview only — profile photos aren’t saved yet.</p>
                   
                   <div className="space-y-3">
                     <div className="flex items-center justify-center space-x-2">
@@ -135,9 +294,14 @@ const ProfileSettings = () => {
                         onCheckedChange={(checked) => {
                           setUseEmojiProfile(checked);
                           if (checked) setProfilePicture(null);
+                          profileSave.saveNow(
+                            checked
+                              ? { use_emoji_avatar: true, avatar_emoji: selectedEmoji }
+                              : { use_emoji_avatar: false }
+                          );
                         }}
                       />
-                      <Label className="text-sm">Use my favorite mood emoji instead</Label>
+                      <Label className="text-sm">Use my favorite mood emoji instead — this one is saved</Label>
                     </div>
                     
                     {useEmojiProfile && (
@@ -145,7 +309,10 @@ const ProfileSettings = () => {
                         {moodEmojis.map((emoji) => (
                           <button
                             key={emoji}
-                            onClick={() => setSelectedEmoji(emoji)}
+                            onClick={() => {
+                              setSelectedEmoji(emoji);
+                              profileSave.saveNow({ avatar_emoji: emoji, use_emoji_avatar: true });
+                            }}
                             className={`text-2xl p-2 rounded-full transition-all ${
                               selectedEmoji === emoji ? 'bg-primary/20 scale-110' : 'hover:bg-secondary'
                             }`}
@@ -169,13 +336,28 @@ const ProfileSettings = () => {
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="firstName">First Name</Label>
-                  <Input id="firstName" placeholder="e.g. Zara" className="mt-1 rounded-xl" />
+                  <Input
+                    id="firstName"
+                    placeholder="e.g. Zara"
+                    className="mt-1 rounded-2xl"
+                    value={firstName}
+                    onChange={(e) => {
+                      setFirstName(e.target.value);
+                      profileSave.saveSoon({ first_name: e.target.value.trim() || null });
+                    }}
+                  />
                 </div>
                 
                 <div>
                   <Label htmlFor="pronouns">Pronouns</Label>
-                  <Select>
-                    <SelectTrigger className="mt-1 rounded-xl">
+                  <Select
+                    value={pronouns || undefined}
+                    onValueChange={(value) => {
+                      setPronouns(value);
+                      profileSave.saveNow({ pronouns: value });
+                    }}
+                  >
+                    <SelectTrigger className="mt-1 rounded-2xl">
                       <SelectValue placeholder="Select pronouns" />
                     </SelectTrigger>
                     <SelectContent>
@@ -189,13 +371,25 @@ const ProfileSettings = () => {
 
                 <div>
                   <Label htmlFor="dob">Date of Birth</Label>
-                  <Input id="dob" type="date" className="mt-1 rounded-xl" />
+                  <Input
+                    id="dob"
+                    type="date"
+                    className="mt-1 rounded-2xl"
+                    value={dateOfBirth}
+                    onChange={(e) => handleDateOfBirthChange(e.target.value)}
+                  />
                 </div>
 
                 <div>
                   <Label>Mood Check-in Frequency</Label>
-                  <Select>
-                    <SelectTrigger className="mt-1 rounded-xl">
+                  <Select
+                    value={moodFrequency || undefined}
+                    onValueChange={(value) => {
+                      setMoodFrequency(value);
+                      profileSave.saveNow({ mood_checkin_frequency: value });
+                    }}
+                  >
+                    <SelectTrigger className="mt-1 rounded-2xl">
                       <SelectValue placeholder="How often?" />
                     </SelectTrigger>
                     <SelectContent>
@@ -208,7 +402,16 @@ const ProfileSettings = () => {
 
                 <div>
                   <Label htmlFor="focusGoals">Focus Goals</Label>
-                  <Input id="focusGoals" placeholder="✨ reduce overwhelm" className="mt-1 rounded-xl" />
+                  <Input
+                    id="focusGoals"
+                    placeholder="✨ reduce overwhelm"
+                    className="mt-1 rounded-2xl"
+                    value={focusGoal}
+                    onChange={(e) => {
+                      setFocusGoal(e.target.value);
+                      profileSave.saveSoon({ focus_goal: e.target.value.trim() || null });
+                    }}
+                  />
                 </div>
 
                 <div>
@@ -217,7 +420,10 @@ const ProfileSettings = () => {
                     {preferredModes.map((mode) => (
                       <button
                         key={mode.id}
-                        onClick={() => setSelectedMode(mode.id)}
+                        onClick={() => {
+                          setSelectedMode(mode.id);
+                          profileSave.saveNow({ preferred_mode: mode.id });
+                        }}
                         className={`p-4 rounded-2xl border-2 transition-all ${
                           selectedMode === mode.id
                             ? 'border-primary bg-primary/10'
@@ -235,41 +441,6 @@ const ProfileSettings = () => {
               </div>
             </Card>
 
-            {/* Your Flow at a Glance */}
-            <Card className="p-6 rounded-3xl border-0 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20">
-              <h3 className="text-lg font-semibold mb-4 flex items-center">
-                <Zap className="h-5 w-5 mr-2 text-primary" />
-                Your Flow at a Glance
-              </h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-background/60 rounded-xl">
-                  <span className="text-sm">💚 You've journaled 3 days in a row!</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-background/60 rounded-xl">
-                  <span className="text-sm">Most Used Tool:</span>
-                  <Badge variant="secondary" className="rounded-full">
-                    🌬️ Breathing • 2h ago
-                  </Badge>
-                </div>
-                <div className="p-3 bg-background/60 rounded-xl">
-                  <div className="text-sm mb-2">Time Spent This Week</div>
-                  <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div className="text-center">
-                      <div className="font-medium">12m</div>
-                      <div className="text-muted-foreground">Breathing</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-medium">8m</div>
-                      <div className="text-muted-foreground">Journaling</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-medium">25m</div>
-                      <div className="text-muted-foreground">Soundscape</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Card>
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6 mt-0">
@@ -283,11 +454,23 @@ const ProfileSettings = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Theme</Label>
-                    <p className="text-sm text-muted-foreground">Light / Soft Dark Mode</p>
+                    <p className="text-sm text-muted-foreground">Soft Dark — light mode coming soon</p>
                   </div>
+                  {/* Disabled, not removed: the column and the save below are
+                      kept for when a light palette exists. `checked` is fixed
+                      on because Soft Dark is what the app actually renders,
+                      whatever value happens to be stored. */}
                   <div className="flex items-center space-x-2">
                     <Sun className="h-4 w-4" />
-                    <Switch checked={darkMode} onCheckedChange={setDarkMode} />
+                    <Switch
+                      checked
+                      disabled
+                      aria-label="Theme — Soft Dark, light mode coming soon"
+                      onCheckedChange={(checked) => {
+                        setDarkMode(checked);
+                        settingsSave.saveNow({ theme: checked ? 'dark' : 'light' });
+                      }}
+                    />
                     <Moon className="h-4 w-4" />
                   </div>
                 </div>
@@ -300,6 +483,7 @@ const ProfileSettings = () => {
                   <Slider
                     value={soundVolume}
                     onValueChange={setSoundVolume}
+                    onValueCommit={(value) => settingsSave.saveNow({ sound_volume: value[0] })}
                     max={100}
                     step={1}
                     className="w-full"
@@ -307,10 +491,21 @@ const ProfileSettings = () => {
                   <div className="text-xs text-muted-foreground mt-1">{soundVolume[0]}%</div>
                 </div>
 
+                {/* Disabled, not removed: it persists correctly but nothing
+                    consumes it yet, so offering it would promise a change the
+                    app does not make. */}
                 <div>
                   <Label>Animation Speed</Label>
-                  <Select value={animationSpeed} onValueChange={setAnimationSpeed}>
-                    <SelectTrigger className="mt-1 rounded-xl">
+                  <p className="text-sm text-muted-foreground mb-2">Coming soon</p>
+                  <Select
+                    disabled
+                    value={animationSpeed}
+                    onValueChange={(value) => {
+                      setAnimationSpeed(value);
+                      settingsSave.saveNow({ animation_speed: value });
+                    }}
+                  >
+                    <SelectTrigger className="mt-1 rounded-2xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -332,22 +527,42 @@ const ProfileSettings = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>ADHD Mode</Label>
-                    <p className="text-sm text-muted-foreground">Adds focus nudges & reminders</p>
+                    <p className="text-sm text-muted-foreground">Focus nudges &amp; reminders — coming soon</p>
                   </div>
-                  <Switch checked={adhdMode} onCheckedChange={setAdhdMode} />
+                  {/* Disabled, not removed: same reason as Animation Speed. */}
+                  <Switch
+                    checked={adhdMode}
+                    disabled
+                    aria-label="ADHD Mode — coming soon"
+                    onCheckedChange={(checked) => {
+                      setAdhdMode(checked);
+                      settingsSave.saveNow({ adhd_mode: checked });
+                    }}
+                  />
                 </div>
 
+                {/* Not built. The schema notes this one has no shape to store
+                    yet, so the control is disabled rather than pretending. */}
                 <div>
                   <Label>Panic Mode Shortcut</Label>
                   <p className="text-sm text-muted-foreground mb-2">Quick-access gesture</p>
-                  <Button variant="outline" className="w-full rounded-xl">
-                    Set Shortcut
+                  <Button variant="outline" className="w-full h-11 rounded-2xl" disabled>
+                    Set Shortcut — coming soon
                   </Button>
                 </div>
 
                 <div>
                   <Label htmlFor="aiName">AI Body Double Name</Label>
-                  <Input id="aiName" placeholder="e.g. Zoe" className="mt-1 rounded-xl" />
+                  <Input
+                    id="aiName"
+                    placeholder="e.g. Zoe"
+                    className="mt-1 rounded-2xl"
+                    value={aiCompanionName}
+                    onChange={(e) => {
+                      setAiCompanionName(e.target.value);
+                      settingsSave.saveSoon({ ai_companion_name: e.target.value.trim() || null });
+                    }}
+                  />
                   <p className="text-xs text-muted-foreground mt-1">Personalize your AI companion</p>
                 </div>
               </div>
@@ -362,8 +577,14 @@ const ProfileSettings = () => {
               <div className="space-y-4">
                 <div>
                   <Label>Default Block Length</Label>
-                  <Select value={focusBlockLength} onValueChange={setFocusBlockLength}>
-                    <SelectTrigger className="mt-1 rounded-xl">
+                  <Select
+                    value={focusBlockLength}
+                    onValueChange={(value) => {
+                      setFocusBlockLength(value);
+                      settingsSave.saveNow({ focus_block_minutes: Number(value) });
+                    }}
+                  >
+                    <SelectTrigger className="mt-1 rounded-2xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -376,8 +597,14 @@ const ProfileSettings = () => {
 
                 <div>
                   <Label>Buffer Time Between Blocks</Label>
-                  <Select value={bufferTime} onValueChange={setBufferTime}>
-                    <SelectTrigger className="mt-1 rounded-xl">
+                  <Select
+                    value={bufferTime}
+                    onValueChange={(value) => {
+                      setBufferTime(value);
+                      settingsSave.saveNow({ buffer_minutes: Number(value) });
+                    }}
+                  >
+                    <SelectTrigger className="mt-1 rounded-2xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -390,24 +617,37 @@ const ProfileSettings = () => {
                 <div>
                   <Label>Timeboxing Style</Label>
                   <div className="grid grid-cols-3 gap-2 mt-2">
-                    <Button variant="outline" className="rounded-xl text-xs">
-                      🍅 Pomodoro
-                    </Button>
-                    <Button variant="outline" className="rounded-xl text-xs">
-                      🌊 Deep Dive
-                    </Button>
-                    <Button variant="outline" className="rounded-xl text-xs">
-                      🧠 Custom
-                    </Button>
+                    {[
+                      { id: 'pomodoro', label: '🍅 Pomodoro' },
+                      { id: 'deep-dive', label: '🌊 Deep Dive' },
+                      { id: 'custom', label: '🧠 Custom' }
+                    ].map((style) => (
+                      <Button
+                        key={style.id}
+                        variant={timeboxingStyle === style.id ? 'default' : 'outline'}
+                        className="h-11 rounded-2xl text-xs"
+                        onClick={() => {
+                          setTimeboxingStyle(style.id);
+                          settingsSave.saveNow({ timeboxing_style: style.id });
+                        }}
+                      >
+                        {style.label}
+                      </Button>
+                    ))}
                   </div>
                 </div>
 
                 <div>
                   <Label htmlFor="dailyGoal">Daily Focus Goal</Label>
-                  <Input 
-                    id="dailyGoal" 
-                    placeholder="How much work do you want to aim for today?" 
-                    className="mt-1 rounded-xl" 
+                  <Input
+                    id="dailyGoal"
+                    placeholder="How much work do you want to aim for today?"
+                    className="mt-1 rounded-2xl"
+                    value={dailyFocusGoal}
+                    onChange={(e) => {
+                      setDailyFocusGoal(e.target.value);
+                      settingsSave.saveSoon({ daily_focus_goal: e.target.value.trim() || null });
+                    }}
                   />
                 </div>
 
@@ -416,7 +656,13 @@ const ProfileSettings = () => {
                     <Label>Encouragement</Label>
                     <p className="text-sm text-muted-foreground">Send me a little boost before I begin</p>
                   </div>
-                  <Switch />
+                  <Switch
+                    checked={encouragement}
+                    onCheckedChange={(checked) => {
+                      setEncouragement(checked);
+                      settingsSave.saveNow({ encouragement: checked });
+                    }}
+                  />
                 </div>
               </div>
             </Card>
@@ -427,19 +673,39 @@ const ProfileSettings = () => {
                 <Shield className="h-5 w-5 mr-2 text-primary" />
                 🔐 Account & Privacy
               </h3>
+              {/* None of these are implemented. They are disabled rather than
+                  removed so the commitments stay visible — and because three of
+                  them destroy or export real user data, a button that looks
+                  live but does nothing is the worst option here. */}
               <div className="space-y-3">
-                <Button variant="outline" className="w-full rounded-xl justify-start">
-                  Email & Password Reset
+                <Button variant="outline" className="w-full h-11 rounded-2xl justify-start" disabled>
+                  Email &amp; Password Reset — coming soon
                 </Button>
-                <Button variant="outline" className="w-full rounded-xl justify-start">
-                  Export Data (journals, mood)
+                <Button variant="outline" className="w-full h-11 rounded-2xl justify-start" disabled>
+                  Export Data (journals, mood) — coming soon
                 </Button>
-                <Button variant="outline" className="w-full rounded-xl justify-start">
-                  Clear Emotional History
+                <Button variant="outline" className="w-full h-11 rounded-2xl justify-start" disabled>
+                  Clear Emotional History — coming soon
                 </Button>
-                <Button variant="outline" className="w-full rounded-xl justify-start text-red-600 hover:text-red-700">
-                  Delete Account
+                <Button variant="outline" className="w-full h-11 rounded-2xl justify-start text-red-600" disabled>
+                  Delete Account — coming soon
                 </Button>
+
+                {/* The one account action that works. It signs out through the
+                    existing auth context; the route guard then sends the user
+                    to /auth. Nothing is deleted. */}
+                <Button
+                  variant="outline"
+                  className="w-full h-11 rounded-2xl justify-start border-white/20"
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  {loggingOut ? 'Logging out…' : 'Log out'}
+                </Button>
+                <p className="text-sm text-muted-foreground">
+                  Signs you out on this device. Your data stays in your account.
+                </p>
               </div>
             </Card>
 
@@ -450,23 +716,23 @@ const ProfileSettings = () => {
                 📩 Feedback & Support
               </h3>
               <div className="space-y-3">
-                <Button variant="outline" className="w-full rounded-xl justify-start">
+                <Button variant="outline" className="w-full h-11 rounded-2xl justify-start" disabled>
                   <HelpCircle className="h-4 w-4 mr-2" />
-                  Bug Report
+                  Bug Report — coming soon
                 </Button>
-                <Button variant="outline" className="w-full rounded-xl justify-start">
+                <Button variant="outline" className="w-full h-11 rounded-2xl justify-start" disabled>
                   <Zap className="h-4 w-4 mr-2" />
-                  Suggest a Feature
+                  Suggest a Feature — coming soon
                 </Button>
-                <Button variant="outline" className="w-full rounded-xl justify-start">
+                <Button variant="outline" className="w-full h-11 rounded-2xl justify-start" disabled>
                   <MessageSquare className="h-4 w-4 mr-2" />
-                  Talk to Team iMA
+                  Talk to Team iMA — coming soon
                 </Button>
               </div>
             </Card>
           </TabsContent>
         </Tabs>
-      </div>
+      </PageWorkspace>
     </div>
   );
 };
