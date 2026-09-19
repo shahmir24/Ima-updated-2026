@@ -154,15 +154,21 @@ export function buildUserPrompt(request: ProviderRequest): string {
  * task into steps that are actually useful is not classification, and a
  * floor-priced model can be benchmarked against it later on real output.
  *
- * KNOWN CAVEAT, deliberately not "fixed" here — gpt-5.6-luna is a reasoning
- * model, and reasoning tokens are billed as output tokens and drawn from the
- * SAME max_completion_tokens budget. A 200-token ceiling can therefore be
- * spent on reasoning before a single step is emitted, returning truncated or
- * empty content with finish_reason "length". That path is already safe — it
- * becomes malformed_output, the client shows an honest error and the manual
- * "write your own step" field is untouched — but it would be safe and useless.
- * Raising the ceiling, or setting a low reasoning effort, is a decision about
- * cost and quality, not a detail to change quietly here. See the step-4 report.
+ * REASONING BUDGET — the reason these numbers look generous.
+ *
+ * gpt-5.6-luna is a reasoning model. Reasoning tokens are billed as output
+ * tokens and drawn from the SAME max_completion_tokens budget, so a ceiling
+ * sized for the visible answer alone can be spent entirely on reasoning before
+ * a single step is emitted, returning truncated or empty content with
+ * finish_reason "length". That path is safe — it becomes malformed_output and
+ * the client shows an honest error — but it is safe and useless, and it still
+ * costs money. The ceiling is therefore set well above the visible output, and
+ * reasoning_effort is set low because turning a task into three short actions
+ * is decomposition, not deliberation.
+ *
+ * The ceiling is not the expected spend. sanitiseBreakdownSteps caps what can
+ * ever be returned at maxSteps short strings, so typical completions stay tiny;
+ * this only stops a reasoning pass from hitting the wall.
  */
 export const PROVIDER_DEFAULTS = {
   endpoint: 'https://api.openai.com/v1/chat/completions',
@@ -172,9 +178,16 @@ export const PROVIDER_DEFAULTS = {
    * than max_tokens.
    */
   model: 'gpt-5.6-luna',
-  /** 5 short steps plus JSON overhead. See the reasoning-budget caveat above. */
-  maxOutputTokens: 200,
-  timeoutMs: 8000
+  /** Room for a low-effort reasoning pass plus the JSON. See the note above. */
+  maxOutputTokens: 1000,
+  /** Reasoning costs latency as well as tokens; 8s aborted before it finished. */
+  timeoutMs: 30000,
+  /**
+   * Cheapest setting that still reasons. A top-level Chat Completions
+   * parameter, so this needs no change to the request shape, the response
+   * schema or the provider abstraction.
+   */
+  reasoningEffort: 'low'
 } as const;
 
 /**
@@ -200,6 +213,7 @@ export interface OpenAiProviderConfig {
   endpoint?: string | null;
   maxOutputTokens?: number;
   timeoutMs?: number;
+  reasoningEffort?: string | null;
   /** Injected in tests. Production passes nothing and the global is used. */
   fetchImpl?: typeof fetch;
 }
@@ -218,6 +232,7 @@ export function createOpenAiProvider(config: OpenAiProviderConfig): StepProvider
   const model = config.model || PROVIDER_DEFAULTS.model;
   const maxOutputTokens = config.maxOutputTokens ?? PROVIDER_DEFAULTS.maxOutputTokens;
   const timeoutMs = config.timeoutMs ?? PROVIDER_DEFAULTS.timeoutMs;
+  const reasoningEffort = config.reasoningEffort ?? PROVIDER_DEFAULTS.reasoningEffort;
 
   return {
     mode: 'openai',
@@ -248,7 +263,8 @@ export function createOpenAiProvider(config: OpenAiProviderConfig): StepProvider
               type: 'json_schema',
               json_schema: { name: 'breakdown_steps', strict: true, schema: RESPONSE_SCHEMA }
             },
-            max_completion_tokens: maxOutputTokens
+            max_completion_tokens: maxOutputTokens,
+            reasoning_effort: reasoningEffort
           })
         });
       } catch (cause) {
