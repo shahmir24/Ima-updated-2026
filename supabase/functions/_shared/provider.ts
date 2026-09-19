@@ -147,21 +147,32 @@ export function buildUserPrompt(request: ProviderRequest): string {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Settings that could not be verified from the build environment.
+ * Settings, all overridable by environment so a change costs a secret update
+ * rather than a redeploy.
  *
- * OpenAI's own documentation is unreachable from here (platform.openai.com and
- * developers.openai.com are both blocked by the egress proxy), and the model
- * line moves faster than any value written into source. So the model id, the
- * endpoint and the ceilings are all configuration with conservative defaults,
- * and the default model MUST be confirmed against the live model list before
- * openai mode is switched on. Getting it wrong costs one secret update, not a
- * code change and redeploy.
+ * The model was chosen for this job rather than for being cheapest: breaking a
+ * task into steps that are actually useful is not classification, and a
+ * floor-priced model can be benchmarked against it later on real output.
+ *
+ * KNOWN CAVEAT, deliberately not "fixed" here — gpt-5.6-luna is a reasoning
+ * model, and reasoning tokens are billed as output tokens and drawn from the
+ * SAME max_completion_tokens budget. A 200-token ceiling can therefore be
+ * spent on reasoning before a single step is emitted, returning truncated or
+ * empty content with finish_reason "length". That path is already safe — it
+ * becomes malformed_output, the client shows an honest error and the manual
+ * "write your own step" field is untouched — but it would be safe and useless.
+ * Raising the ceiling, or setting a low reasoning effort, is a decision about
+ * cost and quality, not a detail to change quietly here. See the step-4 report.
  */
 export const PROVIDER_DEFAULTS = {
   endpoint: 'https://api.openai.com/v1/chat/completions',
-  /** Confirm against the current model list before enabling openai mode. */
-  model: 'gpt-5-nano',
-  /** 5 short steps plus JSON overhead. Deliberately not generous. */
+  /**
+   * Verified to support Chat Completions and structured outputs via a JSON
+   * schema in response_format, and to require max_completion_tokens rather
+   * than max_tokens.
+   */
+  model: 'gpt-5.6-luna',
+  /** 5 short steps plus JSON overhead. See the reasoning-budget caveat above. */
   maxOutputTokens: 200,
   timeoutMs: 8000
 } as const;
