@@ -57,6 +57,16 @@ const WORKSPACE = 'max-w-4xl';
 
 const Tasks = () => {
   const navigate = useNavigate();
+
+  /**
+   * The same task-context contract Home uses: the id travels in the URL and
+   * the destination resolves it against the user's own tasks, so RLS still
+   * applies and nothing about the task itself is carried across. Reused rather
+   * than reimplemented - Focus and Body Double already read ?task= and do not
+   * care which screen sent them.
+   */
+  const withTask = (path: string, taskId: string) =>
+    `${path}?task=${encodeURIComponent(taskId)}`;
   const [activeTab, setActiveTab] = useState<'all' | 'completed'>('all');
   const [showMeetingModal, setShowMeetingModal] = useState(false);
   /** null = the form is creating; a row = the form is editing that row. */
@@ -219,6 +229,9 @@ const Tasks = () => {
             </p>
           )}
 
+          {/* onStart/onStuck are navigations rather than mutations, so unlike
+              the other actions they are deliberately not gated on `busy`: a
+              delete in flight elsewhere must not make them dead. */}
           {filteredTasks.map((task) => (
             <TaskCard
               key={task.id}
@@ -235,6 +248,8 @@ const Tasks = () => {
               onComplete={() => handleCompleteTask(task)}
               onDelete={() => handleDeleteTask(task.id)}
               onEdit={() => openEditModal(task)}
+              onStart={() => navigate(withTask('/focus', task.id))}
+              onStuck={() => navigate(withTask('/body-double', task.id))}
             />
           ))}
         </PageWorkspace>
