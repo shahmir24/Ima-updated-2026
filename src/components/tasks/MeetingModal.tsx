@@ -7,12 +7,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format, parse } from 'date-fns';
 import { cn } from '@/lib/utils';
-import type { TaskRow } from '@/hooks/use-tasks';
+import type { TaskImportance, TaskRow } from '@/hooks/use-tasks';
 
 export interface TaskFormInput {
   title: string;
   scheduled_date: string;
-  start_time: string;
+  /** null when the user did not pick a time. */
+  start_time: string | null;
+  importance: TaskImportance;
 }
 
 interface MeetingModalProps {
@@ -27,7 +29,19 @@ interface MeetingModalProps {
   isSaving?: boolean;
 }
 
-const DEFAULT_TIME = '14:00';
+/**
+ * The time picker's "no particular time" entry.
+ *
+ * A sentinel rather than an empty string because Radix's Select rejects an
+ * item whose value is '' — it reserves that for "nothing selected".
+ */
+const NO_TIME = '__none__';
+
+const IMPORTANCE_OPTIONS: ReadonlyArray<{ value: TaskImportance; label: string }> = [
+  { value: 'low', label: 'Low' },
+  { value: 'normal', label: 'Normal' },
+  { value: 'high', label: 'High' }
+];
 
 /**
  * scheduled_date is a bare Postgres date. new Date('2026-09-18') reads it as
@@ -40,19 +54,31 @@ const parseScheduledDate = (value: string | null | undefined): Date => {
   return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 };
 
-/** Postgres `time` reads back as 'HH:MM:SS'; the Select's values are 'HH:MM'. */
-const toSelectTime = (value: string | null | undefined): string => {
-  if (!value) return DEFAULT_TIME;
+/**
+ * Postgres `time` reads back as 'HH:MM:SS'; the Select's values are 'HH:MM'.
+ *
+ * Null stays null. A task with no start time now keeps no start time: the form
+ * used to substitute 2 PM here, which meant every task carried a time nobody
+ * had chosen. Existing rows that really do hold 14:00 are untouched — they are
+ * read back and shown exactly as stored.
+ */
+const toSelectTime = (value: string | null | undefined): string | null => {
+  if (!value) return null;
   const [hour, minute] = value.split(':');
-  if (!hour || !minute) return DEFAULT_TIME;
+  if (!hour || !minute) return null;
   return `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
 };
+
+/** Anything the column should not hold is read as the default, never guessed at. */
+const toImportance = (value: unknown): TaskImportance =>
+  IMPORTANCE_OPTIONS.some((option) => option.value === value) ? (value as TaskImportance) : 'normal';
 
 const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false }: MeetingModalProps) => {
   const isEditing = !!task;
   const [taskTitle, setTaskTitle] = useState(() => task?.title ?? '');
   const [selectedDate, setSelectedDate] = useState<Date>(() => parseScheduledDate(task?.scheduled_date));
-  const [selectedTime, setSelectedTime] = useState<string>(() => toSelectTime(task?.start_time));
+  const [selectedTime, setSelectedTime] = useState<string | null>(() => toSelectTime(task?.start_time));
+  const [importance, setImportance] = useState<TaskImportance>(() => toImportance(task?.importance));
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -73,14 +99,16 @@ const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false
         // Local date, not toISOString(): that converts to UTC and can shift the
         // task to the previous or next day depending on the timezone.
         scheduled_date: format(selectedDate, 'yyyy-MM-dd'),
-        start_time: selectedTime
+        start_time: selectedTime,
+        importance
       });
       // Reset only after a confirmed write, so a failure keeps the input. An
       // edit keeps its values instead: the caller remounts the form per task.
       if (!isEditing) {
         setTaskTitle('');
         setSelectedDate(new Date());
-        setSelectedTime(DEFAULT_TIME);
+        setSelectedTime(null);
+        setImportance('normal');
       }
       onClose();
     } catch (err) {
@@ -113,7 +141,7 @@ const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false
 
   // An existing row can hold a time off the 30-minute grid. Offer it rather
   // than letting the Select render blank against a value it cannot find.
-  if (!timeOptions.some((option) => option.value === selectedTime)) {
+  if (selectedTime !== null && !timeOptions.some((option) => option.value === selectedTime)) {
     timeOptions.push({ value: selectedTime, label: formatDisplayTime(selectedTime) });
     timeOptions.sort((a, b) => (a.value < b.value ? -1 : 1));
   }
@@ -194,7 +222,7 @@ const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false
                   <div>
                     <h3 className="text-white font-semibold text-lg mb-1">Time</h3>
                     <p className="text-white/80">
-                      {formatDisplayTime(selectedTime)}
+                      {selectedTime === null ? 'No time set' : formatDisplayTime(selectedTime)}
                     </p>
                   </div>
                   <ChevronRight className="h-5 w-5 text-white/60" />
@@ -203,14 +231,19 @@ const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false
               <PopoverContent className="w-80 p-0" align="center">
                 <div className="p-4">
                   <h4 className="font-medium mb-3">Select Time</h4>
-                  <Select value={selectedTime} onValueChange={(value) => {
-                    setSelectedTime(value);
-                    setShowTimePicker(false);
-                  }}>
+                  <Select
+                    value={selectedTime ?? NO_TIME}
+                    onValueChange={(value) => {
+                      setSelectedTime(value === NO_TIME ? null : value);
+                      setShowTimePicker(false);
+                    }}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="max-h-60">
+                      {/* First, so a task can be left untimed without scrolling. */}
+                      <SelectItem value={NO_TIME}>No time</SelectItem>
                       {timeOptions.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           {option.label}
@@ -221,6 +254,43 @@ const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false
                 </div>
               </PopoverContent>
             </Popover>
+          </div>
+
+          {/*
+            Importance — the one judgement the Context Engine cannot derive.
+            Three values, defaulted, and skippable: doing nothing leaves a task
+            Normal, which ranks exactly as every task ranks today. Plain toggle
+            buttons rather than a radiogroup, so Tab and Enter work natively
+            with no custom key handling, matching how the Body Double task
+            picker already behaves. No red, no warning iconography: this marks
+            what matters, it does not scold.
+          */}
+          <div className="bg-secondary/30 rounded-2xl p-4">
+            <h3 id="importance-label" className="text-white font-semibold text-lg mb-3">
+              Importance
+            </h3>
+            <div role="group" aria-labelledby="importance-label" className="grid grid-cols-3 gap-2">
+              {IMPORTANCE_OPTIONS.map((option) => {
+                const selected = importance === option.value;
+                return (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setImportance(option.value)}
+                    aria-pressed={selected}
+                    style={selected ? { backgroundColor: '#2f74db' } : undefined}
+                    className={cn(
+                      'h-11 rounded-xl text-base font-medium',
+                      selected
+                        ? 'text-white hover:opacity-90'
+                        : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
+                    )}
+                  >
+                    {option.label}
+                  </Button>
+                );
+              })}
+            </div>
           </div>
         </div>
 

@@ -320,6 +320,7 @@ export type Database = {
           description: string | null
           end_time: string | null
           id: string
+          importance: string
           scheduled_date: string
           start_time: string | null
           tag: string
@@ -334,6 +335,7 @@ export type Database = {
           description?: string | null
           end_time?: string | null
           id?: string
+          importance?: string
           scheduled_date?: string
           start_time?: string | null
           tag?: string
@@ -348,6 +350,7 @@ export type Database = {
           description?: string | null
           end_time?: string | null
           id?: string
+          importance?: string
           scheduled_date?: string
           start_time?: string | null
           tag?: string

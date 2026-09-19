@@ -116,7 +116,8 @@ const Tasks = () => {
         changes: {
           title: input.title,
           scheduled_date: input.scheduled_date,
-          start_time: input.start_time
+          start_time: input.start_time,
+          importance: input.importance
         }
       });
       return;

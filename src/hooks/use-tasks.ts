@@ -5,6 +5,14 @@ import type { Database } from '@/integrations/supabase/types';
 
 export type TaskRow = Database['public']['Tables']['tasks']['Row'];
 
+/**
+ * The importance column's vocabulary, matching the tasks_importance CHECK.
+ * Declared here rather than in the Context Engine so the engine stays free of
+ * any dependency on Supabase's generated types.
+ */
+export const TASK_IMPORTANCE = ['low', 'normal', 'high'] as const;
+export type TaskImportance = (typeof TASK_IMPORTANCE)[number];
+
 export interface NewTaskInput {
   title: string;
   description?: string | null;
@@ -12,9 +20,16 @@ export interface NewTaskInput {
   tag?: string;
   /** 'YYYY-MM-DD' */
   scheduled_date: string;
-  /** 'HH:MM' */
+  /** 'HH:MM', or null when the task has no particular time. */
   start_time?: string | null;
   end_time?: string | null;
+  /**
+   * Omitted means 'normal', which is also the column default, so the field
+   * stays optional everywhere: in this type, in the form, and in the database.
+   * Typed to the vocabulary rather than to string, so a typo is a compile
+   * error here instead of a CHECK violation at the database.
+   */
+  importance?: TaskImportance;
 }
 
 /**
@@ -70,7 +85,8 @@ export function useCreateTask() {
           tag: input.tag ?? 'focus',
           scheduled_date: input.scheduled_date,
           start_time: input.start_time ?? null,
-          end_time: input.end_time ?? null
+          end_time: input.end_time ?? null,
+          importance: input.importance ?? 'normal'
         })
         .select()
         .single();
