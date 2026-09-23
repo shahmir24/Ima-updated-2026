@@ -1,98 +1,137 @@
-
 import React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Clock, Grid3X3, Calendar, User } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Link, useLocation } from 'react-router-dom';
+import { Activity, Heart, CheckSquare, LifeBuoy } from 'lucide-react';
+import { IMA_MARK_SRC } from '@/lib/brand';
 
 /**
- * The app's primary navigation, rendered on 25 screens.
+ * The app's single mobile navigation, rendered page by page — Home included.
  *
  * Hidden from lg up, where the desktop sidebar is the navigation. The two are
  * exact complements — `lg:hidden` here, `hidden lg:flex` there — so a screen
  * can never show both or neither.
  *
- * Every button was previously inert — no handler of any kind — so the main nav
- * did nothing anywhere in the app. Destinations below are the existing routes;
- * nothing new was registered.
+ * Five fixed destinations with Home in the centre slot:
+ *   Productivity | Wellness | Home | Tasks | Safe Contacts
+ * Safe Contacts sits in the bar itself, not behind the Safe Space hub, so it is
+ * one tap away from anywhere for someone who is distressed.
  *
- * Slots 4 and 5 carry Calendar and User rather than the Heart and Calendar
- * they held before. The layout is untouched; only which icon renders inside
- * each slot changed, so that a button's icon matches where it goes. Home's own
- * nav already establishes Calendar = Journal and User = Profile, and a
- * calendar icon that opened Profile would have replaced a dead button with a
- * misleading one.
+ * Deliberately no z-index: Focus's lock overlay (`absolute z-40`) has to keep
+ * covering this bar so a locked session cannot be navigated away from.
  */
+
+/** A path lights an item when it equals a prefix or sits beneath one. */
+const underAny = (pathname: string, prefixes: string[]) =>
+  prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+
+interface NavItem {
+  label: string;
+  to: string;
+  icon: typeof Heart;
+  isActive: (pathname: string) => boolean;
+}
+
+// Productivity's tools and Wellness's sub-trees live on their own path roots,
+// so each item lists them; otherwise a user one screen deep would see no active
+// item. The Safe Space hub and chat are reached through Wellness and light it;
+// the contacts page has its own item and must not light Wellness as well.
+const PRODUCTIVITY: NavItem = {
+  label: 'Productivity',
+  to: '/productivity',
+  icon: Activity,
+  isActive: (p) => underAny(p, ['/productivity', '/focus', '/body-double', '/soundscape', '/stats'])
+};
+
+const WELLNESS: NavItem = {
+  label: 'Wellness',
+  to: '/wellness',
+  icon: Heart,
+  isActive: (p) =>
+    underAny(p, ['/wellness', '/breathing', '/meditation', '/mindfulness', '/journaling', '/safe-space']) &&
+    !underAny(p, ['/safe-space/contacts'])
+};
+
+const TASKS: NavItem = {
+  label: 'Tasks',
+  to: '/tasks',
+  icon: CheckSquare,
+  isActive: (p) => p === '/tasks'
+};
+
+const SAFE_CONTACTS: NavItem = {
+  label: 'Safe Contacts',
+  to: '/safe-space/contacts',
+  icon: LifeBuoy,
+  isActive: (p) => underAny(p, ['/safe-space/contacts'])
+};
+
+const itemClass =
+  'flex min-h-11 min-w-0 flex-1 flex-col items-center justify-start gap-0.5 rounded-2xl px-0 py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+
+/**
+ * Every icon sits in a slot the height of the Home logo, so the icons share one
+ * row and the labels start on one line — even when "Safe Contacts" wraps onto
+ * two lines on the narrowest phones.
+ */
+const iconSlotClass = 'flex h-8 shrink-0 items-center justify-center';
+
+const labelClass = 'w-full text-center text-[10px] font-medium leading-[1.15] min-[360px]:text-[11px]';
+
 const BottomNavigation = () => {
-  const navigate = useNavigate();
   const { pathname } = useLocation();
-
-  // Journal and Profile use a prefix match so the six journal screens and the
-  // Profile/Settings tabs keep the nav item lit.
   const isHome = pathname === '/';
-  const isFocus = pathname === '/focus';
-  const isTasks = pathname === '/tasks';
-  const isJournal = pathname.startsWith('/journaling');
-  const isProfile = pathname.startsWith('/profile-settings');
 
-  /** Existing token pair — no new styling. */
-  const iconTone = (active: boolean) => (active ? 'text-foreground' : 'text-muted-foreground');
+  const renderItem = (item: NavItem) => {
+    const Icon = item.icon;
+    const active = item.isActive(pathname);
+    const tone = active ? 'text-foreground' : 'text-muted-foreground';
+
+    return (
+      <li key={item.label} className="flex min-w-0 flex-1">
+        <Link to={item.to} aria-current={active ? 'page' : undefined} className={`${itemClass} ${tone}`}>
+          <span className={iconSlotClass}>
+            <Icon className="h-6 w-6" aria-hidden="true" />
+          </span>
+          <span className={labelClass}>{item.label}</span>
+        </Link>
+      </li>
+    );
+  };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-lg border-t border-border lg:hidden">
-      <div className="max-w-lg mx-auto flex justify-around items-center py-3 px-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate('/focus')}
-          aria-label="Focus"
-          aria-current={isFocus ? 'page' : undefined}
-          className="flex flex-col items-center justify-center gap-1 h-auto min-h-11 py-2 px-3 rounded-2xl min-w-[60px]"
-        >
-          <Clock className={`h-6 w-6 ${iconTone(isFocus)}`} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate('/tasks')}
-          aria-label="Tasks"
-          aria-current={isTasks ? 'page' : undefined}
-          className="flex flex-col items-center justify-center gap-1 h-auto min-h-11 py-2 px-3 rounded-2xl min-w-[60px]"
-        >
-          <div className={`w-6 h-6 rounded-full border-2 ${isTasks ? 'border-foreground' : 'border-muted-foreground'}`}></div>
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate('/')}
-          aria-label="Home"
-          aria-current={isHome ? 'page' : undefined}
-          className="flex min-h-11 min-w-11 flex-col items-center justify-center p-3 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg"
-        >
-          <Grid3X3 className="h-6 w-6 text-white" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate('/journaling')}
-          aria-label="Journal"
-          aria-current={isJournal ? 'page' : undefined}
-          className="flex flex-col items-center justify-center gap-1 h-auto min-h-11 py-2 px-3 rounded-2xl min-w-[60px]"
-        >
-          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center">
-            <Calendar className="h-4 w-4 text-white" />
-          </div>
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate('/profile-settings?tab=profile')}
-          aria-label="Profile"
-          aria-current={isProfile ? 'page' : undefined}
-          className="flex flex-col items-center justify-center gap-1 h-auto min-h-11 py-2 px-3 rounded-2xl min-w-[60px]"
-        >
-          <User className={`h-6 w-6 ${iconTone(isProfile)}`} />
-        </Button>
-      </div>
+    <nav
+      aria-label="Primary"
+      data-testid="mobile-bottom-nav"
+      className="fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur-lg nav-safe-area lg:hidden"
+    >
+      <ul className="mx-auto flex max-w-lg items-stretch justify-between px-1 py-1 sm:px-4 md:max-w-2xl">
+        {renderItem(PRODUCTIVITY)}
+        {renderItem(WELLNESS)}
+
+        {/* Home: the centre action, carrying the infinity mark. The circle is
+            the dark card colour so the mark's own gradient keeps its contrast. */}
+        <li className="flex min-w-0 flex-1">
+          <Link
+            to="/"
+            aria-current={isHome ? 'page' : undefined}
+            className={`${itemClass} ${isHome ? 'text-foreground' : 'text-muted-foreground'}`}
+          >
+            <span className={iconSlotClass}>
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-card shadow-lg ring-1 ring-border">
+                <img
+                  src={IMA_MARK_SRC}
+                  alt=""
+                  aria-hidden="true"
+                  className="h-6 w-6 object-contain"
+                />
+              </span>
+            </span>
+            <span className={labelClass}>Home</span>
+          </Link>
+        </li>
+
+        {renderItem(TASKS)}
+        {renderItem(SAFE_CONTACTS)}
+      </ul>
     </nav>
   );
 };

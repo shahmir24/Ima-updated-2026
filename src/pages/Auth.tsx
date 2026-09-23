@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { supabase } from '@/integrations/supabase/client';
 import { getEmailRedirectTo, consumeAuthCallbackError } from '@/lib/auth-redirect';
 import { useToast } from '@/hooks/use-toast';
+import { IMA_LOCKUP_SRC } from '@/lib/brand';
 
 const Auth = () => {
   const { toast } = useToast();
@@ -165,14 +166,10 @@ const Auth = () => {
         <div className="w-full max-w-md space-y-6">
           {/* Header */}
           <div className="text-center space-y-2">
-            <div className="flex items-center justify-center mb-4">
-              <img 
-                src="/lovable-uploads/d8549ee1-5d5d-4efb-9c5b-9c1b49629e14.png" 
-                alt="iMA Logo" 
-                className="h-16 w-auto object-contain"
-              />
-            </div>
-            <h1 className="text-3xl font-bold font-morisawa">iMA</h1>
+            {/* The lockup carries the wordmark, so it is the heading itself. */}
+            <h1 className="flex items-center justify-center pb-2">
+              <img src={IMA_LOCKUP_SRC} alt="iMA" className="h-12 w-auto object-contain" />
+            </h1>
             <p className="text-muted-foreground">
               {isSignUp ? "Join your wellness journey" : "Welcome back to your wellness journey"}
             </p>

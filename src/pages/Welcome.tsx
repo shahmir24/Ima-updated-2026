@@ -3,6 +3,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context';
+import { IMA_LOCKUP_SRC } from '@/lib/brand';
 
 const Welcome = () => {
   const navigate = useNavigate();
@@ -22,11 +23,7 @@ const Welcome = () => {
       <div className="max-w-md w-full text-center space-y-8">
         <div className="space-y-6">
           <div className="flex items-center justify-center mb-8">
-            <img 
-              src="/lovable-uploads/d8549ee1-5d5d-4efb-9c5b-9c1b49629e14.png" 
-              alt="iMA Logo" 
-              className="h-20 w-auto object-contain"
-            />
+            <img src={IMA_LOCKUP_SRC} alt="iMA" className="h-14 w-auto object-contain" />
           </div>
           
           <h1 className="text-5xl font-bold font-morisawa mb-4">Hey there 👋</h1>

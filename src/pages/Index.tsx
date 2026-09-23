@@ -2,7 +2,7 @@
 import React, { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Heart, Circle, Clock, Calendar, Activity, Smile, Frown, Zap, Brain,
+  Heart, Circle, Activity, Smile, Frown, Zap, Brain,
   User, Settings, LogOut, Users
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,9 @@ import { useHomeTaskQueue, greetingForHour } from '@/hooks/use-home-task-queue';
 import RightNowCard from '@/components/home/RightNowCard';
 import UpNextRow from '@/components/home/UpNextRow';
 import DesktopHome from '@/components/home/DesktopHome';
+import BottomNavigation from '@/components/productivity/BottomNavigation';
+import FounderWelcome from '@/components/home/FounderWelcome';
+import { IMA_LOCKUP_SRC } from '@/lib/brand';
 
 /** Local YYYY-MM-DD, so "today" is the user's calendar day, not a UTC one. */
 const toLocalISODate = (date: Date) =>
@@ -84,7 +87,7 @@ const Index = () => {
   // The same persisted tasks the /tasks screen reads.
   const { data: allTasks = [], isPending: tasksLoading, isError: tasksFailed } = useTasks();
   const toggleTaskCompleted = useToggleTaskCompleted();
-  const { data: profile } = useProfile();
+  const { data: profile, isPending: profilePending } = useProfile();
 
   const today = toLocalISODate(new Date());
   const queue = useHomeTaskQueue(allTasks, today);
@@ -147,11 +150,11 @@ const Index = () => {
 
     return (
       <section
-        aria-label="Right now"
+        aria-label="A good place to start"
         className="rounded-3xl bg-secondary/60 p-5 sm:p-7"
       >
         <p className="text-sm text-muted-foreground">{greeting}</p>
-        <h2 className="mt-2 text-2xl sm:text-3xl font-bold text-foreground">Right now</h2>
+        <h2 className="mt-2 text-2xl sm:text-3xl font-bold text-foreground">A good place to start</h2>
         <p className="mt-3 text-base text-muted-foreground">{message}</p>
         <Button
           onClick={() => navigate('/tasks')}
@@ -172,16 +175,14 @@ const Index = () => {
       <div data-testid="mobile-home" className="flex min-h-screen flex-col bg-background text-foreground pb-fixed-nav lg:hidden">
       {/* Header */}
       <header className="mx-auto flex w-full max-w-lg items-center justify-between p-4 md:max-w-2xl lg:max-w-3xl">
-        <div className="flex h-12 w-16 items-center justify-center">
-          <img
-            src="/lovable-uploads/d8549ee1-5d5d-4efb-9c5b-9c1b49629e14.png"
-            alt="iMA Logo"
-            className="h-10 w-auto object-contain"
-          />
-        </div>
+        {/* Same width as the account button opposite, so the lockup sits on
+            the header's true centre. */}
+        <div className="h-11 w-11 shrink-0" aria-hidden="true" />
 
-        <div className="flex flex-1 items-center justify-center">
-          <h1 className="text-3xl font-bold font-morisawa">iMA</h1>
+        <div className="flex h-12 flex-1 items-center justify-center">
+          <h1>
+            <img src={IMA_LOCKUP_SRC} alt="iMA" className="h-9 w-auto object-contain" />
+          </h1>
         </div>
 
         {/* Profile dropdown in top right. The dead "Help" item that used to sit
@@ -309,8 +310,8 @@ const Index = () => {
         )}
 
         {/* Feature cards. Breathing, Focus, Soundscaping and Daily Journal all
-            keep a route: Focus and Journal sit in the bottom navigation,
-            Breathing inside Wellness, Soundscaping inside Productivity. */}
+            keep a route: Focus and Soundscaping inside Productivity, Breathing
+            and Journal inside Wellness. */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
           <Link to="/productivity" className="rounded-3xl">
             <div className="flex min-h-[8rem] flex-col justify-between rounded-3xl bg-gradient-to-br from-amber-600 to-amber-900 p-5 card-hover sm:min-h-[10rem]">
@@ -354,40 +355,9 @@ const Index = () => {
         </div>
       </main>
 
-      {/* Bottom navigation.
-          Home keeps its own labelled nav rather than the shared component,
-          which has no labels and no logo button — swapping it in would change
-          how Home looks. Each button goes where its own label says. Hidden
-          from lg up, where the desktop sidebar takes over. */}
-      <nav className="fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur-lg nav-safe-area lg:hidden">
-        <div className="mx-auto flex max-w-lg items-center justify-around px-4 py-2 md:max-w-2xl">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/wellness')} aria-label="Wellness" className="flex h-auto min-w-[60px] flex-col items-center gap-1 rounded-2xl px-3 py-2">
-            <Heart className="h-6 w-6" />
-            <span className="text-xs">Wellness</span>
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => navigate('/focus')} aria-label="Focus" className="flex h-auto min-w-[60px] flex-col items-center gap-1 rounded-2xl px-3 py-2">
-            <Clock className="h-6 w-6" />
-            <span className="text-xs">Focus</span>
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => navigate('/')} aria-label="Home" aria-current="page" className="-translate-y-2 flex h-11 w-11 flex-col items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-teal-400 shadow-lg">
-            <img
-              src="/lovable-uploads/d8549ee1-5d5d-4efb-9c5b-9c1b49629e14.png"
-              alt="iMA Logo"
-              className="h-8 w-8 object-contain"
-            />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => navigate('/journaling')} aria-label="Journal" className="flex h-auto min-w-[60px] flex-col items-center gap-1 rounded-2xl px-3 py-2">
-            <Calendar className="h-6 w-6" />
-            <span className="text-xs">Journal</span>
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => navigate('/profile-settings?tab=profile')} aria-label="Profile" className="flex h-auto min-w-[60px] flex-col items-center gap-1 rounded-2xl px-3 py-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-700">
-              <User className="h-4 w-4 text-white" />
-            </div>
-            <span className="text-xs">Profile</span>
-          </Button>
-        </div>
-      </nav>
+      {/* Bottom navigation: the same shared bar every other mobile screen
+          renders. Hidden from lg up, where the desktop sidebar takes over. */}
+      <BottomNavigation />
       </div>
 
       {/* -------------------------------------------------------- desktop.
@@ -411,6 +381,10 @@ const Index = () => {
         emptyState={emptyState}
         onEmptyStateAction={() => navigate('/tasks')}
       />
+
+      {/* Beta: a founder note over Home, shared by both layouts. It decides for
+          itself whether to appear (at most three times per browser). */}
+      <FounderWelcome firstName={firstName} ready={!profilePending} />
     </>
   );
 };
