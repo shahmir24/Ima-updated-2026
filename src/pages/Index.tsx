@@ -24,6 +24,7 @@ import RightNowCard from '@/components/home/RightNowCard';
 import UpNextRow from '@/components/home/UpNextRow';
 import DesktopHome from '@/components/home/DesktopHome';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import FounderWelcome from '@/components/home/FounderWelcome';
 
 /** Local YYYY-MM-DD, so "today" is the user's calendar day, not a UTC one. */
 const toLocalISODate = (date: Date) =>
@@ -85,7 +86,7 @@ const Index = () => {
   // The same persisted tasks the /tasks screen reads.
   const { data: allTasks = [], isPending: tasksLoading, isError: tasksFailed } = useTasks();
   const toggleTaskCompleted = useToggleTaskCompleted();
-  const { data: profile } = useProfile();
+  const { data: profile, isPending: profilePending } = useProfile();
 
   const today = toLocalISODate(new Date());
   const queue = useHomeTaskQueue(allTasks, today);
@@ -381,6 +382,10 @@ const Index = () => {
         emptyState={emptyState}
         onEmptyStateAction={() => navigate('/tasks')}
       />
+
+      {/* Beta: a founder note over Home, shared by both layouts. It decides for
+          itself whether to appear (at most three times per browser). */}
+      <FounderWelcome firstName={firstName} ready={!profilePending} />
     </>
   );
 };
