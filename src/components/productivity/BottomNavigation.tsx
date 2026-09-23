@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Activity, Heart, CheckSquare, LifeBuoy } from 'lucide-react';
+import { IMA_MARK_SRC } from '@/lib/brand';
 
 /**
  * The app's single mobile navigation, rendered page by page — Home included.
@@ -106,7 +107,8 @@ const BottomNavigation = () => {
         {renderItem(PRODUCTIVITY)}
         {renderItem(WELLNESS)}
 
-        {/* Home: the centre action, carrying the logo as it always has. */}
+        {/* Home: the centre action, carrying the infinity mark. The circle is
+            the dark card colour so the mark's own gradient keeps its contrast. */}
         <li className="flex min-w-0 flex-1">
           <Link
             to="/"
@@ -114,9 +116,9 @@ const BottomNavigation = () => {
             className={`${itemClass} ${isHome ? 'text-foreground' : 'text-muted-foreground'}`}
           >
             <span className={iconSlotClass}>
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-teal-400 shadow-lg">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-card shadow-lg ring-1 ring-border">
                 <img
-                  src="/lovable-uploads/d8549ee1-5d5d-4efb-9c5b-9c1b49629e14.png"
+                  src={IMA_MARK_SRC}
                   alt=""
                   aria-hidden="true"
                   className="h-6 w-6 object-contain"

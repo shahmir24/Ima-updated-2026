@@ -25,6 +25,7 @@ import UpNextRow from '@/components/home/UpNextRow';
 import DesktopHome from '@/components/home/DesktopHome';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
 import FounderWelcome from '@/components/home/FounderWelcome';
+import { IMA_LOCKUP_SRC } from '@/lib/brand';
 
 /** Local YYYY-MM-DD, so "today" is the user's calendar day, not a UTC one. */
 const toLocalISODate = (date: Date) =>
@@ -174,16 +175,14 @@ const Index = () => {
       <div data-testid="mobile-home" className="flex min-h-screen flex-col bg-background text-foreground pb-fixed-nav lg:hidden">
       {/* Header */}
       <header className="mx-auto flex w-full max-w-lg items-center justify-between p-4 md:max-w-2xl lg:max-w-3xl">
-        <div className="flex h-12 w-16 items-center justify-center">
-          <img
-            src="/lovable-uploads/d8549ee1-5d5d-4efb-9c5b-9c1b49629e14.png"
-            alt="iMA Logo"
-            className="h-10 w-auto object-contain"
-          />
-        </div>
+        {/* Same width as the account button opposite, so the lockup sits on
+            the header's true centre. */}
+        <div className="h-11 w-11 shrink-0" aria-hidden="true" />
 
-        <div className="flex flex-1 items-center justify-center">
-          <h1 className="text-3xl font-bold font-morisawa">iMA</h1>
+        <div className="flex h-12 flex-1 items-center justify-center">
+          <h1>
+            <img src={IMA_LOCKUP_SRC} alt="iMA" className="h-9 w-auto object-contain" />
+          </h1>
         </div>
 
         {/* Profile dropdown in top right. The dead "Help" item that used to sit

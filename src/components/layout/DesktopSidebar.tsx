@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { IMA_LOCKUP_SRC } from '@/lib/brand';
 import {
   Home, CheckSquare, Clock, Users, LifeBuoy, Heart, BookOpen, Volume2, BarChart3,
   User, Settings
@@ -119,13 +120,8 @@ const DesktopSidebar = () => {
         to="/"
         className="flex items-center gap-2 px-5 py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <img
-          src="/lovable-uploads/d8549ee1-5d5d-4efb-9c5b-9c1b49629e14.png"
-          alt=""
-          aria-hidden="true"
-          className="h-8 w-auto object-contain"
-        />
-        <span className="text-2xl font-bold font-morisawa text-foreground">iMA</span>
+        {/* The lockup carries the wordmark, so there is no separate "iMA" text. */}
+        <img src={IMA_LOCKUP_SRC} alt="iMA" className="h-8 w-auto object-contain" />
       </Link>
 
       <nav aria-label="Primary" className="flex-1 overflow-y-auto px-3">
