@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import ProductivityHeader from '@/components/productivity/ProductivityHeader';
-import ProductivitySearchBar from '@/components/productivity/ProductivitySearchBar';
+import ToolSearchBar from '@/components/layout/ToolSearchBar';
 import { ToolCardsGrid, toolCards } from '@/components/productivity/ToolCardsGrid';
 import FidgetButton from '@/components/productivity/FidgetButton';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
@@ -33,9 +33,10 @@ const Productivity = () => {
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
       <ProductivityHeader width={WORKSPACE} />
 
-      <ProductivitySearchBar
+      <ToolSearchBar
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
+        placeholder="Search productivity tools"
         width={WORKSPACE}
       />
 
