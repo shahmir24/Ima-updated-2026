@@ -150,11 +150,11 @@ const Index = () => {
 
     return (
       <section
-        aria-label="Right now"
+        aria-label="A good place to start"
         className="rounded-3xl bg-secondary/60 p-5 sm:p-7"
       >
         <p className="text-sm text-muted-foreground">{greeting}</p>
-        <h2 className="mt-2 text-2xl sm:text-3xl font-bold text-foreground">Right now</h2>
+        <h2 className="mt-2 text-2xl sm:text-3xl font-bold text-foreground">A good place to start</h2>
         <p className="mt-3 text-base text-muted-foreground">{message}</p>
         <Button
           onClick={() => navigate('/tasks')}

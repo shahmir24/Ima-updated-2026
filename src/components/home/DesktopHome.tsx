@@ -134,10 +134,10 @@ const DesktopHome = ({
               /* Sized like the hero it replaces, so an empty queue reads as a
                  finished day rather than a hole in the dashboard. */
               <section
-                aria-label="Right now"
+                aria-label="A good place to start"
                 className="flex min-h-[18rem] flex-col justify-center rounded-3xl bg-secondary/60 p-8"
               >
-                <h2 className="text-3xl font-bold text-foreground">Right now</h2>
+                <h2 className="text-3xl font-bold text-foreground">A good place to start</h2>
                 <p className="mt-3 text-lg text-muted-foreground">{emptyState.message}</p>
                 <Button
                   onClick={onEmptyStateAction}
