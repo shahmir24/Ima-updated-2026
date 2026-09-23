@@ -69,7 +69,7 @@ const RightNowCard = ({
 
   return (
     <section
-      aria-label="Right now"
+      aria-label="A good place to start"
       className="rounded-3xl bg-gradient-to-br from-blue-600 to-blue-700 p-5 sm:p-7 shadow-xl"
     >
       <div className="flex items-start justify-between gap-3">
@@ -96,7 +96,7 @@ const RightNowCard = ({
         </div>
       </div>
 
-      <h2 className="mt-3 text-2xl sm:text-3xl font-bold text-white">Right now</h2>
+      <h2 className="mt-3 text-balance text-2xl sm:text-3xl font-bold text-white">A good place to start</h2>
 
       <div className="mt-3 flex items-start gap-3">
         {/* Subtle by design: it must not compete with Start, but completing a
