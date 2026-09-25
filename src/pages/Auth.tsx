@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { getEmailRedirectTo, consumeAuthCallbackError } from '@/lib/auth-redirect';
+import { opensOnSignUp } from '@/lib/auth-entry';
 import { useToast } from '@/hooks/use-toast';
 import { IMA_LOCKUP_SRC } from '@/lib/brand';
 
@@ -14,7 +15,9 @@ const Auth = () => {
   const { toast } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
-  const [isSignUp, setIsSignUp] = useState(false);
+  // /auth?mode=signup opens on the sign-up form (Guest Mode's "Create
+  // account"); anything else opens on sign in, as before.
+  const [isSignUp, setIsSignUp] = useState(() => opensOnSignUp(location.search));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');

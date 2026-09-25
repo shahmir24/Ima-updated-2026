@@ -27,7 +27,8 @@ import DesktopHome from '@/components/home/DesktopHome';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
 import FounderWelcome from '@/components/home/FounderWelcome';
 import GuestIntroCard from '@/components/home/GuestIntroCard';
-import GuestAccountGate from '@/components/home/GuestAccountGate';
+import GuestBodyDoublePreview from '@/components/home/GuestBodyDoublePreview';
+import { LOG_IN_PATH, SIGN_UP_PATH } from '@/lib/auth-entry';
 import MeetingModal, { type TaskFormInput } from '@/components/tasks/MeetingModal';
 import { IMA_LOCKUP_SRC } from '@/lib/brand';
 
@@ -40,10 +41,11 @@ const Index = () => {
   const { signOut } = useAuth();
   const { toast } = useToast();
 
-  // Guest Mode only: the task form, the account prompt behind "I'm stuck", and
-  // a mood choice that is shown but never saved.
+  // Guest Mode only: the task form, the Body Double preview behind "I'm stuck"
+  // (holding the title of the task it was opened for), and a mood choice that
+  // is shown but never saved.
   const [showGuestTaskForm, setShowGuestTaskForm] = useState(false);
-  const [showGuestGate, setShowGuestGate] = useState(false);
+  const [guestStuckTitle, setGuestStuckTitle] = useState<string | null>(null);
   const [guestMood, setGuestMood] = useState<string | null>(null);
 
   // Today's check-in comes from the database, so the selection survives a
@@ -140,10 +142,10 @@ const Index = () => {
 
   const taskError = toggleTaskCompleted.error;
 
-  /** "I'm stuck": Body Double for a signed-in user, an account prompt for a guest. */
+  /** "I'm stuck": Body Double for a signed-in user, the Body Double preview for a guest. */
   const handleStuck = () => {
     if (isGuest) {
-      setShowGuestGate(true);
+      setGuestStuckTitle(queue.current?.title ?? null);
       return;
     }
     navigate(withTask('/body-double'));
@@ -165,7 +167,8 @@ const Index = () => {
     await taskSource.create.run(input);
   };
 
-  const goToAuth = () => navigate('/auth');
+  const goToSignUp = () => navigate(SIGN_UP_PATH);
+  const goToLogIn = () => navigate(LOG_IN_PATH);
   const todaysTasks = allTasks.filter((task) => task.scheduled_date === today);
 
   const moods = [
@@ -220,8 +223,8 @@ const Index = () => {
   const guestIntro = (
     <GuestIntroCard
       onAddTask={() => setShowGuestTaskForm(true)}
-      onCreateAccount={goToAuth}
-      onLogIn={goToAuth}
+      onCreateAccount={goToSignUp}
+      onLogIn={goToLogIn}
     />
   );
 
@@ -258,11 +261,11 @@ const Index = () => {
             <DropdownMenuContent align="end" className="w-56 border border-border bg-background">
               <DropdownMenuLabel>Trying iMA</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={goToAuth}>
+              <DropdownMenuItem onClick={goToSignUp}>
                 <UserPlus className="mr-2 h-4 w-4" />
                 <span>Create account</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={goToAuth}>
+              <DropdownMenuItem onClick={goToLogIn}>
                 <LogIn className="mr-2 h-4 w-4" />
                 <span>Log in</span>
               </DropdownMenuItem>
@@ -473,11 +476,11 @@ const Index = () => {
             onSubmit={handleGuestTaskSubmit}
             isSaving={taskSource.create.isPending}
           />
-          <GuestAccountGate
-            open={showGuestGate}
-            onOpenChange={setShowGuestGate}
-            onCreateAccount={goToAuth}
-            onLogIn={goToAuth}
+          <GuestBodyDoublePreview
+            taskTitle={guestStuckTitle}
+            onClose={() => setGuestStuckTitle(null)}
+            onCreateAccount={goToSignUp}
+            onLogIn={goToLogIn}
           />
         </>
       )}

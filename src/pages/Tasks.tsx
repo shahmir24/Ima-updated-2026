@@ -13,7 +13,8 @@ import type { TaskRow } from '@/hooks/use-tasks';
 import { useTaskSource } from '@/hooks/use-task-source';
 import type { TaskFormInput } from '@/components/tasks/MeetingModal';
 import GuestTasksNotice from '@/components/tasks/GuestTasksNotice';
-import GuestAccountGate from '@/components/home/GuestAccountGate';
+import GuestBodyDoublePreview from '@/components/home/GuestBodyDoublePreview';
+import { LOG_IN_PATH, SIGN_UP_PATH } from '@/lib/auth-entry';
 
 /** '14:00:00' -> '2:00 PM'. Empty string when no time is set. */
 const formatTime = (value: string | null) => {
@@ -95,14 +96,16 @@ const Tasks = () => {
    * same account prompt Home uses instead of Body Double.
    */
   const isGuest = mode === 'guest';
-  const [showGuestGate, setShowGuestGate] = useState(false);
-  const goToAuth = () => navigate('/auth');
-  const handleStuck = (taskId: string) => {
+  /** The title of the task the Body Double preview is open for, or null. */
+  const [guestStuckTitle, setGuestStuckTitle] = useState<string | null>(null);
+  const goToSignUp = () => navigate(SIGN_UP_PATH);
+  const goToLogIn = () => navigate(LOG_IN_PATH);
+  const handleStuck = (task: TaskRow) => {
     if (isGuest) {
-      setShowGuestGate(true);
+      setGuestStuckTitle(task.title);
       return;
     }
-    navigate(withTask('/body-double', taskId));
+    navigate(withTask('/body-double', task.id));
   };
 
   const filteredTasks = tasks.filter(task =>
@@ -164,7 +167,7 @@ const Tasks = () => {
 
       {isGuest && (
         <PageWorkspace width={WORKSPACE} className="mb-4">
-          <GuestTasksNotice onCreateAccount={goToAuth} />
+          <GuestTasksNotice onCreateAccount={goToSignUp} />
         </PageWorkspace>
       )}
 
@@ -275,7 +278,7 @@ const Tasks = () => {
               onDelete={() => handleDeleteTask(task.id)}
               onEdit={() => openEditModal(task)}
               onStart={() => navigate(withTask('/focus', task.id))}
-              onStuck={() => handleStuck(task.id)}
+              onStuck={() => handleStuck(task)}
             />
           ))}
         </PageWorkspace>
@@ -297,11 +300,11 @@ const Tasks = () => {
       />
 
       {isGuest && (
-        <GuestAccountGate
-          open={showGuestGate}
-          onOpenChange={setShowGuestGate}
-          onCreateAccount={goToAuth}
-          onLogIn={goToAuth}
+        <GuestBodyDoublePreview
+          taskTitle={guestStuckTitle}
+          onClose={() => setGuestStuckTitle(null)}
+          onCreateAccount={goToSignUp}
+          onLogIn={goToLogIn}
         />
       )}
 
