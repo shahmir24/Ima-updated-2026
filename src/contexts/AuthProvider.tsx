@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { setAccountMarker } from '@/lib/account-marker';
 import { AuthContext, type AuthContextValue } from './auth-context';
 
 interface AuthProviderProps {
@@ -116,6 +117,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const applyOnboardingStatus = useCallback((id: string, value: boolean | null) => {
     setOnboarding((prev) => (value === null && prev?.userId === id ? prev : { userId: id, value }));
   }, []);
+
+  // Remember that this browser has had a real session, so a later signed-out
+  // visit goes to sign-in rather than Guest Home. Written for every session —
+  // restored, signed in or just signed up — and never removed on sign out.
+  useEffect(() => {
+    if (userId) setAccountMarker();
+  }, [userId]);
 
   // Load onboarding status whenever the signed-in user changes.
   useEffect(() => {

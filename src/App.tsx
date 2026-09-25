@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthProvider";
-import { ProtectedRoute, OnboardingRoute, PublicOnlyRoute } from "./components/auth/RouteGuards";
+import { ProtectedRoute, OnboardingRoute, PublicOnlyRoute, GuestAllowedRoute } from "./components/auth/RouteGuards";
 import Index from "./pages/Index";
 import Welcome from "./pages/Welcome";
 import Onboarding from "./pages/Onboarding";
@@ -75,12 +75,20 @@ const App = () => (
               <Route path="/onboarding" element={<Onboarding />} />
             </Route>
 
+            {/* Home: signed in and onboarded, or a first-time visitor in
+                Guest Mode. A signed-out browser that has had an account goes
+                to /auth. Guest Mode is enabled here and nowhere else. */}
+            <Route element={<GuestAllowedRoute />}>
+              <Route element={<AppShell />}>
+                <Route path="/" element={<Index />} />
+              </Route>
+            </Route>
+
             {/* Signed in and onboarded — the app itself */}
             <Route element={<ProtectedRoute />}>
               {/* Inside the desktop application shell. Below lg the shell
                   renders nothing but the page, so mobile is unchanged. */}
               <Route element={<AppShell />}>
-                <Route path="/" element={<Index />} />
                 <Route path="/profile-settings" element={<ProfileSettings />} />
                 <Route path="/productivity" element={<Productivity />} />
                 <Route path="/focus" element={<Focus />} />

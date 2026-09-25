@@ -41,6 +41,8 @@ interface DesktopHomeProps {
   /** Copy for when no task is eligible — computed once, shared with mobile. */
   emptyState: { message: string; action: string };
   onEmptyStateAction: () => void;
+  /** Shown above the mood strip when given. Guest Mode's Try iMA card. */
+  notice?: React.ReactNode;
 }
 
 /**
@@ -59,7 +61,7 @@ interface DesktopHomeProps {
 const DesktopHome = ({
   greeting, dateLabel, moods, selectedMood, onSelectMood, queue, todaysTasks,
   tasksLoading, tasksFailed, taskErrorMessage, isCompleting,
-  onToggleTask, onStart, onStuck, emptyState, onEmptyStateAction
+  onToggleTask, onStart, onStuck, emptyState, onEmptyStateAction, notice
 }: DesktopHomeProps) => (
   <div data-testid="desktop-home" className="hidden min-h-screen bg-background text-foreground lg:block">
     <div className="mx-auto max-w-[1400px] px-8 py-8">
@@ -71,6 +73,8 @@ const DesktopHome = ({
       <div className="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
         {/* ---------------------------------------------------- main column */}
         <div className="min-w-0 space-y-6">
+          {notice}
+
           {/* Mood — the same five options and the same handler as mobile,
               laid out as one thin strip so it introduces the screen without
               competing with what follows. */}

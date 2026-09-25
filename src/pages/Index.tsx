@@ -3,7 +3,7 @@ import React, { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Heart, Circle, Activity, Smile, Frown, Zap, Brain,
-  User, Settings, LogOut, Users
+  User, Settings, LogOut, Users, LogIn, UserPlus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,6 +26,9 @@ import UpNextRow from '@/components/home/UpNextRow';
 import DesktopHome from '@/components/home/DesktopHome';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
 import FounderWelcome from '@/components/home/FounderWelcome';
+import GuestIntroCard from '@/components/home/GuestIntroCard';
+import GuestAccountGate from '@/components/home/GuestAccountGate';
+import MeetingModal, { type TaskFormInput } from '@/components/tasks/MeetingModal';
 import { IMA_LOCKUP_SRC } from '@/lib/brand';
 
 /** Local YYYY-MM-DD, so "today" is the user's calendar day, not a UTC one. */
@@ -36,6 +39,12 @@ const Index = () => {
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const { toast } = useToast();
+
+  // Guest Mode only: the task form, the account prompt behind "I'm stuck", and
+  // a mood choice that is shown but never saved.
+  const [showGuestTaskForm, setShowGuestTaskForm] = useState(false);
+  const [showGuestGate, setShowGuestGate] = useState(false);
+  const [guestMood, setGuestMood] = useState<string | null>(null);
 
   // Today's check-in comes from the database, so the selection survives a
   // refresh. `pendingMood` shows the tap immediately while the insert is in
@@ -49,9 +58,26 @@ const Index = () => {
   // updated synchronously, so the second tap of a double-tap sees it.
   const savingRef = useRef(false);
 
-  const selectedMood = pendingMood ?? (todayMood ? toMoodLabel(todayMood.mood) : null);
+  // The same tasks the /tasks screen reads, from the same task source. In Guest
+  // Mode (a first-time visitor with no account) they come from the guest store
+  // in this browser tab instead, and nothing on this screen touches Supabase.
+  const taskSource = useTaskSource();
+  const isGuest = taskSource.mode === 'guest';
+  const { tasks: allTasks, isPending: tasksLoading, isError: tasksFailed } = taskSource;
+  const toggleTaskCompleted = taskSource.toggle;
+
+  const selectedMood = isGuest
+    ? guestMood
+    : pendingMood ?? (todayMood ? toMoodLabel(todayMood.mood) : null);
 
   const handleSelectMood = (label: string) => {
+    // A guest has nowhere to save a check-in, so the choice lives only in this
+    // screen's state.
+    if (isGuest) {
+      setGuestMood(label);
+      return;
+    }
+
     // Two guards, because a tap on this row is cheap and easy to repeat:
     //   * while an insert is in flight, further taps are ignored, so a
     //     double-tap cannot write twice.
@@ -85,10 +111,6 @@ const Index = () => {
     );
   };
 
-  // The same tasks the /tasks screen reads, from the same task source.
-  const taskSource = useTaskSource();
-  const { tasks: allTasks, isPending: tasksLoading, isError: tasksFailed } = taskSource;
-  const toggleTaskCompleted = taskSource.toggle;
   const { data: profile, isPending: profilePending } = useProfile();
 
   const today = toLocalISODate(new Date());
@@ -117,6 +139,30 @@ const Index = () => {
   };
 
   const taskError = toggleTaskCompleted.error;
+
+  /** "I'm stuck": Body Double for a signed-in user, an account prompt for a guest. */
+  const handleStuck = () => {
+    if (isGuest) {
+      setShowGuestGate(true);
+      return;
+    }
+    navigate(withTask('/body-double'));
+  };
+
+  /** A guest cannot reach /tasks yet, so adding a task opens the form here. */
+  const handleEmptyStateAction = () => {
+    if (isGuest) {
+      setShowGuestTaskForm(true);
+      return;
+    }
+    navigate('/tasks');
+  };
+
+  const handleGuestTaskSubmit = async (input: TaskFormInput) => {
+    await taskSource.create.run(input);
+  };
+
+  const goToAuth = () => navigate('/auth');
   const todaysTasks = allTasks.filter((task) => task.scheduled_date === today);
 
   const moods = [
@@ -132,12 +178,14 @@ const Index = () => {
    * Computed once here so the mobile card and the desktop hero cannot drift
    * apart on which of the three situations the user is actually in.
    */
-  const emptyState =
+  const signedInEmptyState =
     allTasks.length === 0
       ? { message: 'No tasks yet.', action: 'Add one' }
       : todaysTasks.length > 0
         ? { message: 'All done for today.', action: 'View tasks' }
         : { message: 'Nothing scheduled for today.', action: 'See all' };
+  // A guest's only way to act on this card is to add a task.
+  const emptyState = isGuest ? { ...signedInEmptyState, action: 'Add one' } : signedInEmptyState;
 
   /** The date, for quiet context on the desktop dashboard. */
   const dateLabel = new Date().toLocaleDateString(undefined, {
@@ -159,7 +207,7 @@ const Index = () => {
         <h2 className="mt-2 text-2xl sm:text-3xl font-bold text-foreground">A good place to start</h2>
         <p className="mt-3 text-base text-muted-foreground">{message}</p>
         <Button
-          onClick={() => navigate('/tasks')}
+          onClick={handleEmptyStateAction}
           className="mt-5 h-12 rounded-full bg-primary px-6 text-primary-foreground hover:bg-primary/90"
         >
           {action}
@@ -167,6 +215,14 @@ const Index = () => {
       </section>
     );
   };
+
+  const guestIntro = (
+    <GuestIntroCard
+      onAddTask={() => setShowGuestTaskForm(true)}
+      onCreateAccount={goToAuth}
+      onLogIn={goToAuth}
+    />
+  );
 
   return (
     <>
@@ -197,27 +253,44 @@ const Index = () => {
               </div>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 border border-border bg-background">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate('/profile-settings?tab=profile')}>
-              <User className="mr-2 h-4 w-4" />
-              <span>Profile Info</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate('/profile-settings?tab=settings')}>
-              <Settings className="mr-2 h-4 w-4" />
-              <span>Settings</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={signOut}>
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Log Out</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
+          {isGuest ? (
+            <DropdownMenuContent align="end" className="w-56 border border-border bg-background">
+              <DropdownMenuLabel>Trying iMA</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={goToAuth}>
+                <UserPlus className="mr-2 h-4 w-4" />
+                <span>Create account</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={goToAuth}>
+                <LogIn className="mr-2 h-4 w-4" />
+                <span>Log in</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          ) : (
+            <DropdownMenuContent align="end" className="w-56 border border-border bg-background">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/profile-settings?tab=profile')}>
+                <User className="mr-2 h-4 w-4" />
+                <span>Profile Info</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/profile-settings?tab=settings')}>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={signOut}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log Out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          )}
         </DropdownMenu>
       </header>
 
       <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 px-4 py-2 sm:px-6 md:max-w-2xl lg:max-w-3xl">
+        {isGuest && guestIntro}
+
         {/* Mood — unchanged behaviour, repositioned above the Right Now card. */}
         <div
           role="group"
@@ -279,7 +352,7 @@ const Index = () => {
               reason={queue.reason}
               isCompleting={toggleTaskCompleted.isPending}
               onStart={() => navigate(withTask('/focus'))}
-              onStuck={() => navigate(withTask('/body-double'))}
+              onStuck={handleStuck}
               onNotNow={queue.advance}
               onToggleComplete={() => handleToggleTask(queue.current as TaskRow)}
             >
@@ -299,7 +372,7 @@ const Index = () => {
         )}
 
         {/* Tasks live on their own screen; this keeps them one tap away. */}
-        {!tasksLoading && !tasksFailed && queue.current && (
+        {!isGuest && !tasksLoading && !tasksFailed && queue.current && (
           <div className="-mt-2 flex justify-end">
             <Button
               variant="ghost"
@@ -379,14 +452,34 @@ const Index = () => {
         isCompleting={toggleTaskCompleted.isPending}
         onToggleTask={handleToggleTask}
         onStart={() => navigate(withTask('/focus'))}
-        onStuck={() => navigate(withTask('/body-double'))}
+        onStuck={handleStuck}
         emptyState={emptyState}
-        onEmptyStateAction={() => navigate('/tasks')}
+        onEmptyStateAction={handleEmptyStateAction}
+        notice={isGuest ? guestIntro : null}
       />
 
       {/* Beta: a founder note over Home, shared by both layouts. It decides for
           itself whether to appear (at most three times per browser). */}
-      <FounderWelcome firstName={firstName} ready={!profilePending} />
+      {/* Not for guests: the note welcomes a new account holder, and over Guest
+          Home it would sit on top of the Try iMA card. */}
+      <FounderWelcome firstName={firstName} ready={!isGuest && !profilePending} />
+
+      {isGuest && (
+        <>
+          <MeetingModal
+            isOpen={showGuestTaskForm}
+            onClose={() => setShowGuestTaskForm(false)}
+            onSubmit={handleGuestTaskSubmit}
+            isSaving={taskSource.create.isPending}
+          />
+          <GuestAccountGate
+            open={showGuestGate}
+            onOpenChange={setShowGuestGate}
+            onCreateAccount={goToAuth}
+            onLogIn={goToAuth}
+          />
+        </>
+      )}
     </>
   );
 };

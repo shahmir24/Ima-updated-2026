@@ -1,5 +1,8 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/contexts/auth-context';
+import { GuestTaskStoreContext } from '@/contexts/guest-mode-context';
+import { hasAccountMarker } from '@/lib/account-marker';
+import { getGuestTaskStore } from '@/lib/guest/guest-task-store';
 
 /**
  * Shown while the session and profile lookups settle. Without it the guards
@@ -27,6 +30,34 @@ export const ProtectedRoute = () => {
   if (!onboardingCompleted) return <Navigate to="/welcome" replace />;
 
   return <Outlet />;
+};
+
+/**
+ * A screen a visitor may use without an account. Currently only Home.
+ *
+ * Signed in: exactly ProtectedRoute — not onboarded -> /welcome, otherwise the
+ * page. Guest Mode never bypasses onboarding.
+ *
+ * Signed out: a browser that has signed in to iMA before goes to /auth, as it
+ * always has. Only a browser with no such history is treated as a guest, and
+ * only then is the guest task store offered to the page. Everywhere else the
+ * store is absent, so no other screen can use it.
+ */
+export const GuestAllowedRoute = () => {
+  const { loading, session, onboardingCompleted } = useAuth();
+
+  if (loading) return <AuthLoading />;
+  if (session) {
+    if (!onboardingCompleted) return <Navigate to="/welcome" replace />;
+    return <Outlet />;
+  }
+  if (hasAccountMarker()) return <Navigate to="/auth" replace />;
+
+  return (
+    <GuestTaskStoreContext.Provider value={getGuestTaskStore()}>
+      <Outlet />
+    </GuestTaskStoreContext.Provider>
+  );
 };
 
 /**
