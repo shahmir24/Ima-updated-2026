@@ -149,9 +149,12 @@ const Index = () => {
     navigate(withTask('/body-double'));
   };
 
-  /** A guest cannot reach /tasks yet, so adding a task opens the form here. */
+  /**
+   * A guest with no tasks yet adds the first one right here, without leaving
+   * Home; otherwise the card leads to /tasks, for guests as for everyone.
+   */
   const handleEmptyStateAction = () => {
-    if (isGuest) {
+    if (isGuest && allTasks.length === 0) {
       setShowGuestTaskForm(true);
       return;
     }
@@ -178,14 +181,12 @@ const Index = () => {
    * Computed once here so the mobile card and the desktop hero cannot drift
    * apart on which of the three situations the user is actually in.
    */
-  const signedInEmptyState =
+  const emptyState =
     allTasks.length === 0
       ? { message: 'No tasks yet.', action: 'Add one' }
       : todaysTasks.length > 0
         ? { message: 'All done for today.', action: 'View tasks' }
         : { message: 'Nothing scheduled for today.', action: 'See all' };
-  // A guest's only way to act on this card is to add a task.
-  const emptyState = isGuest ? { ...signedInEmptyState, action: 'Add one' } : signedInEmptyState;
 
   /** The date, for quiet context on the desktop dashboard. */
   const dateLabel = new Date().toLocaleDateString(undefined, {
@@ -372,7 +373,7 @@ const Index = () => {
         )}
 
         {/* Tasks live on their own screen; this keeps them one tap away. */}
-        {!isGuest && !tasksLoading && !tasksFailed && queue.current && (
+        {!tasksLoading && !tasksFailed && queue.current && (
           <div className="-mt-2 flex justify-end">
             <Button
               variant="ghost"

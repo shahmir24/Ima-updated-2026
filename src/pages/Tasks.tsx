@@ -12,6 +12,8 @@ import PageWorkspace from '@/components/layout/PageWorkspace';
 import type { TaskRow } from '@/hooks/use-tasks';
 import { useTaskSource } from '@/hooks/use-task-source';
 import type { TaskFormInput } from '@/components/tasks/MeetingModal';
+import GuestTasksNotice from '@/components/tasks/GuestTasksNotice';
+import GuestAccountGate from '@/components/home/GuestAccountGate';
 
 /** '14:00:00' -> '2:00 PM'. Empty string when no time is set. */
 const formatTime = (value: string | null) => {
@@ -75,6 +77,7 @@ const Tasks = () => {
   });
 
   const {
+    mode,
     tasks,
     isPending,
     isError,
@@ -85,6 +88,22 @@ const Tasks = () => {
     remove: deleteTask,
     toggle: toggleCompleted
   } = useTaskSource();
+
+  /**
+   * Guest Mode: the same screen over the guest store. Back goes Home rather
+   * than to Productivity (which needs an account), and "I'm stuck" opens the
+   * same account prompt Home uses instead of Body Double.
+   */
+  const isGuest = mode === 'guest';
+  const [showGuestGate, setShowGuestGate] = useState(false);
+  const goToAuth = () => navigate('/auth');
+  const handleStuck = (taskId: string) => {
+    if (isGuest) {
+      setShowGuestGate(true);
+      return;
+    }
+    navigate(withTask('/body-double', taskId));
+  };
 
   const filteredTasks = tasks.filter(task =>
     activeTab === 'all' ? true : task.completed
@@ -141,7 +160,13 @@ const Tasks = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
-      <PageHeader title="Today's Tasks" backPath="/productivity" width={WORKSPACE} />
+      <PageHeader title="Today's Tasks" backPath={isGuest ? '/' : '/productivity'} width={WORKSPACE} />
+
+      {isGuest && (
+        <PageWorkspace width={WORKSPACE} className="mb-4">
+          <GuestTasksNotice onCreateAccount={goToAuth} />
+        </PageWorkspace>
+      )}
 
       {/* Sub-header */}
       <PageWorkspace width={WORKSPACE} className="mb-6">
@@ -250,7 +275,7 @@ const Tasks = () => {
               onDelete={() => handleDeleteTask(task.id)}
               onEdit={() => openEditModal(task)}
               onStart={() => navigate(withTask('/focus', task.id))}
-              onStuck={() => navigate(withTask('/body-double', task.id))}
+              onStuck={() => handleStuck(task.id)}
             />
           ))}
         </PageWorkspace>
@@ -270,6 +295,15 @@ const Tasks = () => {
         onSubmit={handleSubmitTask}
         isSaving={createTask.isPending || updateTask.isPending}
       />
+
+      {isGuest && (
+        <GuestAccountGate
+          open={showGuestGate}
+          onOpenChange={setShowGuestGate}
+          onCreateAccount={goToAuth}
+          onLogIn={goToAuth}
+        />
+      )}
 
       <BottomNavigation />
     </div>

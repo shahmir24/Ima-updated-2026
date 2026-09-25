@@ -75,12 +75,15 @@ const App = () => (
               <Route path="/onboarding" element={<Onboarding />} />
             </Route>
 
-            {/* Home: signed in and onboarded, or a first-time visitor in
-                Guest Mode. A signed-out browser that has had an account goes
-                to /auth. Guest Mode is enabled here and nowhere else. */}
+            {/* The core loop — Home, Tasks, Focus: signed in and onboarded, or
+                a first-time visitor in Guest Mode. A signed-out browser that
+                has had an account goes to /auth. Guest Mode is enabled on these
+                three routes and nowhere else. */}
             <Route element={<GuestAllowedRoute />}>
               <Route element={<AppShell />}>
                 <Route path="/" element={<Index />} />
+                <Route path="/tasks" element={<Tasks />} />
+                <Route path="/focus" element={<Focus />} />
               </Route>
             </Route>
 
@@ -91,11 +94,9 @@ const App = () => (
               <Route element={<AppShell />}>
                 <Route path="/profile-settings" element={<ProfileSettings />} />
                 <Route path="/productivity" element={<Productivity />} />
-                <Route path="/focus" element={<Focus />} />
                 <Route path="/body-double" element={<BodyDouble />} />
                 <Route path="/soundscape" element={<Soundscape />} />
                 <Route path="/stats" element={<Stats />} />
-                <Route path="/tasks" element={<Tasks />} />
                 <Route path="/wellness" element={<Wellness />} />
                 <Route path="/wellness/mindfulness" element={<MindfulnessMenu />} />
                 <Route path="/breathing" element={<BreathingMenu />} />

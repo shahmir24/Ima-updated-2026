@@ -39,7 +39,10 @@ const Focus = () => {
    */
   const [searchParams] = useSearchParams();
   const requestedTaskId = searchParams.get('task');
-  const { tasks } = useTaskSource();
+  const { tasks, mode } = useTaskSource();
+  // In Guest Mode the task comes from the guest store (the same lookup, by id)
+  // and useUserSettings below stays idle with no account to read, so the
+  // timer runs on its built-in defaults. Nothing on this screen writes.
   const focusTask = requestedTaskId
     ? tasks.find((task) => task.id === requestedTaskId) ?? null
     : null;
@@ -187,7 +190,8 @@ const Focus = () => {
         <Button 
           variant="ghost" 
           size="icon" 
-          onClick={() => !isLocked && navigate('/productivity')}
+          // Productivity needs an account, so a guest goes back to Home.
+          onClick={() => !isLocked && navigate(mode === 'guest' ? '/' : '/productivity')}
           className="h-11 w-11 rounded-full p-0 hover:bg-white/10"
           disabled={isLocked}
         >

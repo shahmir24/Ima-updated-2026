@@ -33,7 +33,7 @@ export const ProtectedRoute = () => {
 };
 
 /**
- * A screen a visitor may use without an account. Currently only Home.
+ * A screen a visitor may use without an account: Home, Tasks and Focus.
  *
  * Signed in: exactly ProtectedRoute — not onboarded -> /welcome, otherwise the
  * page. Guest Mode never bypasses onboarding.
