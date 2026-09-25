@@ -28,6 +28,8 @@ import BottomNavigation from '@/components/productivity/BottomNavigation';
 import FounderWelcome from '@/components/home/FounderWelcome';
 import GuestIntroCard from '@/components/home/GuestIntroCard';
 import GuestBodyDoublePreview from '@/components/home/GuestBodyDoublePreview';
+import GuestImportPrompt from '@/components/home/GuestImportPrompt';
+import { useImportGuestTasks } from '@/hooks/use-import-guest-tasks';
 import { LOG_IN_PATH, SIGN_UP_PATH } from '@/lib/auth-entry';
 import MeetingModal, { type TaskFormInput } from '@/components/tasks/MeetingModal';
 import { IMA_LOCKUP_SRC } from '@/lib/brand';
@@ -114,6 +116,11 @@ const Index = () => {
   };
 
   const { data: profile, isPending: profilePending } = useProfile();
+
+  // Signed in with unfinished tasks left over from Guest Mode in this tab: ask
+  // whether to keep them. Nothing is imported without an explicit yes.
+  const guestImport = useImportGuestTasks(taskSource.mode === 'authenticated');
+  const askingAboutGuestTasks = guestImport.offered.length > 0;
 
   const today = toLocalISODate(new Date());
   const queue = useHomeTaskQueue(allTasks, today);
@@ -466,7 +473,11 @@ const Index = () => {
           itself whether to appear (at most three times per browser). */}
       {/* Not for guests: the note welcomes a new account holder, and over Guest
           Home it would sit on top of the Try iMA card. */}
-      <FounderWelcome firstName={firstName} ready={!isGuest && !profilePending} />
+      {/* Also held back while "Keep your tasks?" is open, so the two never
+          stack; it can appear once that is answered. */}
+      <FounderWelcome firstName={firstName} ready={!isGuest && !profilePending && !askingAboutGuestTasks} />
+
+      {!isGuest && <GuestImportPrompt {...guestImport} />}
 
       {isGuest && (
         <>
