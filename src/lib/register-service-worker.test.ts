@@ -56,13 +56,13 @@ describe('public/sw.js', () => {
   const source = readFileSync(join(__dirname, '../../public/sw.js'), 'utf8');
   const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 
-  it('handles only install and activate', () => {
+  it('handles only install, activate and push', () => {
     const events = [...code.matchAll(/addEventListener\(\s*['"](\w+)['"]/g)].map((m) => m[1]);
-    expect(events).toEqual(['install', 'activate']);
+    expect(events).toEqual(['install', 'activate', 'push']);
   });
 
-  it('has no fetch handler, no caching and no push code', () => {
-    for (const forbidden of ['fetch', 'caches', 'Cache', 'push', 'notification', 'importScripts']) {
+  it('has no fetch handler, no caching, no click handling and no network calls', () => {
+    for (const forbidden of ['fetch', 'caches', 'Cache', 'notificationclick', 'importScripts', 'subscribe']) {
       expect(code).not.toContain(forbidden);
     }
   });
@@ -70,5 +70,53 @@ describe('public/sw.js', () => {
   it('activates at once and takes control of open pages', () => {
     expect(code).toContain('self.skipWaiting()');
     expect(code).toContain('self.clients.claim()');
+  });
+});
+
+describe('public/sw.js push handler (run against a fake worker scope)', () => {
+  const source = readFileSync(join(__dirname, '../../public/sw.js'), 'utf8');
+
+  function loadWorker() {
+    const listeners: Record<string, (event: unknown) => void> = {};
+    const showNotification = vi.fn(async () => undefined);
+    const self = {
+      addEventListener: (type: string, listener: (event: unknown) => void) => { listeners[type] = listener; },
+      skipWaiting: vi.fn(),
+      clients: { claim: vi.fn(async () => undefined) },
+      registration: { showNotification }
+    };
+    new Function('self', source)(self);
+    const push = async (data: { json: () => unknown } | null) => {
+      let waited: Promise<unknown> | undefined;
+      listeners.push({ data, waitUntil: (p: Promise<unknown>) => { waited = p; } });
+      await waited;
+      return showNotification.mock.calls.at(-1) as unknown as [string, { body: string; icon: string; data: { url: string } }];
+    };
+    return { push };
+  }
+  const payload = (value: unknown) => ({ json: () => value });
+
+  it('shows the title, body and on-site url it is sent', async () => {
+    const [title, options] = await loadWorker().push(payload({ title: 'iMA', body: 'Your gentle nudges are ready.', url: '/tasks' }));
+    expect(title).toBe('iMA');
+    expect(options).toEqual({ body: 'Your gentle nudges are ready.', icon: '/brand/icon-192.png', data: { url: '/tasks' } });
+  });
+
+  it('still shows a plain notification for an empty or unreadable push', async () => {
+    const worker = loadWorker();
+    expect((await worker.push(null))[0]).toBe('iMA');
+    const [title, options] = await worker.push({ json: () => { throw new SyntaxError('not json'); } });
+    expect(title).toBe('iMA');
+    expect(options.body).toBe('');
+  });
+
+  it('keeps only on-site paths and caps the text', async () => {
+    const worker = loadWorker();
+    for (const url of ['https://evil.test/', '//evil.test/x', 'javascript:alert(1)', 42]) {
+      expect((await worker.push(payload({ url })))[1].data.url).toBe('/');
+    }
+    const [title, options] = await worker.push(payload({ title: 'x'.repeat(500), body: 'y'.repeat(500) }));
+    expect(title).toHaveLength(80);
+    expect(options.body).toHaveLength(240);
   });
 });

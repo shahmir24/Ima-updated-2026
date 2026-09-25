@@ -7,3 +7,11 @@ project_id = "txvwvxihvfltnidejfcs"
 # writes no table.
 [functions.ai-breakdown]
 verify_jwt = true
+
+# DEVELOPMENT SPIKE — delete with supabase/functions/push-spike. Sends one fixed
+# test notification to one developer-supplied subscription. Gateway JWT
+# verification stays ON, and the function itself is off (503) unless the
+# PUSH_SPIKE_SECRET function secret is set and sent as x-ima-spike-secret.
+[functions.push-spike]
+verify_jwt = true
+
