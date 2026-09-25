@@ -17,7 +17,8 @@ import {
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { useTodayMood, useSaveMoodCheckin, toMoodLabel, isMoodValue } from '@/hooks/use-mood';
-import { useTasks, useToggleTaskCompleted, type TaskRow } from '@/hooks/use-tasks';
+import type { TaskRow } from '@/hooks/use-tasks';
+import { useTaskSource } from '@/hooks/use-task-source';
 import { useProfile } from '@/hooks/use-profile';
 import { useHomeTaskQueue, greetingForHour } from '@/hooks/use-home-task-queue';
 import RightNowCard from '@/components/home/RightNowCard';
@@ -84,9 +85,10 @@ const Index = () => {
     );
   };
 
-  // The same persisted tasks the /tasks screen reads.
-  const { data: allTasks = [], isPending: tasksLoading, isError: tasksFailed } = useTasks();
-  const toggleTaskCompleted = useToggleTaskCompleted();
+  // The same tasks the /tasks screen reads, from the same task source.
+  const taskSource = useTaskSource();
+  const { tasks: allTasks, isPending: tasksLoading, isError: tasksFailed } = taskSource;
+  const toggleTaskCompleted = taskSource.toggle;
   const { data: profile, isPending: profilePending } = useProfile();
 
   const today = toLocalISODate(new Date());
@@ -111,7 +113,7 @@ const Index = () => {
     // No optimistic removal: a failed write must leave the task exactly where
     // it was rather than quietly dropping it out of the queue. The hook
     // invalidates on success, which is what takes a completed task out.
-    toggleTaskCompleted.toggle(task).catch(() => { /* surfaced via taskError */ });
+    toggleTaskCompleted.run(task).catch(() => { /* surfaced via taskError */ });
   };
 
   const taskError = toggleTaskCompleted.error;

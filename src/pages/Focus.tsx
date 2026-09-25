@@ -9,7 +9,7 @@ import FloatingSettings from '@/components/focus/FloatingSettings';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
 import PageWorkspace from '@/components/layout/PageWorkspace';
 import { useUserSettings } from '@/hooks/use-user-settings';
-import { useTasks } from '@/hooks/use-tasks';
+import { useTaskSource } from '@/hooks/use-task-source';
 
 /**
  * Used until the saved settings arrive, and when a user has no settings row.
@@ -39,7 +39,7 @@ const Focus = () => {
    */
   const [searchParams] = useSearchParams();
   const requestedTaskId = searchParams.get('task');
-  const { data: tasks = [] } = useTasks();
+  const { tasks } = useTaskSource();
   const focusTask = requestedTaskId
     ? tasks.find((task) => task.id === requestedTaskId) ?? null
     : null;

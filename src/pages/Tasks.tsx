@@ -9,14 +9,8 @@ import MeetingModal from '@/components/tasks/MeetingModal';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
 import PageHeader from '@/components/layout/PageHeader';
 import PageWorkspace from '@/components/layout/PageWorkspace';
-import {
-  useTasks,
-  useCreateTask,
-  useDeleteTask,
-  useToggleTaskCompleted,
-  useUpdateTask,
-  type TaskRow
-} from '@/hooks/use-tasks';
+import type { TaskRow } from '@/hooks/use-tasks';
+import { useTaskSource } from '@/hooks/use-task-source';
 import type { TaskFormInput } from '@/components/tasks/MeetingModal';
 
 /** '14:00:00' -> '2:00 PM'. Empty string when no time is set. */
@@ -80,22 +74,28 @@ const Tasks = () => {
     year: 'numeric' 
   });
 
-  const { data: tasks = [], isPending, isError, error, refetch } = useTasks();
-  const createTask = useCreateTask();
-  const updateTask = useUpdateTask();
-  const deleteTask = useDeleteTask();
-  const toggleCompleted = useToggleTaskCompleted();
+  const {
+    tasks,
+    isPending,
+    isError,
+    error,
+    refetch,
+    create: createTask,
+    update: updateTask,
+    remove: deleteTask,
+    toggle: toggleCompleted
+  } = useTaskSource();
 
   const filteredTasks = tasks.filter(task =>
     activeTab === 'all' ? true : task.completed
   );
 
   const handleCompleteTask = (task: TaskRow) => {
-    toggleCompleted.toggle(task).catch(() => { /* surfaced by mutation state */ });
+    toggleCompleted.run(task).catch(() => { /* surfaced by mutation state */ });
   };
 
   const handleDeleteTask = (taskId: string) => {
-    deleteTask.mutate(taskId);
+    deleteTask.run(taskId).catch(() => { /* surfaced by mutation state */ });
   };
 
   const openCreateModal = () => {
@@ -114,14 +114,15 @@ const Tasks = () => {
   };
 
   /**
-   * One form, two writes. Editing goes through the existing useUpdateTask,
+   * One form, two writes. Editing goes through the task source's update, which
+   * for a signed-in user is the existing useUpdateTask,
    * which is an UPDATE scoped to id + user_id, so the row is changed in place
    * rather than duplicated. Only the three fields the form owns are sent:
    * completed, completed_at, tag, description and end_time are left alone.
    */
   const handleSubmitTask = async (input: TaskFormInput) => {
     if (editingTask) {
-      await updateTask.mutateAsync({
+      await updateTask.run({
         id: editingTask.id,
         changes: {
           title: input.title,
@@ -132,7 +133,7 @@ const Tasks = () => {
       });
       return;
     }
-    await createTask.mutateAsync(input);
+    await createTask.run(input);
   };
 
   const mutationError =
