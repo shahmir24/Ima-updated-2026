@@ -6,8 +6,8 @@
  *     it did before this file existed, so the worker can never serve a stale
  *     app, break sign-in, or stand between the app and Supabase;
  *   - no Cache API and no offline page;
- *   - no nudge logic and no click handling yet (those arrive with gentle
- *     nudges). The push handler below only displays what it is sent.
+ *   - no nudge logic: the push handler below only displays what it is sent,
+ *     and the click handler only takes the user to that notification's page.
  *
  * Because it holds no cache, a new version can take over at once: skipWaiting
  * on install and clients.claim on activate carry no risk of mixing an old
@@ -58,3 +58,51 @@ self.addEventListener('push', (event) => {
   );
 });
 
+/*
+ * Notification click: close it, then take the user to its page in iMA.
+ *
+ * The destination is checked again here rather than trusted: only a path on
+ * this site is kept. It must start with a single '/', and once resolved
+ * against this origin it must still be on this origin (browsers read '/\x'
+ * as '//x', another site). Anything else — a missing, absolute, protocol-
+ * relative or script URL — becomes the home page.
+ *
+ * An iMA window that is already open is focused and navigated there (the one
+ * in front first); only when none is open, or it cannot be navigated, is a
+ * new window opened.
+ */
+function notificationDestination(data) {
+  const home = new URL('/', self.location.origin).href;
+  const raw = data && typeof data.url === 'string' ? data.url : '';
+  if (!raw.startsWith('/') || raw.startsWith('//')) return home;
+  try {
+    const url = new URL(raw, self.location.origin);
+    return url.origin === self.location.origin ? url.href : home;
+  } catch {
+    return home;
+  }
+}
+
+async function showDestination(destination) {
+  const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  const existing =
+    windows.find((client) => client.focused) ||
+    windows.find((client) => client.visibilityState === 'visible') ||
+    windows[0];
+
+  if (existing) {
+    try {
+      const client = (await existing.focus()) || existing;
+      if (client.url !== destination) await client.navigate(destination);
+      return;
+    } catch {
+      // A page this worker does not control cannot be navigated; open one.
+    }
+  }
+  if (self.clients.openWindow) await self.clients.openWindow(destination);
+}
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(showDestination(notificationDestination(event.notification.data)));
+});

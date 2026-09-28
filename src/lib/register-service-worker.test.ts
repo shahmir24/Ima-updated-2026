@@ -56,13 +56,13 @@ describe('public/sw.js', () => {
   const source = readFileSync(join(__dirname, '../../public/sw.js'), 'utf8');
   const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 
-  it('handles only install, activate and push', () => {
+  it('handles only install, activate, push and notificationclick', () => {
     const events = [...code.matchAll(/addEventListener\(\s*['"](\w+)['"]/g)].map((m) => m[1]);
-    expect(events).toEqual(['install', 'activate', 'push']);
+    expect(events).toEqual(['install', 'activate', 'push', 'notificationclick']);
   });
 
-  it('has no fetch handler, no caching, no click handling and no network calls', () => {
-    for (const forbidden of ['fetch', 'caches', 'Cache', 'notificationclick', 'importScripts', 'subscribe']) {
+  it('has no fetch handler, no caching and no network calls', () => {
+    for (const forbidden of ['fetch', 'caches', 'Cache', 'importScripts', 'subscribe']) {
       expect(code).not.toContain(forbidden);
     }
   });
@@ -118,5 +118,146 @@ describe('public/sw.js push handler (run against a fake worker scope)', () => {
     const [title, options] = await worker.push(payload({ title: 'x'.repeat(500), body: 'y'.repeat(500) }));
     expect(title).toHaveLength(80);
     expect(options.body).toHaveLength(240);
+  });
+});
+
+describe('public/sw.js notificationclick handler (run against a fake worker scope)', () => {
+  const source = readFileSync(join(__dirname, '../../public/sw.js'), 'utf8');
+  const ORIGIN = 'https://ima.test';
+
+  interface FakeWindow {
+    url: string;
+    focused?: boolean;
+    visibilityState?: string;
+    focus: ReturnType<typeof vi.fn>;
+    navigate: ReturnType<typeof vi.fn>;
+  }
+
+  function fakeWindow(url: string, options: { focused?: boolean; visible?: boolean; navigable?: boolean } = {}): FakeWindow {
+    const client: FakeWindow = {
+      url,
+      focused: options.focused ?? false,
+      visibilityState: options.visible ? 'visible' : 'hidden',
+      focus: vi.fn(async () => client),
+      navigate: vi.fn(async (to: string) => {
+        if (options.navigable === false) throw new TypeError('not controlled');
+        client.url = to;
+        return client;
+      })
+    };
+    return client;
+  }
+
+  function loadWorker(windows: FakeWindow[] = [], options: { openWindow?: boolean } = {}) {
+    const listeners: Record<string, (event: unknown) => void> = {};
+    const matchAll = vi.fn(async () => windows);
+    const openWindow = vi.fn(async () => null);
+    const self = {
+      location: { origin: ORIGIN },
+      addEventListener: (type: string, listener: (event: unknown) => void) => { listeners[type] = listener; },
+      skipWaiting: vi.fn(),
+      clients: { claim: vi.fn(async () => undefined), matchAll, ...(options.openWindow === false ? {} : { openWindow }) },
+      registration: { showNotification: vi.fn(async () => undefined) }
+    };
+    new Function('self', source)(self);
+    const click = async (data: unknown) => {
+      const close = vi.fn();
+      let waited: Promise<unknown> | undefined;
+      listeners.notificationclick({ notification: { data, close }, waitUntil: (p: Promise<unknown>) => { waited = p; } });
+      expect(waited).toBeInstanceOf(Promise);
+      await waited;
+      return { close };
+    };
+    return { click, matchAll, openWindow, showNotification: self.registration.showNotification, listeners };
+  }
+
+  it('closes the notification and opens a new window at the destination when iMA is not open', async () => {
+    const worker = loadWorker();
+    const { close } = await worker.click({ url: '/tasks?view=today#top' });
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(worker.matchAll).toHaveBeenCalledWith({ type: 'window', includeUncontrolled: true });
+    expect(worker.openWindow).toHaveBeenCalledWith(`${ORIGIN}/tasks?view=today#top`);
+  });
+
+  it('focuses an open iMA window and navigates it instead of opening another', async () => {
+    const open = fakeWindow(`${ORIGIN}/journal`);
+    const worker = loadWorker([open]);
+    await worker.click({ url: '/tasks' });
+    expect(open.focus).toHaveBeenCalledTimes(1);
+    expect(open.navigate).toHaveBeenCalledWith(`${ORIGIN}/tasks`);
+    expect(worker.openWindow).not.toHaveBeenCalled();
+  });
+
+  it('prefers the focused window, then a visible one, over the rest', async () => {
+    const background = fakeWindow(`${ORIGIN}/a`);
+    const visible = fakeWindow(`${ORIGIN}/b`, { visible: true });
+    const focused = fakeWindow(`${ORIGIN}/c`, { focused: true, visible: true });
+    await loadWorker([background, visible, focused]).click({ url: '/tasks' });
+    expect(focused.navigate).toHaveBeenCalledTimes(1);
+    expect(background.focus).not.toHaveBeenCalled();
+    expect(visible.focus).not.toHaveBeenCalled();
+
+    const background2 = fakeWindow(`${ORIGIN}/a`);
+    const visible2 = fakeWindow(`${ORIGIN}/b`, { visible: true });
+    await loadWorker([background2, visible2]).click({ url: '/tasks' });
+    expect(visible2.navigate).toHaveBeenCalledTimes(1);
+    expect(background2.focus).not.toHaveBeenCalled();
+  });
+
+  it('only focuses when the window is already on the destination', async () => {
+    const open = fakeWindow(`${ORIGIN}/tasks`);
+    const worker = loadWorker([open]);
+    await worker.click({ url: '/tasks' });
+    expect(open.focus).toHaveBeenCalledTimes(1);
+    expect(open.navigate).not.toHaveBeenCalled();
+    expect(worker.openWindow).not.toHaveBeenCalled();
+  });
+
+  it('opens a new window when the open one cannot be navigated (not controlled by this worker)', async () => {
+    const open = fakeWindow(`${ORIGIN}/journal`, { navigable: false });
+    const worker = loadWorker([open]);
+    await worker.click({ url: '/tasks' });
+    expect(worker.openWindow).toHaveBeenCalledWith(`${ORIGIN}/tasks`);
+  });
+
+  it('sends every unsafe or missing destination to the home page', async () => {
+    const unsafe: unknown[] = [
+      { url: 'https://evil.test/' },
+      { url: `${ORIGIN}/tasks` },
+      { url: '//evil.test/x' },
+      { url: '/\\evil.test/x' },
+      { url: '\\\\evil.test' },
+      { url: 'javascript:alert(1)' },
+      { url: 'tasks' },
+      { url: 42 },
+      { url: '' },
+      {},
+      null,
+      undefined
+    ];
+    for (const data of unsafe) {
+      const worker = loadWorker();
+      await worker.click(data);
+      expect(worker.openWindow, JSON.stringify(data)).toHaveBeenCalledWith(`${ORIGIN}/`);
+    }
+    const open = fakeWindow(`${ORIGIN}/journal`);
+    await loadWorker([open]).click({ url: '//evil.test/x' });
+    expect(open.navigate).toHaveBeenCalledWith(`${ORIGIN}/`);
+  });
+
+  it('never throws out of the handler when windows cannot be opened', async () => {
+    const worker = loadWorker([], { openWindow: false });
+    const { close } = await worker.click({ url: '/tasks' });
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('a pushed notification, when clicked, lands on the page it was sent with', async () => {
+    const worker = loadWorker();
+    let waited: Promise<unknown> | undefined;
+    worker.listeners.push({ data: { json: () => ({ title: 'iMA', body: 'One small thing', url: '/tasks' }) }, waitUntil: (p: Promise<unknown>) => { waited = p; } });
+    await waited;
+    const [, options] = worker.showNotification.mock.calls.at(-1) as unknown as [string, { data: unknown }];
+    await worker.click(options.data);
+    expect(worker.openWindow).toHaveBeenCalledWith(`${ORIGIN}/tasks`);
   });
 });
