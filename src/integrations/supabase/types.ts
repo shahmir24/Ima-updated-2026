@@ -147,6 +147,57 @@ export type Database = {
           },
         ]
       }
+      nudge_deliveries: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          devices_attempted: number
+          devices_succeeded: number
+          id: string
+          local_date: string
+          status: string
+          task_id: string | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          devices_attempted?: number
+          devices_succeeded?: number
+          id?: string
+          local_date: string
+          status?: string
+          task_id?: string | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          devices_attempted?: number
+          devices_succeeded?: number
+          id?: string
+          local_date?: string
+          status?: string
+          task_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nudge_deliveries_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nudge_deliveries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       onboarding_responses: {
         Row: {
           additional_info: string | null
@@ -257,6 +308,53 @@ export type Database = {
             foreignKeyName: "profiles_id_fkey"
             columns: ["id"]
             isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          failure_count: number
+          id: string
+          last_success_at: string | null
+          p256dh: string
+          updated_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          failure_count?: number
+          id?: string
+          last_success_at?: string | null
+          p256dh: string
+          updated_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          failure_count?: number
+          id?: string
+          last_success_at?: string | null
+          p256dh?: string
+          updated_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -379,6 +477,9 @@ export type Database = {
           default_flows: number
           encouragement: boolean
           focus_block_minutes: number
+          nudge_show_task_titles: boolean
+          nudge_time: string
+          nudges_enabled: boolean
           sound_volume: number
           theme: string
           timeboxing_style: string | null
@@ -396,6 +497,9 @@ export type Database = {
           default_flows?: number
           encouragement?: boolean
           focus_block_minutes?: number
+          nudge_show_task_titles?: boolean
+          nudge_time?: string
+          nudges_enabled?: boolean
           sound_volume?: number
           theme?: string
           timeboxing_style?: string | null
@@ -413,6 +517,9 @@ export type Database = {
           default_flows?: number
           encouragement?: boolean
           focus_block_minutes?: number
+          nudge_show_task_titles?: boolean
+          nudge_time?: string
+          nudges_enabled?: boolean
           sound_volume?: number
           theme?: string
           timeboxing_style?: string | null
@@ -479,7 +586,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      claim_due_nudges: {
+        Args: { p_limit?: number; p_now?: string; p_window_minutes?: number }
+        Returns: {
+          delivery_id: string
+          local_date: string
+          show_task_titles: boolean
+          user_id: string
+        }[]
+      }
+      register_push_subscription: {
+        Args: {
+          p_auth: string
+          p_endpoint: string
+          p_p256dh: string
+          p_user_agent?: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
