@@ -15,3 +15,10 @@ verify_jwt = true
 [functions.push-spike]
 verify_jwt = true
 
+
+# Gentle nudges — the daily sender. Server-only: gateway JWT verification stays
+# ON, and the function itself refuses every caller that does not present the
+# service-role key as its bearer token (anon key and user sessions get 401).
+# Not scheduled yet.
+[functions.send-nudges]
+verify_jwt = true

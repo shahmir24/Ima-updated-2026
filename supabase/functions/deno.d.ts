@@ -13,7 +13,7 @@ declare namespace Deno {
 }
 
 /**
- * The one export push-spike uses from npm:web-push (pinned). Deno resolves the
+ * The one export push-spike and send-nudges use from npm:web-push (pinned). Deno resolves the
  * real package at deploy; this only lets `tsc -b` type-check the call.
  */
 declare module 'npm:web-push@3.6.7' {
@@ -31,6 +31,7 @@ declare module 'npm:web-push@3.6.7' {
         TTL?: number;
         contentEncoding?: 'aes128gcm' | 'aesgcm';
         urgency?: 'very-low' | 'low' | 'normal' | 'high';
+        topic?: string;
       }
     ): RequestDetails;
     generateVAPIDKeys(): { publicKey: string; privateKey: string };
