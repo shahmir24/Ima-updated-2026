@@ -11,6 +11,10 @@ export type UserSettingsRow = Database['public']['Tables']['user_settings']['Row
  * `default_flows` and `timezone` are deliberately absent: neither has a
  * control on this screen, and timezone is load-bearing for day-bucketing
  * elsewhere, so it should not be guessed from a settings edit.
+ *
+ * `nudges_enabled` is absent too: only the Gentle Nudges enable/disable flow
+ * may write it, so the account is never "on" without a stored device. The
+ * nudge time and the task-name privacy choice are plain preferences.
  */
 export type UserSettingsPatch = Partial<
   Pick<
@@ -25,6 +29,8 @@ export type UserSettingsPatch = Partial<
     | 'buffer_minutes'
     | 'timeboxing_style'
     | 'daily_focus_goal'
+    | 'nudge_time'
+    | 'nudge_show_task_titles'
   >
 >;
 

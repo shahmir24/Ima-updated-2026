@@ -12,6 +12,7 @@ import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import PageWorkspace from '@/components/layout/PageWorkspace';
+import GentleNudgesCard from '@/components/settings/GentleNudgesCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { useAutoSave } from '@/hooks/use-autosave';
@@ -666,6 +667,9 @@ const ProfileSettings = () => {
                 </div>
               </div>
             </Card>
+
+            {/* Gentle nudges — off until the user turns them on here */}
+            <GentleNudgesCard settings={settings} save={settingsSave} />
 
             {/* Account & Privacy */}
             <Card className="p-6 rounded-3xl border-0 bg-secondary/30">
