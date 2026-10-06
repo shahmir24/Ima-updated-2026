@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import TaskCard from '@/components/tasks/TaskCard';
 import MeetingModal from '@/components/tasks/MeetingModal';
+import QuickCaptureSheet from '@/components/capture/QuickCaptureSheet';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
 import PageHeader from '@/components/layout/PageHeader';
 import PageWorkspace from '@/components/layout/PageWorkspace';
@@ -31,7 +32,9 @@ const formatTime = (value: string | null) => {
 const toLocalISODate = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-const describeDate = (scheduledDate: string) => {
+/** "Later" for an unscheduled task: it has no day, and is never shown as Today. */
+const describeDate = (scheduledDate: string | null) => {
+  if (scheduledDate === null) return 'Later';
   if (scheduledDate === toLocalISODate(new Date())) return 'Today';
   return new Date(`${scheduledDate}T00:00:00`).toLocaleDateString('en-US', {
     weekday: 'short',
@@ -66,6 +69,8 @@ const Tasks = () => {
     `${path}?task=${encodeURIComponent(taskId)}`;
   const [activeTab, setActiveTab] = useState<'all' | 'completed'>('all');
   const [showMeetingModal, setShowMeetingModal] = useState(false);
+  /** Quick Capture: the primary way to add tasks. The manual form stays one tap away inside it. */
+  const [showCapture, setShowCapture] = useState(false);
   /** null = the form is creating; a row = the form is editing that row. */
   const [editingTask, setEditingTask] = useState<TaskRow | null>(null);
   
@@ -125,6 +130,12 @@ const Tasks = () => {
     setShowMeetingModal(true);
   };
 
+  /** "Add manually" inside Quick Capture: the existing form, exactly as before. */
+  const openManualFromCapture = () => {
+    setShowCapture(false);
+    openCreateModal();
+  };
+
   const openEditModal = (task: TaskRow) => {
     setEditingTask(task);
     setShowMeetingModal(true);
@@ -177,7 +188,7 @@ const Tasks = () => {
           <span className="text-white text-base">{dayName}, {dateString}</span>
           <div className="flex items-center gap-3">
             <Button 
-              onClick={openCreateModal}
+              onClick={() => setShowCapture(true)}
               style={{ backgroundColor: '#2f74db' }}
               className="hover:opacity-90 text-white rounded-full h-11 px-4 py-2 flex items-center gap-2"
             >
@@ -283,6 +294,18 @@ const Tasks = () => {
           ))}
         </PageWorkspace>
       </main>
+
+      {/* Quick Capture — "New Task". Saves only on "Add tasks", through the
+          same task source as the form below (Supabase, or the guest store). */}
+      <QuickCaptureSheet
+        isOpen={showCapture}
+        onClose={() => setShowCapture(false)}
+        isGuest={isGuest}
+        onAddManually={openManualFromCapture}
+        create={createTask.run}
+        onCreateAccount={goToSignUp}
+        onLogIn={goToLogIn}
+      />
 
       {/* Task form — create and edit */}
       <MeetingModal

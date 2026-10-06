@@ -11,7 +11,8 @@ import type { TaskImportance, TaskRow } from '@/hooks/use-tasks';
 
 export interface TaskFormInput {
   title: string;
-  scheduled_date: string;
+  /** null when the task is unscheduled ("Later"). */
+  scheduled_date: string | null;
   /** null when the user did not pick a time. */
   start_time: string | null;
   importance: TaskImportance;
@@ -55,6 +56,14 @@ const parseScheduledDate = (value: string | null | undefined): Date => {
 };
 
 /**
+ * The form's starting date. A new task starts on today, as it always has. An
+ * existing unscheduled ("Later") task starts with NO date, so editing its
+ * title can never quietly schedule it for today.
+ */
+const initialDate = (task: TaskRow | null): Date | null =>
+  task && task.scheduled_date === null ? null : parseScheduledDate(task?.scheduled_date);
+
+/**
  * Postgres `time` reads back as 'HH:MM:SS'; the Select's values are 'HH:MM'.
  *
  * Null stays null. A task with no start time now keeps no start time: the form
@@ -76,7 +85,7 @@ const toImportance = (value: unknown): TaskImportance =>
 const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false }: MeetingModalProps) => {
   const isEditing = !!task;
   const [taskTitle, setTaskTitle] = useState(() => task?.title ?? '');
-  const [selectedDate, setSelectedDate] = useState<Date>(() => parseScheduledDate(task?.scheduled_date));
+  const [selectedDate, setSelectedDate] = useState<Date | null>(() => initialDate(task));
   const [selectedTime, setSelectedTime] = useState<string | null>(() => toSelectTime(task?.start_time));
   const [importance, setImportance] = useState<TaskImportance>(() => toImportance(task?.importance));
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -98,7 +107,7 @@ const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false
         title,
         // Local date, not toISOString(): that converts to UTC and can shift the
         // task to the previous or next day depending on the timezone.
-        scheduled_date: format(selectedDate, 'yyyy-MM-dd'),
+        scheduled_date: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null,
         start_time: selectedTime,
         importance
       });
@@ -191,7 +200,7 @@ const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false
                   <div>
                     <h3 className="text-white font-semibold text-lg mb-1">Date</h3>
                     <p className="text-white/80">
-                      {format(selectedDate, 'EEEE, d MMMM yyyy')}
+                      {selectedDate ? format(selectedDate, 'EEEE, d MMMM yyyy') : 'Later'}
                     </p>
                   </div>
                   <ChevronRight className="h-5 w-5 text-white/60" />
@@ -200,7 +209,7 @@ const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false
               <PopoverContent className="w-auto p-0" align="center">
                 <Calendar
                   mode="single"
-                  selected={selectedDate}
+                  selected={selectedDate ?? undefined}
                   onSelect={(date) => {
                     if (date) {
                       setSelectedDate(date);
@@ -210,6 +219,23 @@ const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false
                   initialFocus
                   className={cn("p-3 pointer-events-auto")}
                 />
+                {/* Only for a task that is already unscheduled, so the
+                    create form looks and behaves as it always has. */}
+                {isEditing && task?.scheduled_date === null && selectedDate !== null && (
+                  <div className="border-t border-border p-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-11 w-full rounded-xl"
+                      onClick={() => {
+                        setSelectedDate(null);
+                        setShowDatePicker(false);
+                      }}
+                    >
+                      Keep it for later
+                    </Button>
+                  </div>
+                )}
               </PopoverContent>
             </Popover>
           </div>

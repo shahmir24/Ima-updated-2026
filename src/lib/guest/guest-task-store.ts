@@ -66,8 +66,8 @@ export interface GuestTask {
   title: string;
   description: string | null;
   tag: GuestTaskTag;
-  /** 'YYYY-MM-DD', the local day the task is planned for. */
-  scheduled_date: string;
+  /** 'YYYY-MM-DD', the local day the task is planned for, or null for "Later". */
+  scheduled_date: string | null;
   /** 'HH:MM:SS', the form the database returns, or null. */
   start_time: string | null;
   end_time: string | null;
@@ -83,7 +83,8 @@ export interface GuestTaskInput {
   title: string;
   description?: string | null;
   tag?: string;
-  scheduled_date: string;
+  /** 'YYYY-MM-DD', or null for an unscheduled ("Later") task. */
+  scheduled_date: string | null;
   /** 'HH:MM' or 'HH:MM:SS', or null. */
   start_time?: string | null;
   end_time?: string | null;
@@ -191,8 +192,10 @@ function normaliseImportance(value: string | undefined): GuestTaskImportance {
   throw new Error(`Unknown task importance "${value}".`);
 }
 
-function requireDate(value: unknown): string {
-  if (!isValidDate(value)) throw new Error('A task needs a scheduled date like 2026-09-25.');
+/** A real date, or null for an unscheduled ("Later") task. Anything else is refused. */
+function requireDate(value: unknown): string | null {
+  if (value === null) return null;
+  if (!isValidDate(value)) throw new Error('A task needs a scheduled date like 2026-09-25, or none.');
   return value;
 }
 
@@ -223,7 +226,7 @@ function isStoredGuestTask(value: unknown): value is GuestTask {
     task.title.trim() !== '' &&
     nullableString(task.description) &&
     (GUEST_TASK_TAGS as readonly unknown[]).includes(task.tag) &&
-    isValidDate(task.scheduled_date) &&
+    (task.scheduled_date === null || isValidDate(task.scheduled_date)) &&
     nullableString(task.start_time) &&
     nullableString(task.end_time) &&
     (GUEST_TASK_IMPORTANCE as readonly unknown[]).includes(task.importance) &&
@@ -236,7 +239,12 @@ function isStoredGuestTask(value: unknown): value is GuestTask {
 
 /** useTasks() order: date, start time (untimed last), then creation time. Id breaks ties. */
 function compareTasks(a: GuestTask, b: GuestTask): number {
-  if (a.scheduled_date !== b.scheduled_date) return a.scheduled_date < b.scheduled_date ? -1 : 1;
+  // Unscheduled last, as the database orders NULLs in an ascending sort.
+  if (a.scheduled_date !== b.scheduled_date) {
+    if (a.scheduled_date === null) return 1;
+    if (b.scheduled_date === null) return -1;
+    return a.scheduled_date < b.scheduled_date ? -1 : 1;
+  }
   if (a.start_time !== b.start_time) {
     if (a.start_time === null) return 1;
     if (b.start_time === null) return -1;

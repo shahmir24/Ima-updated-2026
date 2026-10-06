@@ -18,8 +18,8 @@ export interface NewTaskInput {
   description?: string | null;
   /** 'flow' | 'break' | 'focus' — the DB CHECK accepts only these. */
   tag?: string;
-  /** 'YYYY-MM-DD' */
-  scheduled_date: string;
+  /** 'YYYY-MM-DD', or null for an unscheduled ("Later") task. */
+  scheduled_date: string | null;
   /** 'HH:MM', or null when the task has no particular time. */
   start_time?: string | null;
   end_time?: string | null;

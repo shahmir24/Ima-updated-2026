@@ -22,3 +22,9 @@ verify_jwt = true
 # header is not NUDGE_SCHEDULER_SECRET (401; 503 when that secret is unset).
 [functions.send-nudges]
 verify_jwt = true
+
+# Quick Capture "Organize it". Gateway JWT verification stays ON, and the
+# function verifies the session again itself. It holds no service-role key and
+# touches no table: it only turns a signed-in person's text into proposals.
+[functions.organize-capture]
+verify_jwt = true

@@ -25,8 +25,12 @@ export type TaskImportance = (typeof TASK_IMPORTANCE)[number];
  */
 export interface ContextTask {
   id: string;
-  /** 'YYYY-MM-DD', the local day the task is planned for. */
-  scheduled_date: string;
+  /**
+   * 'YYYY-MM-DD', the local day the task is planned for, or null for an
+   * unscheduled ("Later") task. Unscheduled tasks are never eligible: they
+   * stay out of Right Now until someone gives them a day.
+   */
+  scheduled_date: string | null;
   /** ISO timestamp. Used only as a stable tie-break. */
   created_at: string;
   completed: boolean;

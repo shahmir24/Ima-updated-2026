@@ -419,7 +419,7 @@ export type Database = {
           end_time: string | null
           id: string
           importance: string
-          scheduled_date: string
+          scheduled_date: string | null
           start_time: string | null
           tag: string
           title: string
@@ -434,7 +434,7 @@ export type Database = {
           end_time?: string | null
           id?: string
           importance?: string
-          scheduled_date?: string
+          scheduled_date?: string | null
           start_time?: string | null
           tag?: string
           title: string
@@ -449,7 +449,7 @@ export type Database = {
           end_time?: string | null
           id?: string
           importance?: string
-          scheduled_date?: string
+          scheduled_date?: string | null
           start_time?: string | null
           tag?: string
           title?: string

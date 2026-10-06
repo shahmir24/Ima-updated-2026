@@ -17,8 +17,8 @@ export type TaskImportance = (typeof TASK_IMPORTANCE)[number];
 
 export interface ContextTask {
   id: string;
-  /** 'YYYY-MM-DD', the local day the task is planned for. */
-  scheduled_date: string;
+  /** 'YYYY-MM-DD', the local day the task is planned for, or null for "Later" (never eligible). */
+  scheduled_date: string | null;
   /** ISO timestamp. Used only as a stable tie-break. */
   created_at: string;
   completed: boolean;
@@ -52,7 +52,9 @@ export function toEpochDay(isoDate: string): number | null {
   return utc / MS_PER_DAY;
 }
 
-function daysOverdue(scheduledDate: string, today: string): number | null {
+function daysOverdue(scheduledDate: string | null, today: string): number | null {
+  // Unscheduled ("Later"): no planned day, so it is neither due nor overdue.
+  if (scheduledDate === null) return null;
   const scheduled = toEpochDay(scheduledDate);
   const now = toEpochDay(today);
   if (scheduled === null || now === null) return null;

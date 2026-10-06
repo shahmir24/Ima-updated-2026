@@ -45,7 +45,9 @@ export function toEpochDay(isoDate: string): number | null {
  * either date is unreadable — the caller treats that as ineligible rather than
  * guessing at a day.
  */
-export function daysOverdue(scheduledDate: string, today: string): number | null {
+export function daysOverdue(scheduledDate: string | null, today: string): number | null {
+  // Unscheduled ("Later"): no planned day, so it is neither due nor overdue.
+  if (scheduledDate === null) return null;
   const scheduled = toEpochDay(scheduledDate);
   const now = toEpochDay(today);
   if (scheduled === null || now === null) return null;
@@ -81,7 +83,8 @@ export function importanceRank(value: unknown): number {
  * A task is eligible when it is not done and its planned day has arrived.
  *
  * Unchanged from the queue this replaces: today and overdue are eligible, the
- * future is not. Importance does not enter into it — marking something
+ * future is not, and neither is an unscheduled task (no day at all). It is
+ * never treated as today, whatever its importance or however new it is. Importance does not enter into it — marking something
  * important must never drag tomorrow's work into today.
  */
 export function isEligible(task: ContextTask, today: string): boolean {
