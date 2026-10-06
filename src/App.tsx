@@ -47,6 +47,7 @@ import GratitudeJournal from "./pages/GratitudeJournal";
 import SensoryCheckIn from "./pages/SensoryCheckIn";
 import DailyJournal from "./pages/DailyJournal";
 import BodyDouble from "./pages/BodyDouble";
+import GlobalGentleNudge from "@/components/nudges/GlobalGentleNudge";
 
 const queryClient = new QueryClient();
 
@@ -135,6 +136,10 @@ const App = () => (
 
             <Route path="*" element={<NotFound />} />
           </Routes>
+          {/* The in-app gentle nudge: ONE instance for the whole app, outside
+              <Routes> so navigating never mounts another. It shows itself only
+              on its allowlisted browsing routes (lib/nudges/nudge-routes.ts). */}
+          <GlobalGentleNudge />
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
