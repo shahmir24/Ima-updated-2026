@@ -2,9 +2,13 @@
  * send-nudges — the daily gentle-nudge sender.
  *
  * One run:
- *   1. refuses anything but a POST carrying the service-role key, and refuses
- *      to start at all unless VAPID and database access are configured — so a
- *      misconfiguration never claims (and so never uses up) anyone's nudge;
+ *   1. refuses anything but a POST carrying the scheduler secret
+ *      (NUDGE_SCHEDULER_SECRET) in the x-nudge-scheduler-secret header, and
+ *      refuses to start at all unless VAPID and database access are
+ *      configured — so a misconfiguration never claims (and so never uses
+ *      up) anyone's nudge. That header is the SECOND layer: the Supabase
+ *      gateway (verify_jwt = true) has already required a valid JWT in
+ *      Authorization before this code runs, and this code ignores it;
  *   2. claims every user due now through claim_due_nudges(), which inserts the
  *      nudge_deliveries row BEFORE anything is sent. Its unique
  *      (user_id, local_date) is the duplicate guard: a user can be claimed at
@@ -92,8 +96,13 @@ export interface SendNudgesLogEvent {
 }
 
 export interface SendNudgesDeps {
-  /** SUPABASE_SERVICE_ROLE_KEY. The caller must present it as its bearer token. */
-  serviceRoleKey: string | undefined;
+  /**
+   * NUDGE_SCHEDULER_SECRET. The caller must send it in the
+   * x-nudge-scheduler-secret header. It authenticates the CALLER only; the
+   * database is reached with the service-role key inside the store, which
+   * this handler never sees.
+   */
+  schedulerSecret: string | undefined;
   /** False when VAPID or the database URL is missing or malformed. */
   configured: boolean;
   store: NudgeStore;
@@ -113,6 +122,12 @@ export const NUDGE_TTL_SECONDS = 4 * 60 * 60;
 export const NUDGE_TOPIC = 'ima-daily-nudge';
 export const DEFAULT_CLAIM_LIMIT = 200;
 const MAX_BODY_BYTES = 1024;
+/** A shorter scheduler secret is treated as not configured. */
+export const MIN_SCHEDULER_SECRET_LENGTH = 32;
+/** The application-level credential. Authorization belongs to the gateway. */
+export const SCHEDULER_SECRET_HEADER = 'x-nudge-scheduler-secret';
+/** Longer header values are refused before comparison. */
+const MAX_SCHEDULER_SECRET_LENGTH = 512;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -394,10 +409,11 @@ export function secretsMatch(expected: string, given: string | null): boolean {
   return diff === 0;
 }
 
-function bearer(request: Request): string | null {
-  const header = request.headers.get('authorization');
-  const match = header ? /^Bearer\s+(\S+)$/i.exec(header.trim()) : null;
-  return match ? match[1] : null;
+/** The scheduler secret as sent: one visible-ASCII token, or null when missing or malformed. */
+function schedulerSecretHeader(request: Request): string | null {
+  const value = request.headers.get(SCHEDULER_SECRET_HEADER);
+  if (value === null || value.length === 0 || value.length > MAX_SCHEDULER_SECRET_LENGTH) return null;
+  return /^[\x21-\x7e]+$/.test(value) ? value : null;
 }
 
 /** Empty, or {"limit": 1..200}. Anything else is refused. */
@@ -433,9 +449,10 @@ export async function handleSendNudgesRequest(request: Request, deps: SendNudges
   };
 
   if (request.method !== 'POST') return done(405, 'method_not_allowed');
-  // Fail closed: without the key to compare against, nobody is let in.
-  if (!deps.serviceRoleKey || deps.serviceRoleKey.trim() === '') return done(503, 'disabled');
-  if (!secretsMatch(deps.serviceRoleKey, bearer(request))) return done(401, 'unauthorized');
+  // Fail closed: without a usable secret to compare against, nobody is let in.
+  const secret = deps.schedulerSecret?.trim() ?? '';
+  if (secret.length < MIN_SCHEDULER_SECRET_LENGTH) return done(503, 'disabled');
+  if (!secretsMatch(secret, schedulerSecretHeader(request))) return done(401, 'unauthorized');
   // Checked before claiming, so a broken configuration uses up nobody's nudge.
   if (!deps.configured) return done(503, 'not_configured');
 

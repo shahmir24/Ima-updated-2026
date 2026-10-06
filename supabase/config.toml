@@ -16,9 +16,9 @@ verify_jwt = true
 verify_jwt = true
 
 
-# Gentle nudges — the daily sender. Server-only: gateway JWT verification stays
-# ON, and the function itself refuses every caller that does not present the
-# service-role key as its bearer token (anon key and user sessions get 401).
-# Not scheduled yet.
+# Gentle nudges — the daily sender, called by Supabase Cron. Two layers: gateway
+# JWT verification stays ON (Authorization must carry a valid project JWT), and
+# the function itself refuses every request whose x-nudge-scheduler-secret
+# header is not NUDGE_SCHEDULER_SECRET (401; 503 when that secret is unset).
 [functions.send-nudges]
 verify_jwt = true

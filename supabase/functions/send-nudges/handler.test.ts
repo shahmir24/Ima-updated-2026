@@ -8,6 +8,7 @@ import {
   handleSendNudgesRequest,
   parseClaim,
   parseRunOptions,
+  SCHEDULER_SECRET_HEADER,
   selectNudgeTask,
   type DeliveryOutcome,
   type NudgeStore,
@@ -21,7 +22,12 @@ import type { PushTarget } from '../_shared/push-subscription';
 // Fixtures: an in-memory database and fake push services
 // ---------------------------------------------------------------------------
 
-const SERVICE_KEY = 'service-role-key-for-tests';
+// Test-only values. The scheduler secret authenticates the caller; the
+// service-role key belongs to the store and must never open the door.
+const SCHEDULER_SECRET = 'test-scheduler-secret-0123456789abcdef';
+const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiJ9.service-role-for-tests.sig';
+// What Cron puts in Authorization for the gateway (a legacy service_role JWT).
+const GATEWAY_JWT = SERVICE_ROLE_KEY;
 const NOW = new Date('2026-10-02T11:12:00Z');
 const P256DH = 'B' + 'A'.repeat(86);
 const AUTH = 'A'.repeat(22);
@@ -145,18 +151,26 @@ function pushServices(answers: Record<string, number | 'throw'> = {}) {
 }
 
 function deps(db: ReturnType<typeof database>, push = pushServices(), overrides: Partial<SendNudgesDeps> = {}): SendNudgesDeps {
-  return { serviceRoleKey: SERVICE_KEY, configured: true, store: db.store, buildRequest: push.buildRequest, fetchImpl: push.fetchImpl, now: () => NOW, ...overrides };
+  return { schedulerSecret: SCHEDULER_SECRET, configured: true, store: db.store, buildRequest: push.buildRequest, fetchImpl: push.fetchImpl, now: () => NOW, ...overrides };
 }
 
-const run = (d: SendNudgesDeps, init: { body?: string; token?: string | null; method?: string } = {}) =>
-  handleSendNudgesRequest(
-    new Request('https://x.supabase.co/functions/v1/send-nudges', {
-      method: init.method ?? 'POST',
-      headers: init.token === null ? {} : { Authorization: `Bearer ${init.token ?? SERVICE_KEY}` },
-      body: (init.method ?? 'POST') === 'GET' ? undefined : (init.body ?? '')
-    }),
-    d
-  );
+/**
+ * A request as Cron sends it: the gateway's JWT in Authorization (already
+ * verified by Supabase before the function runs; the handler ignores it) and
+ * the scheduler secret in x-nudge-scheduler-secret. `secret: null` omits the
+ * scheduler header.
+ */
+const request = (init: { body?: string; secret?: string | null; method?: string; headers?: Record<string, string> } = {}) =>
+  new Request('https://x.supabase.co/functions/v1/send-nudges', {
+    method: init.method ?? 'POST',
+    headers: init.headers ?? {
+      Authorization: `Bearer ${GATEWAY_JWT}`,
+      ...(init.secret === null ? {} : { [SCHEDULER_SECRET_HEADER]: init.secret ?? SCHEDULER_SECRET })
+    },
+    body: (init.method ?? 'POST') === 'GET' ? undefined : (init.body ?? '')
+  });
+
+const run = (d: SendNudgesDeps, init: { body?: string; secret?: string | null; method?: string } = {}) => handleSendNudgesRequest(request(init), d);
 
 const json = async (response: Response) => (await response.json()) as Record<string, unknown>;
 
@@ -164,24 +178,88 @@ const json = async (response: Response) => (await response.json()) as Record<str
 // Access and configuration
 // ---------------------------------------------------------------------------
 
-describe('send-nudges — access (server/service-role only, fail closed)', () => {
-  it.each([
-    ['no token', null, 401],
-    ['the anon key', 'anon-key', 401],
-    ['a user session token', 'eyJhbGciOiJIUzI1NiJ9.user.sig', 401],
-    ['a prefix of the key', SERVICE_KEY.slice(0, -1), 401]
-  ])('%s → refused, nothing claimed', async (_label, token, status) => {
+describe('send-nudges — access: gateway JWT + x-nudge-scheduler-secret (fail closed)', () => {
+  it('uses the x-nudge-scheduler-secret header', () => {
+    expect(SCHEDULER_SECRET_HEADER).toBe('x-nudge-scheduler-secret');
+  });
+
+  it('the correct scheduler secret (with the gateway JWT) → authorized, and the run claims', async () => {
     const db = database({ claims: [{ userId: USER_A }], devices: [device(USER_A)] });
-    const response = await run(deps(db), { token });
-    expect(response.status).toBe(status);
+    const response = await run(deps(db), { secret: SCHEDULER_SECRET });
+    expect(response.status).toBe(200);
+    expect(await json(response)).toMatchObject({ outcome: 'done', claimed: 1, sent: 1 });
+    expect(db.calls[0]).toBe('claim:200');
+  });
+
+  it('header names are case-insensitive; the secret is not', async () => {
+    const upperName = await handleSendNudgesRequest(
+      request({ headers: { Authorization: `Bearer ${GATEWAY_JWT}`, 'X-Nudge-Scheduler-Secret': SCHEDULER_SECRET } }),
+      deps(database({}))
+    );
+    expect(upperName.status).toBe(200);
+    expect((await run(deps(database({})), { secret: SCHEDULER_SECRET.toUpperCase() })).status).toBe(401);
+  });
+
+  it.each([
+    ['an incorrect secret', 'wrong-scheduler-secret-0123456789abcdef'],
+    ['a prefix of the secret', SCHEDULER_SECRET.slice(0, -1)],
+    ['the secret plus a character', `${SCHEDULER_SECRET}x`],
+    ['the service-role key', SERVICE_ROLE_KEY],
+    ['the gateway JWT echoed into the header', GATEWAY_JWT],
+    ['the anon key', 'anon-key'],
+    ['"Bearer <secret>" in the header', `Bearer ${SCHEDULER_SECRET}`],
+    ['a secret containing a space', `${SCHEDULER_SECRET.slice(0, 10)} ${SCHEDULER_SECRET.slice(10)}`],
+    ['an oversized value', 'x'.repeat(600)]
+  ])('x-nudge-scheduler-secret is %s → 401, nothing claimed', async (_label, secret) => {
+    const db = database({ claims: [{ userId: USER_A }], devices: [device(USER_A)] });
+    const push = pushServices();
+    const response = await run(deps(db, push), { secret });
+    expect(response.status).toBe(401);
+    expect(await json(response)).toEqual({ outcome: 'unauthorized' });
+    expect(db.calls).toEqual([]);
+    expect(push.fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['no scheduler header (gateway JWT only)', { Authorization: `Bearer ${GATEWAY_JWT}` }],
+    ['an empty scheduler header', { Authorization: `Bearer ${GATEWAY_JWT}`, [SCHEDULER_SECRET_HEADER]: '' }],
+    ['the secret as the Authorization bearer instead', { Authorization: `Bearer ${SCHEDULER_SECRET}` }],
+    ['the secret in the apikey header instead', { Authorization: `Bearer ${GATEWAY_JWT}`, apikey: SCHEDULER_SECRET }],
+    ['the secret in a differently named header', { Authorization: `Bearer ${GATEWAY_JWT}`, 'x-scheduler-secret': SCHEDULER_SECRET }],
+    ['no headers at all', {}]
+  ])('%s → 401, nothing claimed', async (_label, headers) => {
+    const db = database({ claims: [{ userId: USER_A }], devices: [device(USER_A)] });
+    const response = await handleSendNudgesRequest(request({ headers }), deps(db));
+    expect(response.status).toBe(401);
     expect(db.calls).toEqual([]);
   });
 
-  it.each([[undefined], [''], ['   ']])('service key unset (%j) → 503, nothing claimed', async (key) => {
-    const db = database({ claims: [{ userId: USER_A }], devices: [device(USER_A)] });
-    const response = await run(deps(db, pushServices(), { serviceRoleKey: key }), { token: 'anything' });
-    expect(response.status).toBe(503);
-    expect(db.calls).toEqual([]);
+  it('the Authorization header is not consulted: the scheduler secret alone decides', async () => {
+    // The gateway has verified Authorization before the function runs; the
+    // application layer neither needs nor trusts it.
+    const ok = await handleSendNudgesRequest(request({ headers: { [SCHEDULER_SECRET_HEADER]: SCHEDULER_SECRET } }), deps(database({})));
+    expect(ok.status).toBe(200);
+  });
+
+  it.each([
+    ['unset', undefined],
+    ['empty', ''],
+    ['blank', '   '],
+    ['too short (31 chars)', 'a'.repeat(31)]
+  ])('NUDGE_SCHEDULER_SECRET %s → 503 for every caller, nothing claimed', async (_label, configured) => {
+    for (const sent of [null, 'anything', configured ?? 'x', SCHEDULER_SECRET]) {
+      const db = database({ claims: [{ userId: USER_A }], devices: [device(USER_A)] });
+      const response = await run(deps(db, pushServices(), { schedulerSecret: configured }), { secret: sent === '' ? null : sent });
+      expect(response.status).toBe(503);
+      expect(await json(response)).toEqual({ outcome: 'disabled' });
+      expect(db.calls).toEqual([]);
+    }
+  });
+
+  it('a 32-character secret is accepted', async () => {
+    const secret = 'b'.repeat(32);
+    const response = await run(deps(database({}), pushServices(), { schedulerSecret: secret }), { secret });
+    expect(response.status).toBe(200);
   });
 
   it('VAPID/config missing → 503 BEFORE claiming, so nobody loses a nudge', async () => {
@@ -655,6 +733,6 @@ describe('send-nudges — logging', () => {
     await run(deps(db, pushServices(), { log: (event) => lines.push(event) }));
     expect(lines).toEqual([{ status: 200, outcome: 'done', claimed: 1, sent: 1, noDevices: 0, failed: 0 }]);
     const text = JSON.stringify(lines);
-    for (const secret of ['Secret', USER_A, 'fcm.googleapis.com', SERVICE_KEY, P256DH]) expect(text).not.toContain(secret);
+    for (const secret of ['Secret', USER_A, 'fcm.googleapis.com', SCHEDULER_SECRET, P256DH]) expect(text).not.toContain(secret);
   });
 });
