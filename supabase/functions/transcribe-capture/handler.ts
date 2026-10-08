@@ -15,8 +15,12 @@
  * duration, audio byte count and transcript character count.
  *
  * Request: the raw audio bytes as the body, with Content-Type audio/webm,
- * audio/mp4 or audio/ogg (codec parameters allowed). The bytes must match the
- * declared container, and the body is read with a hard size limit.
+ * audio/mp4 or audio/ogg (codec parameters allowed), or
+ * application/octet-stream. supabase-js sends a Blob as octet-stream and drops
+ * the body if a Content-Type is set by the caller, so the app sends
+ * octet-stream and the container is identified from the bytes themselves.
+ * Either way the bytes must be a webm, mp4 or ogg container, and the body is
+ * read with a hard size limit.
  */
 import { corsHeaders, isOriginAllowed, jsonResponse } from '../_shared/http.ts';
 import type { UserResolver } from '../ai-breakdown/handler.ts';
@@ -83,6 +87,19 @@ export function audioFormatOf(contentType: string | null): AudioFormat | null {
   if (!contentType) return null;
   const base = contentType.split(';')[0].trim().toLowerCase();
   return FORMAT_BY_TYPE[base] ?? null;
+}
+
+/** True for application/octet-stream: the container is then read from the bytes. */
+export function isOctetStream(contentType: string | null): boolean {
+  return !!contentType && contentType.split(';')[0].trim().toLowerCase() === 'application/octet-stream';
+}
+
+/** The container these bytes really are, by signature, or null for anything else. */
+export function detectFormat(bytes: Uint8Array): AudioFormat | null {
+  for (const format of ['webm', 'mp4', 'ogg'] as const) {
+    if (matchesFormat(bytes, format)) return format;
+  }
+  return null;
 }
 
 /** The bytes actually are the declared container (checked by its signature). */
@@ -185,9 +202,13 @@ export async function handleTranscribeRequest(request: Request, deps: Transcribe
   }
   if (!resolved.ok) return done(failure('unauthenticated', UNVERIFIED_SESSION, cors), 'unauthenticated');
 
-  // 5. Declared format, before reading anything.
-  const format = audioFormatOf(request.headers.get('Content-Type'));
-  if (!format) return done(failure('unsupported_format', 'That recording format is not supported.', cors), 'unsupported_format');
+  // 5. Declared format, before reading anything. An audio type names the
+  //    container; octet-stream defers to the signature check in step 7.
+  const contentType = request.headers.get('Content-Type');
+  const declaredFormat = audioFormatOf(contentType);
+  if (!declaredFormat && !isOctetStream(contentType)) {
+    return done(failure('unsupported_format', 'That recording format is not supported.', cors), 'unsupported_format');
+  }
 
   // 6. Size: refuse early on a declared length, and always read with a hard limit.
   const declared = Number(request.headers.get('Content-Length'));
@@ -205,8 +226,10 @@ export async function handleTranscribeRequest(request: Request, deps: Transcribe
     return done(failure('no_speech', 'That recording was too short. Try again.', cors), 'no_speech', { audioBytes: audio.byteLength });
   }
 
-  // 7. The bytes must really be the declared container.
-  if (!matchesFormat(audio, format)) {
+  // 7. The bytes must really be a supported container: the declared one, or,
+  //    for octet-stream, whichever signature they carry.
+  const format = declaredFormat ?? detectFormat(audio);
+  if (!format || !matchesFormat(audio, format)) {
     return done(failure('unsupported_format', 'That recording format is not supported.', cors), 'unsupported_format', { audioBytes: audio.byteLength });
   }
 

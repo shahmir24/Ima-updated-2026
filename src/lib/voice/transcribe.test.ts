@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { TRANSCRIBE_FUNCTION, requestTranscription } from './transcribe';
 
@@ -10,17 +11,39 @@ const failedWith = (code: unknown) => ({ data: null, error: { context: new Respo
 const audio = (type = 'audio/webm;codecs=opus') => new Blob([new Uint8Array(2048)], { type });
 
 describe('requestTranscription', () => {
-  it('sends the audio itself to transcribe-capture with its base container type', async () => {
+  it('sends the audio Blob itself to transcribe-capture, with no Content-Type of its own', async () => {
     const invoke = invokeReturning({ data: { ok: true, text: 'call Ali' }, error: null });
     const blob = audio();
     expect(await requestTranscription(blob, invoke)).toEqual({ ok: true, text: 'call Ali' });
-    expect(invoke).toHaveBeenCalledWith(TRANSCRIBE_FUNCTION, { body: blob, headers: { 'Content-Type': 'audio/webm' } });
+    // Exactly { body }: a Content-Type here makes supabase-js drop the body.
+    expect(invoke).toHaveBeenCalledWith(TRANSCRIBE_FUNCTION, { body: blob });
   });
 
-  it('Safari mp4 goes as audio/mp4', async () => {
-    const invoke = invokeReturning({ data: { ok: true, text: 'x' }, error: null });
-    await requestTranscription(audio('audio/mp4'), invoke);
-    expect(invoke.mock.calls[0][1].headers['Content-Type']).toBe('audio/mp4');
+  it.each([
+    ['Chrome webm', 'audio/webm;codecs=opus'],
+    ['Safari mp4', 'audio/mp4']
+  ])('regression: the real supabase-js client transmits every audio byte (%s)', async (_label, type) => {
+    const recorded = new Uint8Array(4096).map((_, i) => (i * 7 + 1) % 256);
+    const sent: { url: string; contentType: string | null; bytes: Uint8Array }[] = [];
+    const fakeFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const body = init?.body;
+      const bytes = body instanceof Blob ? new Uint8Array(await body.arrayBuffer()) : new Uint8Array(0);
+      sent.push({ url: String(input), contentType: new Headers(init?.headers).get('Content-Type'), bytes });
+      return new Response(JSON.stringify({ ok: true, text: 'call Ali' }), { headers: { 'Content-Type': 'application/json' } });
+    });
+    const client = createClient('https://project.supabase.co', 'anon-key', {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      global: { fetch: fakeFetch as typeof fetch }
+    });
+
+    const result = await requestTranscription(new Blob([recorded], { type }), client.functions.invoke.bind(client.functions));
+
+    expect(result).toEqual({ ok: true, text: 'call Ali' });
+    const call = sent.find((entry) => entry.url.endsWith(`/functions/v1/${TRANSCRIBE_FUNCTION}`));
+    expect(call, 'the function was called').toBeDefined();
+    expect(call?.bytes.byteLength).toBe(recorded.byteLength);
+    expect(Array.from(call?.bytes ?? [])).toEqual(Array.from(recorded));
+    expect(call?.contentType).toBe('application/octet-stream');
   });
 
   it.each([

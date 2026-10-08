@@ -3,9 +3,13 @@
  * text, or a plain sentence when it could not. Signed-in only: Quick Capture
  * never offers voice to a guest.
  *
- * The audio goes as the raw request body with its container type; the
- * session token is attached by supabase-js. The reply is checked again here:
- * only a non-empty string of text is accepted.
+ * The audio Blob goes as the raw request body, with NO Content-Type of our
+ * own: supabase-js (functions-js 2.4.x) only attaches the body when the caller
+ * has not set a Content-Type, and otherwise sends an empty request. It labels
+ * the Blob application/octet-stream, and the function identifies the
+ * container from the bytes. The session token is attached by supabase-js.
+ * The reply is checked again here: only a non-empty string of text is
+ * accepted.
  */
 import { supabase } from '@/integrations/supabase/client';
 import type { TranscribeResult } from './voice-capture';
@@ -40,11 +44,10 @@ export async function requestTranscription(
   audio: Blob,
   invoke: Invoke = supabase.functions.invoke.bind(supabase.functions)
 ): Promise<TranscribeResult> {
-  const contentType = audio.type.split(';')[0].trim() || 'application/octet-stream';
   let data: unknown;
   let invokeError: unknown;
   try {
-    ({ data, error: invokeError } = await invoke(TRANSCRIBE_FUNCTION, { body: audio, headers: { 'Content-Type': contentType } }));
+    ({ data, error: invokeError } = await invoke(TRANSCRIBE_FUNCTION, { body: audio }));
   } catch {
     return { ok: false, message: GENERIC_FAILURE };
   }

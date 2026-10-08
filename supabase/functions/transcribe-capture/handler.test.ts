@@ -3,7 +3,9 @@ import {
   MAX_AUDIO_BYTES,
   audioFormatOf,
   cleanTranscript,
+  detectFormat,
   handleTranscribeRequest,
+  isOctetStream,
   matchesFormat,
   type TranscribeHandlerDeps,
   type TranscribeLogEvent
@@ -92,6 +94,58 @@ describe('transcribe-capture — authentication and transport', () => {
     expect(d.resolveUser).not.toHaveBeenCalled();
     expect((await handleTranscribeRequest(request({ method: 'OPTIONS', token: null }), d.deps)).status).toBe(204);
     expect((await handleTranscribeRequest(request({ method: 'GET' }), d.deps)).status).toBe(405);
+  });
+});
+
+describe('transcribe-capture — application/octet-stream (what supabase-js sends for a Blob)', () => {
+  it.each([
+    ['WebM (Chrome)', 'webm'],
+    ['MP4 (Safari)', 'mp4'],
+    ['Ogg (Firefox)', 'ogg']
+  ] as const)('%s bytes are identified by signature and transcribed', async (_label, format) => {
+    const d = deps();
+    const response = await handleTranscribeRequest(request({ type: 'application/octet-stream', body: audioOf(format) as BodyInit }), d.deps);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true, text: SECRET_TRANSCRIPT });
+    expect(d.transcribe).toHaveBeenCalledWith({ audio: expect.any(Uint8Array), format });
+    expect(d.logs.at(-1)).toMatchObject({ status: 200, outcome: 'ok', audioBytes: 4096 });
+  });
+
+  it.each([
+    ['zeros', new Uint8Array(4096)],
+    ['WAV (RIFF)', (() => { const b = new Uint8Array(4096); b.set([0x52, 0x49, 0x46, 0x46], 0); return b; })()],
+    ['a JSON document', new TextEncoder().encode(JSON.stringify({ x: 'y'.repeat(4096) }))],
+    ['a PNG image', (() => { const b = new Uint8Array(4096); b.set([0x89, 0x50, 0x4e, 0x47], 0); return b; })()]
+  ])('an invalid signature (%s) → 415, provider not called', async (_label, body) => {
+    const d = deps();
+    const response = await handleTranscribeRequest(request({ type: 'application/octet-stream', body: body as BodyInit }), d.deps);
+    expect(response.status).toBe(415);
+    expect(await response.json()).toMatchObject({ ok: false, code: 'unsupported_format' });
+    expect(d.transcribe).not.toHaveBeenCalled();
+  });
+
+  it('every other check still applies to octet-stream', async () => {
+    const d = deps();
+    const octet = (init: Parameters<typeof request>[0]) => request({ type: 'application/octet-stream', ...init });
+    expect((await handleTranscribeRequest(octet({ token: null }), d.deps)).status).toBe(401);
+    expect((await handleTranscribeRequest(octet({ origin: 'https://evil.example' }), d.deps)).status).toBe(403);
+    expect((await handleTranscribeRequest(octet({ length: String(MAX_AUDIO_BYTES + 1) }), d.deps)).status).toBe(413);
+    expect((await handleTranscribeRequest(octet({ body: audioOf('webm', MAX_AUDIO_BYTES + 10) as BodyInit }), d.deps)).status).toBe(413);
+    expect((await handleTranscribeRequest(octet({ body: audioOf('webm', 200) as BodyInit }), d.deps)).status).toBe(422);
+    expect((await handleTranscribeRequest(octet({ body: new Uint8Array(0) as BodyInit }), d.deps)).status).toBe(422);
+    expect(d.transcribe).not.toHaveBeenCalled();
+  });
+
+  it('isOctetStream and detectFormat', () => {
+    expect(isOctetStream('application/octet-stream')).toBe(true);
+    expect(isOctetStream('Application/Octet-Stream; charset=binary')).toBe(true);
+    expect(isOctetStream('audio/webm')).toBe(false);
+    expect(isOctetStream(null)).toBe(false);
+    expect(detectFormat(audioOf('webm'))).toBe('webm');
+    expect(detectFormat(audioOf('mp4'))).toBe('mp4');
+    expect(detectFormat(audioOf('ogg'))).toBe('ogg');
+    expect(detectFormat(new Uint8Array(4096))).toBeNull();
+    expect(detectFormat(new Uint8Array(0))).toBeNull();
   });
 });
 
