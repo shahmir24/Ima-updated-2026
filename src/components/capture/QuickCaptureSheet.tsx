@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import type { NewTaskInput } from '@/hooks/use-tasks';
 import { useCaptureOrganizer, type CaptureOrganizer } from '@/hooks/use-capture-organizer';
 import { browserTimeZone, localToday, runOrganize, runSave } from '@/lib/capture/actions';
-import { CAPTURE_COPY, captureReducer, initialCaptureState, type CaptureState } from '@/lib/capture/drafts';
+import { CAPTURE_COPY, captureReducer, initialCaptureState, showImportanceQuestion, type CaptureState } from '@/lib/capture/drafts';
 import BrainDumpInput, { BRAIN_DUMP_HEADING_ID } from './BrainDumpInput';
 import CaptureReview from './CaptureReview';
 
@@ -128,6 +128,8 @@ const QuickCaptureSheet = (props: QuickCaptureSheetProps) => {
               saving={state.saving}
               saveError={state.saveError}
               invalid={state.invalid}
+              showImportanceQuestion={showImportanceQuestion(state)}
+              onSkipImportance={() => dispatch({ type: 'skipImportance' })}
               onTitle={(key, title) => dispatch({ type: 'title', key, title })}
               onImportance={(key, importance) => dispatch({ type: 'importance', key, importance })}
               onDate={(key, date) => dispatch({ type: 'date', key, date })}

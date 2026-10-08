@@ -12,6 +12,9 @@ export interface CaptureReviewProps {
   saving: boolean;
   saveError: string | null;
   invalid: Record<string, string>;
+  /** The optional importance question (see showImportanceQuestion). Never blocks saving. */
+  showImportanceQuestion: boolean;
+  onSkipImportance: () => void;
   onTitle: (key: string, title: string) => void;
   onImportance: (key: string, importance: TaskImportance) => void;
   onDate: (key: string, date: string | null) => void;
@@ -22,6 +25,8 @@ export interface CaptureReviewProps {
   onAddTasks: () => void;
   onBack: () => void;
 }
+
+export const IMPORTANCE_QUESTION_ID = 'capture-importance-question';
 
 /** Step 2: every proposal editable and removable; nothing saved until Add tasks. Presentational only. */
 const CaptureReview = (props: CaptureReviewProps) => {
@@ -40,6 +45,24 @@ const CaptureReview = (props: CaptureReviewProps) => {
         </p>
       )}
 
+      {props.showImportanceQuestion && drafts.length > 0 && (
+        <section
+          aria-labelledby={IMPORTANCE_QUESTION_ID}
+          className="flex items-start justify-between gap-3 rounded-2xl bg-primary/10 px-4 py-3"
+          data-testid="importance-question"
+        >
+          <div>
+            <p id={IMPORTANCE_QUESTION_ID} className="text-sm font-medium text-foreground">
+              {CAPTURE_COPY.importanceQuestion}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">{CAPTURE_COPY.importanceHint}</p>
+          </div>
+          <Button type="button" variant="ghost" onClick={props.onSkipImportance} disabled={saving} className="h-11 shrink-0 rounded-xl text-primary">
+            {CAPTURE_COPY.skip}
+          </Button>
+        </section>
+      )}
+
       {drafts.length > 0 && (
         <ul className="space-y-3">
           {drafts.map((draft) => (
@@ -48,6 +71,7 @@ const CaptureReview = (props: CaptureReviewProps) => {
               draft={draft}
               today={today}
               error={invalid[draft.key]}
+              importanceQuestionId={props.showImportanceQuestion && draft.importanceUnclear ? IMPORTANCE_QUESTION_ID : undefined}
               disabled={saving}
               onTitle={(title) => props.onTitle(draft.key, title)}
               onImportance={(importance) => props.onImportance(draft.key, importance)}

@@ -14,6 +14,7 @@ import {
   describeDraftDate,
   describeTime,
   initialCaptureState,
+  showImportanceQuestion,
   toNewTaskInput,
   validateDraft,
   type CaptureAction,
@@ -221,5 +222,62 @@ describe('copy', () => {
     expect(CAPTURE_COPY.addAnother).toBe('Add another');
     expect(CAPTURE_COPY.checkThis).toBe('Check this');
     expect(CAPTURE_COPY.later).toBe('Later');
+  });
+});
+
+describe('optional importance clarification', () => {
+  const stated = { importance: 'high' as const, importanceBasis: 'stated' as const };
+  const withStated = (): CaptureState =>
+    reduce(initialCaptureState, {
+      type: 'organized',
+      result: { ...RESULT, proposals: [{ ...RESULT.proposals[0], ...stated }, { ...RESULT.proposals[1], importance: 'low', importanceBasis: 'stated' }] }
+    });
+
+  it('marks proposals with importanceBasis "default" as unclear, stated ones as clear', () => {
+    const state = reduce(initialCaptureState, {
+      type: 'organized',
+      result: { ...RESULT, proposals: [RESULT.proposals[0], { ...RESULT.proposals[1], ...stated }] }
+    });
+    expect(state.drafts.map((d) => d.importanceUnclear)).toEqual([true, false]);
+    expect(showImportanceQuestion(state)).toBe(true);
+  });
+
+  it('is not asked when every proposal has stated importance', () => {
+    expect(showImportanceQuestion(withStated())).toBe(false);
+  });
+
+  it('any importance tap answers it for that task (Normal included); the question goes when none are unclear', () => {
+    let state = organized();
+    expect(showImportanceQuestion(state)).toBe(true);
+    const [first, ...rest] = state.drafts;
+    state = reduce(state, { type: 'importance', key: first.key, importance: 'normal' });
+    expect(state.drafts[0]).toMatchObject({ importance: 'normal', importanceUnclear: false });
+    expect(showImportanceQuestion(state)).toBe(true);
+    state = reduce(state, ...rest.map((d, i): CaptureAction => ({ type: 'importance', key: d.key, importance: i === 0 ? 'high' : 'low' })));
+    expect(showImportanceQuestion(state)).toBe(false);
+  });
+
+  it('Skip hides it for this review; a new Organize asks again', () => {
+    let state = reduce(organized(), { type: 'skipImportance' });
+    expect(showImportanceQuestion(state)).toBe(false);
+    expect(state.drafts.some((d) => d.importanceUnclear)).toBe(true);
+    state = reduce(state, { type: 'back' }, { type: 'organized', result: RESULT });
+    expect(showImportanceQuestion(state)).toBe(true);
+  });
+
+  it('tasks the person adds (Add another, Make it a task) are never "unclear"', () => {
+    const state = reduce(withStated(), { type: 'addAnother' }, { type: 'promote', index: 0 });
+    expect(state.drafts.slice(-2).map((d) => d.importanceUnclear)).toEqual([false, false]);
+    expect(showImportanceQuestion(state)).toBe(false);
+  });
+
+  it('never blocks saving: unanswered tasks save as they are; answered ones save the chosen importance', async () => {
+    const saved: NewTaskInput[] = [];
+    let state = organized();
+    state = reduce(state, { type: 'importance', key: state.drafts[0].key, importance: 'high' });
+    expect(showImportanceQuestion(state)).toBe(true);
+    const dispatch = (action: CaptureAction) => (state = captureReducer(state, action));
+    expect(await runSave({ state, create: async (input) => void saved.push(input), dispatch })).toBe(true);
+    expect(saved.map((t) => t.importance)).toEqual(['high', 'normal', 'normal', 'normal', 'normal']);
   });
 });

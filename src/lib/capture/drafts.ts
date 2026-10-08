@@ -44,6 +44,9 @@ export const CAPTURE_COPY = {
   dateLabel: 'Date',
   timeLabel: 'Time',
   importanceLabel: 'Importance',
+  importanceQuestion: 'Anything here particularly important to you?',
+  importanceHint: 'Use the importance buttons on any task that matters. Or skip, and they stay as they are.',
+  skip: 'Skip',
   titleLabel: 'Task',
   titlePlaceholder: 'What needs doing?',
   removeTask: 'Remove this task',
@@ -67,6 +70,11 @@ export interface CaptureDraft {
   key: string;
   title: string;
   importance: TaskImportance;
+  /**
+   * The organizer had no signal for importance (importanceBasis "default").
+   * Cleared as soon as the person taps any importance button on this draft.
+   */
+  importanceUnclear: boolean;
   /** 'YYYY-MM-DD', or null: unscheduled ("Later"). */
   date: string | null;
   /** 'HH:MM', or null. Only with a date. */
@@ -83,6 +91,7 @@ export function draftFromProposal(proposal: OrganizeProposal, key: string): Capt
     key,
     title: proposal.title,
     importance: proposal.importance,
+    importanceUnclear: proposal.importanceBasis === 'default',
     date: proposal.date,
     time: proposal.date ? proposal.time : null,
     // A guessed date needs checking. So do vague words with no date or no
@@ -97,7 +106,8 @@ export function draftFromProposal(proposal: OrganizeProposal, key: string): Capt
 }
 
 export function blankDraft(key: string): CaptureDraft {
-  return { key, title: '', importance: 'normal', date: null, time: null, checkDate: false, dateText: null, timeText: null };
+  // Written by the person, not proposed: nothing to clarify.
+  return { key, title: '', importance: 'normal', importanceUnclear: false, date: null, time: null, checkDate: false, dateText: null, timeText: null };
 }
 
 export type DraftCheck = { ok: true } | { ok: false; message: string };
@@ -168,6 +178,8 @@ export interface CaptureState {
   saveError: string | null;
   /** Keys whose fields failed validation on the last "Add tasks". */
   invalid: Record<string, string>;
+  /** The person chose Skip on the optional importance question. */
+  importanceQuestionSkipped: boolean;
 }
 
 export const initialCaptureState: CaptureState = {
@@ -178,7 +190,8 @@ export const initialCaptureState: CaptureState = {
   nextKey: 1,
   saving: false,
   saveError: null,
-  invalid: {}
+  invalid: {},
+  importanceQuestionSkipped: false
 };
 
 export type CaptureAction =
@@ -187,6 +200,7 @@ export type CaptureAction =
   | { type: 'back' }
   | { type: 'title'; key: string; title: string }
   | { type: 'importance'; key: string; importance: TaskImportance }
+  | { type: 'skipImportance' }
   | { type: 'date'; key: string; date: string | null }
   | { type: 'time'; key: string; time: string | null }
   | { type: 'remove'; key: string }
@@ -209,15 +223,27 @@ export function captureReducer(state: CaptureState, action: CaptureAction): Capt
     case 'organized': {
       let nextKey = state.nextKey;
       const drafts = action.result.proposals.map((proposal) => draftFromProposal(proposal, `d${nextKey++}`));
-      return { ...state, stage: 'review', drafts, notTasks: action.result.notTasks, nextKey, saveError: null, invalid: {} };
+      return {
+        ...state,
+        stage: 'review',
+        drafts,
+        notTasks: action.result.notTasks,
+        nextKey,
+        saveError: null,
+        invalid: {},
+        importanceQuestionSkipped: false
+      };
     }
     case 'back':
       // The text is kept exactly as written; the proposals are dropped.
-      return { ...state, stage: 'write', drafts: [], notTasks: [], saveError: null, invalid: {} };
+      return { ...state, stage: 'write', drafts: [], notTasks: [], saveError: null, invalid: {}, importanceQuestionSkipped: false };
     case 'title':
       return editDraft(state, action.key, (draft) => ({ ...draft, title: action.title }));
     case 'importance':
-      return editDraft(state, action.key, (draft) => ({ ...draft, importance: action.importance }));
+      // Any tap answers the question for this task, Normal included.
+      return editDraft(state, action.key, (draft) => ({ ...draft, importance: action.importance, importanceUnclear: false }));
+    case 'skipImportance':
+      return { ...state, importanceQuestionSkipped: true };
     case 'date':
       // Choosing a date answers "Check this". Clearing it to Later clears the time too.
       return editDraft(state, action.key, (draft) => ({
@@ -274,4 +300,13 @@ export function findInvalidDrafts(drafts: CaptureDraft[]): Record<string, string
     if ('message' in check) invalid[draft.key] = check.message;
   }
   return invalid;
+}
+
+/**
+ * The optional "Anything here particularly important to you?" question: shown
+ * only while at least one proposed task had no importance signal and the
+ * person has not skipped it. It never affects saving.
+ */
+export function showImportanceQuestion(state: Pick<CaptureState, 'drafts' | 'importanceQuestionSkipped'>): boolean {
+  return !state.importanceQuestionSkipped && state.drafts.some((draft) => draft.importanceUnclear);
 }

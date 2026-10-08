@@ -23,6 +23,12 @@ export interface ProposalCardProps {
   today: string;
   error?: string;
   disabled?: boolean;
+  /**
+   * Set while the optional importance question is showing and this task's
+   * importance is still unclear: the EXISTING importance buttons are tied to
+   * the question and gently outlined. No second set of controls.
+   */
+  importanceQuestionId?: string;
   onTitle: (title: string) => void;
   onImportance: (importance: TaskImportance) => void;
   onDate: (date: string | null) => void;
@@ -31,7 +37,7 @@ export interface ProposalCardProps {
 }
 
 /** One editable proposal. Presentational: every change goes back through a callback. */
-const ProposalCard = ({ draft, today, error, disabled, onTitle, onImportance, onDate, onTime, onRemove }: ProposalCardProps) => {
+const ProposalCard = ({ draft, today, error, disabled, importanceQuestionId, onTitle, onImportance, onDate, onTime, onRemove }: ProposalCardProps) => {
   const dateLabel = describeDraftDate(draft.date, today);
   const selected = draft.date ? parse(draft.date, 'yyyy-MM-dd', new Date()) : undefined;
   // The person's own words, when they are worth showing next to the value.
@@ -116,7 +122,13 @@ const ProposalCard = ({ draft, today, error, disabled, onTitle, onImportance, on
         )}
       </div>
 
-      <div role="group" aria-label={CAPTURE_COPY.importanceLabel} className="mt-3 grid grid-cols-3 gap-2">
+      <div
+        role="group"
+        aria-label={CAPTURE_COPY.importanceLabel}
+        aria-describedby={importanceQuestionId}
+        data-importance-unclear={importanceQuestionId ? 'true' : undefined}
+        className={cn('mt-3 grid grid-cols-3 gap-2', importanceQuestionId && 'rounded-xl ring-1 ring-primary/40 ring-offset-2 ring-offset-background')}
+      >
         {IMPORTANCE.map((option) => {
           const active = draft.importance === option.value;
           return (

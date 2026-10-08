@@ -156,6 +156,8 @@ describe('Quick Capture — review step', () => {
       saving: false,
       saveError: null,
       invalid: {},
+      showImportanceQuestion: true,
+      onSkipImportance: record('skipImportance'),
       onTitle: record('title'),
       onImportance: record('importance'),
       onDate: record('date'),
@@ -195,5 +197,58 @@ describe('Tasks wiring', () => {
     expect(source).toMatch(/const openManualFromCapture = \(\) => \{\s*setShowCapture\(false\);\s*openCreateModal\(\);/);
     expect(source).toMatch(/<QuickCaptureSheet[\s\S]*?create=\{createTask\.run\}[\s\S]*?isGuest=\{isGuest\}|<QuickCaptureSheet[\s\S]*?isGuest=\{isGuest\}[\s\S]*?create=\{createTask\.run\}/);
     expect(source).toContain('<MeetingModal');
+  });
+});
+
+describe('Quick Capture: optional importance question', () => {
+  const stated = (title: string, importance: 'high' | 'low') => ({
+    title, importance, importanceBasis: 'stated' as const, date: null, dateBasis: null, dateText: null, time: null, timeText: null
+  });
+  const stateFor = (result: OrganizeResult) => captureReducer({ ...initialCaptureState, text: 'dump' }, { type: 'organized', result });
+  const QUESTION = 'Anything here particularly important to you?';
+
+  it('shows once, above the list, when any proposal has unclear importance; Add tasks stays enabled', () => {
+    const html = sheet({ initialState: reviewState() }).html;
+    expect(html.split(QUESTION)).toHaveLength(2);
+    expect(html.indexOf(QUESTION)).toBeLessThan(html.indexOf('value="Research Dubai accelerators"'));
+    expect(html).toContain('>Skip<');
+    const addTasks = html.slice(html.lastIndexOf('<button', html.indexOf('>Add tasks<')), html.indexOf('>Add tasks<'));
+    expect(addTasks).not.toContain('disabled=""');
+  });
+
+  it('is not shown when every proposal has stated importance', () => {
+    const html = sheet({ initialState: stateFor({ proposals: [stated('Pay rent', 'high'), stated('Tidy desk', 'low')], notTasks: [] }) }).html;
+    expect(html).not.toContain(QUESTION);
+    expect(html).not.toContain('data-importance-unclear');
+  });
+
+  it('reuses the existing importance buttons: one set per card, tied to the question only on unclear cards', () => {
+    const state = stateFor({ proposals: [RESULT.proposals[0], stated('Pay rent', 'high')], notTasks: [] });
+    const html = sheet({ initialState: state }).html;
+    expect(html.match(/aria-pressed=/g)).toHaveLength(6);
+    expect(html.match(/data-importance-unclear="true"/g)).toHaveLength(1);
+    expect(html).toContain('aria-describedby="capture-importance-question"');
+  });
+
+  it('Skip reports skipImportance', () => {
+    const onSkipImportance = vi.fn();
+    const state = reviewState();
+    const tree = CaptureReview({
+      drafts: state.drafts, notTasks: [], today: TODAY, saving: false, saveError: null, invalid: {},
+      showImportanceQuestion: true, onSkipImportance,
+      onTitle: vi.fn(), onImportance: vi.fn(), onDate: vi.fn(), onTime: vi.fn(), onRemove: vi.fn(),
+      onAddAnother: vi.fn(), onPromote: vi.fn(), onAddTasks: vi.fn(), onBack: vi.fn()
+    });
+    const [skip] = find(tree, (el) => typeof el.props.onClick === 'function' && textOf(el) === 'Skip');
+    (skip.props.onClick as () => void)();
+    expect(onSkipImportance).toHaveBeenCalledTimes(1);
+  });
+
+  it('after Skip the question is gone and the review is otherwise unchanged', () => {
+    const skipped = captureReducer(reviewState(), { type: 'skipImportance' });
+    const html = sheet({ initialState: skipped }).html;
+    expect(html).not.toContain(QUESTION);
+    expect(html).toContain('value="Research Dubai accelerators"');
+    expect(html).toContain('>Add tasks<');
   });
 });
