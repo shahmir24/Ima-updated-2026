@@ -8,6 +8,9 @@ import type { CaptureOrganizer } from '@/hooks/use-capture-organizer';
 import BrainDumpInput from './BrainDumpInput';
 import CaptureReview from './CaptureReview';
 import QuickCaptureSheet from './QuickCaptureSheet';
+import VoiceControls from './VoiceControls';
+import { VOICE_COPY } from './voice-copy';
+import type { VoiceEnv, VoiceStatus } from '@/lib/voice/voice-capture';
 
 // The real organizer hook must never be reached: a fake is passed in.
 vi.mock('@/integrations/supabase/client', () => ({
@@ -250,5 +253,126 @@ describe('Quick Capture: optional importance question', () => {
     expect(html).not.toContain(QUESTION);
     expect(html).toContain('value="Research Dubai accelerators"');
     expect(html).toContain('>Add tasks<');
+  });
+});
+
+describe('Quick Capture: Voice Brain Dump', () => {
+  /** A browser that can record webm. Nothing here is ever started: server rendering runs no effects. */
+  const capableEnv = () => {
+    const Recorder = class {} as unknown as NonNullable<VoiceEnv['MediaRecorder']>;
+    Recorder.isTypeSupported = (type: string) => type.startsWith('audio/webm');
+    return { getUserMedia: vi.fn(), MediaRecorder: Recorder, isSecureContext: true } satisfies VoiceEnv;
+  };
+  const voiceOptions = () => ({ env: capableEnv(), transcribe: vi.fn() });
+
+  it('signed in on a capable browser: the mic sits under the same box, idle, with the privacy note', () => {
+    const options = voiceOptions();
+    const { html } = sheet({ voiceOptions: options });
+    expect(html).toContain('data-testid="voice-controls"');
+    expect(html).toContain('data-status="idle"');
+    expect(html).toContain(`aria-label="${VOICE_COPY.record}"`);
+    expect(html).toContain(VOICE_COPY.idleHint);
+    expect(html.replace(/&#x27;/g, "'")).toContain(VOICE_COPY.privacy);
+    expect(html.indexOf('id="brain-dump"')).toBeLessThan(html.indexOf('data-testid="voice-controls"'));
+    // Rendering never asks for the microphone or sends anything.
+    expect(options.env.getUserMedia).not.toHaveBeenCalled();
+    expect(options.transcribe).not.toHaveBeenCalled();
+  });
+
+  it('guests never see the mic', () => {
+    const { html } = sheet({ isGuest: true, voiceOptions: voiceOptions() });
+    expect(html).not.toContain('voice-controls');
+    expect(html).not.toContain(VOICE_COPY.record);
+  });
+
+  it.each([
+    ['no MediaRecorder', { MediaRecorder: undefined }],
+    ['no microphone API', { getUserMedia: undefined }],
+    ['not a secure context', { isSecureContext: false }],
+    ['no supported format', { MediaRecorder: Object.assign(class {}, { isTypeSupported: () => false }) }]
+  ])('unsupported browser (%s): the mic is hidden and typing works as before', (_label, patch) => {
+    const { html } = sheet({ voiceOptions: { env: { ...capableEnv(), ...patch } as VoiceEnv, transcribe: vi.fn() } });
+    expect(html).not.toContain('voice-controls');
+    expect(html).toContain('id="brain-dump"');
+  });
+
+  it('Organize it is disabled while voice is still producing text', () => {
+    const props = { text: 'Buy shoes', onTextChange: vi.fn(), onOrganize: vi.fn(), onAddManually: vi.fn(), organizing: false, error: null, isGuest: false };
+    const organizeButton = (extra: Record<string, unknown>) =>
+      find(BrainDumpInput({ ...props, ...extra }), (el) => el.props.onClick === props.onOrganize)[0];
+    expect(organizeButton({}).props.disabled).toBe(false);
+    expect(organizeButton({ organizeDisabled: true }).props.disabled).toBe(true);
+  });
+
+  it('voice only fills the box: the sheet never organizes or saves from a transcript', () => {
+    const source = readFileSync(new URL('./QuickCaptureSheet.tsx', import.meta.url), 'utf8');
+    const callback = source.slice(source.indexOf('useVoiceCapture('), source.indexOf('enabled: !props.isGuest'));
+    expect(callback).toContain("type: 'text'");
+    expect(callback).toContain('appendTranscript(textRef.current');
+    expect(callback).not.toMatch(/\b(organize|create|runSave|onClose|close)\s*\(|'organized'|'saving'/);
+  });
+});
+
+describe('VoiceControls', () => {
+  const base = { message: null, elapsedMs: 0, autoStopped: false, notice: null, onStart: vi.fn(), onStop: vi.fn() };
+  const render = (props: Partial<React.ComponentProps<typeof VoiceControls>> & { status: VoiceStatus }) => {
+    const all = { ...base, onStart: vi.fn(), onStop: vi.fn(), ...props };
+    const tree = VoiceControls(all);
+    const button = find(tree, (el) => el.type === 'button')[0];
+    const line = find(tree, (el) => el.props.role === 'status' || el.props.role === 'alert')[0];
+    return { all, button, line, html: renderToString(<VoiceControls {...all} />).replace(/<!-- -->/g, '') };
+  };
+
+  it('idle: tapping starts a recording', () => {
+    const { all, button, line } = render({ status: 'idle' });
+    expect(button.props['aria-label']).toBe(VOICE_COPY.record);
+    expect(button.props.disabled).toBe(false);
+    (button.props.onClick as () => void)();
+    expect(all.onStart).toHaveBeenCalled();
+    expect(textOf(line)).toBe(VOICE_COPY.idleHint);
+  });
+
+  it('recording: shows the time against the one-minute cap, and tapping stops', () => {
+    const { all, button, line } = render({ status: 'recording', elapsedMs: 12_400 });
+    expect(button.props['aria-label']).toBe(VOICE_COPY.stop);
+    expect(button.props['aria-pressed']).toBe(true);
+    expect(textOf(line)).toBe('Listening 0:12 of 1:00. Tap to stop.');
+    (button.props.onClick as () => void)();
+    expect(all.onStop).toHaveBeenCalled();
+    expect(all.onStart).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['requesting', VOICE_COPY.requesting],
+    ['stopping', VOICE_COPY.stopping],
+    ['transcribing', VOICE_COPY.transcribing]
+  ] as const)('%s: busy, the button cannot be pressed', (status, copy) => {
+    const { button, line } = render({ status });
+    expect(button.props.disabled).toBe(true);
+    expect(line.props.role).toBe('status');
+    expect(textOf(line)).toBe(copy);
+  });
+
+  it('error: the message is announced and you can try again', () => {
+    const { all, button, line } = render({ status: 'error', message: 'No microphone was found. You can still type.' });
+    expect(line.props.role).toBe('alert');
+    expect(textOf(line)).toBe('No microphone was found. You can still type.');
+    (button.props.onClick as () => void)();
+    expect(all.onStart).toHaveBeenCalled();
+  });
+
+  it('after an automatic stop, and when the transcript did not all fit', () => {
+    expect(textOf(render({ status: 'idle', autoStopped: true }).line)).toBe(VOICE_COPY.autoStopped);
+    expect(textOf(render({ status: 'idle', autoStopped: true, notice: VOICE_COPY.truncated }).line)).toBe(VOICE_COPY.truncated);
+  });
+
+  it('the privacy note speaks only for iMA, not for the transcription provider', () => {
+    expect(VOICE_COPY.privacy).toBe("Your voice is transcribed securely. Audio isn't saved by iMA.");
+    expect(VOICE_COPY.privacy).not.toMatch(/never (stored|saved|kept)|not (stored|saved|kept) anywhere|deleted/i);
+  });
+
+  it('copy has no em dashes', () => {
+    const all = Object.values(VOICE_COPY).map((v) => (typeof v === 'function' ? v('0:01', '1:00') : v)).join(' ');
+    expect(all).not.toContain('—');
   });
 });

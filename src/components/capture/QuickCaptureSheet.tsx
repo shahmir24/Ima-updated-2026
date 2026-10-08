@@ -1,10 +1,15 @@
-import { useReducer } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import { ArrowLeft, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { NewTaskInput } from '@/hooks/use-tasks';
 import { useCaptureOrganizer, type CaptureOrganizer } from '@/hooks/use-capture-organizer';
 import { browserTimeZone, localToday, runOrganize, runSave } from '@/lib/capture/actions';
 import { CAPTURE_COPY, captureReducer, initialCaptureState, showImportanceQuestion, type CaptureState } from '@/lib/capture/drafts';
+import { useVoiceCapture, type UseVoiceCaptureOptions } from '@/hooks/use-voice-capture';
+import { ORGANIZE_LIMITS } from '@/lib/ai/organize-contract';
+import { appendTranscript } from '@/lib/voice/voice-capture';
+import VoiceControls from './VoiceControls';
+import { VOICE_COPY } from './voice-copy';
 import BrainDumpInput, { BRAIN_DUMP_HEADING_ID } from './BrainDumpInput';
 import CaptureReview from './CaptureReview';
 
@@ -22,6 +27,8 @@ export interface QuickCaptureSheetProps {
   organizer?: CaptureOrganizer;
   /** Test seam for the initial state. */
   initialState?: CaptureState;
+  /** Test seam for the browser and transcription; the app uses the real ones. */
+  voiceOptions?: Pick<UseVoiceCaptureOptions, 'env' | 'transcribe'>;
 }
 
 /**
@@ -38,6 +45,32 @@ const QuickCaptureSheet = (props: QuickCaptureSheetProps) => {
   const [state, dispatch] = useReducer(captureReducer, props.initialState ?? initialCaptureState);
   const [guestBoundary, setGuestBoundary] = useReducer((_: boolean, next: boolean) => next, false);
 
+  // Voice: signed-in only. The transcript is ADDED to whatever is in the box
+  // (read through a ref, so text typed while transcribing is kept), and the
+  // person still presses Organize it themselves.
+  const textRef = useRef(state.text);
+  textRef.current = state.text;
+  const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
+  const voice = useVoiceCapture(
+    (transcript) => {
+      const merged = appendTranscript(textRef.current, transcript, ORGANIZE_LIMITS.inputMaxLength);
+      textRef.current = merged.text;
+      dispatch({ type: 'text', text: merged.text });
+      setVoiceNotice(merged.truncated ? VOICE_COPY.truncated : null);
+    },
+    { enabled: !props.isGuest, ...props.voiceOptions }
+  );
+  const voiceBusy = voice.status === 'requesting' || voice.status === 'recording' || voice.status === 'stopping' || voice.status === 'transcribing';
+
+  // Closing the sheet (or moving to Add manually) stops any recording and releases the microphone.
+  const { cancel: cancelVoice } = voice;
+  const isOpen = props.isOpen;
+  useEffect(() => {
+    if (!isOpen) cancelVoice();
+    // cancelVoice is a fresh closure each render; only the open state matters here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   if (!props.isOpen) return null;
 
   const today = localToday();
@@ -45,6 +78,7 @@ const QuickCaptureSheet = (props: QuickCaptureSheetProps) => {
     // The text survives a close; a finished save resets it (see handleSave).
     setGuestBoundary(false);
     organizer.clearError();
+    voice.cancel();
     props.onClose();
   };
 
@@ -119,6 +153,23 @@ const QuickCaptureSheet = (props: QuickCaptureSheetProps) => {
               organizing={organizer.pending}
               error={organizer.error}
               isGuest={props.isGuest}
+              organizeDisabled={voiceBusy}
+              accessory={
+                !props.isGuest && voice.supported ? (
+                  <VoiceControls
+                    status={voice.status}
+                    message={voice.message}
+                    elapsedMs={voice.elapsedMs}
+                    autoStopped={voice.autoStopped}
+                    notice={voiceNotice}
+                    onStart={() => {
+                      setVoiceNotice(null);
+                      voice.start();
+                    }}
+                    onStop={voice.stop}
+                  />
+                ) : undefined
+              }
             />
           ) : (
             <CaptureReview

@@ -17,18 +17,20 @@ export interface BrainDumpInputProps {
   /** Guests may write, but organizing needs an account; the AI note is not shown to them. */
   isGuest: boolean;
   /**
-   * Room beside the actions for a future input source (the microphone). Voice
-   * will put its transcript into THIS text box through onTextChange, and the
-   * person will press the same Organize it: there is no second organizer.
+   * Another input source under the box: the microphone. Voice puts its
+   * transcript into THIS text box, and the person presses the same Organize
+   * it: there is no second organizer.
    */
   accessory?: ReactNode;
+  /** True while another input (voice) is still producing text. */
+  organizeDisabled?: boolean;
 }
 
 /** Step 1: one large box for everything, then Organize it. Presentational only. */
-const BrainDumpInput = ({ text, onTextChange, onOrganize, onAddManually, organizing, error, isGuest, accessory }: BrainDumpInputProps) => {
+const BrainDumpInput = ({ text, onTextChange, onOrganize, onAddManually, organizing, error, isGuest, accessory, organizeDisabled }: BrainDumpInputProps) => {
   const length = Array.from(text).length;
   const nearLimit = length > ORGANIZE_LIMITS.inputMaxLength * 0.9;
-  const canOrganize = text.trim().length > 0 && length <= ORGANIZE_LIMITS.inputMaxLength && !organizing;
+  const canOrganize = text.trim().length > 0 && length <= ORGANIZE_LIMITS.inputMaxLength && !organizing && !organizeDisabled;
 
   return (
     <div className="flex flex-1 flex-col gap-4">
@@ -55,6 +57,8 @@ const BrainDumpInput = ({ text, onTextChange, onOrganize, onAddManually, organiz
         </p>
       )}
 
+      {accessory}
+
       {error && (
         <p role="alert" className="text-sm text-red-300">
           {error}
@@ -62,7 +66,6 @@ const BrainDumpInput = ({ text, onTextChange, onOrganize, onAddManually, organiz
       )}
 
       <div className="flex items-center gap-2">
-        {accessory}
         <Button
           type="button"
           onClick={onOrganize}

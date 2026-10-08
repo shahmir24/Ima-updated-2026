@@ -28,3 +28,9 @@ verify_jwt = true
 # touches no table: it only turns a signed-in person's text into proposals.
 [functions.organize-capture]
 verify_jwt = true
+
+# Voice Brain Dump: one short recording in, its transcript out. Gateway JWT
+# verification stays ON, and the function verifies the session again itself.
+# It holds no service-role key, touches no table, and never stores audio.
+[functions.transcribe-capture]
+verify_jwt = true
