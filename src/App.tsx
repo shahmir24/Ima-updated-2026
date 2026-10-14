@@ -48,6 +48,7 @@ import SensoryCheckIn from "./pages/SensoryCheckIn";
 import DailyJournal from "./pages/DailyJournal";
 import BodyDouble from "./pages/BodyDouble";
 import GlobalGentleNudge from "@/components/nudges/GlobalGentleNudge";
+import FocusTimerProvider from "@/contexts/FocusTimerProvider";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +58,9 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        {/* The Focus Timer: ONE for the whole app, outside the routes, so a
+            session survives navigation. The Focus page is a view of it. */}
+        <FocusTimerProvider>
         <BrowserRouter>
           <Routes>
             {/* Unguarded: where Supabase returns after an email confirmation
@@ -141,6 +145,7 @@ const App = () => (
               on its allowlisted browsing routes (lib/nudges/nudge-routes.ts). */}
           <GlobalGentleNudge />
         </BrowserRouter>
+        </FocusTimerProvider>
       </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>

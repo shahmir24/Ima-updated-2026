@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Session, User } from '@supabase/supabase-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '@/contexts/auth-context';
+import { FocusSessionActiveContext } from '@/contexts/focus-timer-context';
 import { NUDGE_COPY, _resetNudgeDismissalMemory, type NudgeAction } from '@/lib/nudges/in-app-nudge';
 import { NUDGE_ROUTES } from '@/lib/nudges/nudge-routes';
 import GlobalGentleNudge from './GlobalGentleNudge';
@@ -80,17 +81,19 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
-function render(path: string, options: { auth?: 'signed-in' | 'signed-out' | 'not-onboarded'; tasks?: ReturnType<typeof taskRow>[]; settings?: Record<string, unknown>; extra?: React.ReactNode } = {}) {
+function render(path: string, options: { auth?: 'signed-in' | 'signed-out' | 'not-onboarded'; tasks?: ReturnType<typeof taskRow>[]; settings?: Record<string, unknown>; extra?: React.ReactNode; wrapActive?: boolean } = {}) {
   const client = new QueryClient();
   client.setQueryData(['tasks', USER_ID], options.tasks ?? [taskRow('task-1', 'Email the landlord', TODAY)]);
   client.setQueryData(['user-settings', USER_ID], { user_id: USER_ID, nudges_enabled: true, nudge_show_task_titles: true, ...(options.settings ?? {}) });
   return renderToString(
     <QueryClientProvider client={client}>
       <AuthContext.Provider value={auth(options.auth ?? 'signed-in')}>
-        <MemoryRouter initialEntries={[path]}>
-          {options.extra}
-          <GlobalGentleNudge />
-        </MemoryRouter>
+        <FocusSessionActiveContext.Provider value={options.wrapActive ?? false}>
+          <MemoryRouter initialEntries={[path]}>
+            {options.extra}
+            <GlobalGentleNudge />
+          </MemoryRouter>
+        </FocusSessionActiveContext.Provider>
       </AuthContext.Provider>
     </QueryClientProvider>
   );
@@ -234,5 +237,25 @@ describe('GlobalGentleNudge — one instance', () => {
       const source = readFileSync(new URL(file, pagesDir), 'utf8');
       expect(source, file).not.toMatch(/GentleNudgePopup|GlobalGentleNudge|useInAppNudge/);
     }
+  });
+});
+
+describe('GlobalGentleNudge — never during a Focus session', () => {
+  const renderDuringFocus = (path: string, active: boolean) =>
+    render(path, { extra: null, wrapActive: active });
+
+  it.each(['/', '/tasks', '/stats', '/productivity', '/soundscape', '/journaling'])(
+    'a Focus session in progress suppresses it on %s (the user navigated away from /focus)',
+    (path) => {
+      expect(shown(renderDuringFocus(path, true))).toBe(false);
+    }
+  );
+
+  it('with no Focus session it shows as before', () => {
+    expect(shown(renderDuringFocus('/tasks', false))).toBe(true);
+  });
+
+  it('outside a Focus Timer provider (no session possible) it is unaffected', () => {
+    expect(shown(render('/tasks'))).toBe(true);
   });
 });

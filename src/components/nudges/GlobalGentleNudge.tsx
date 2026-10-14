@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/auth-context';
+import { useFocusSessionActive } from '@/contexts/focus-timer-context';
 import { useInAppNudge } from '@/hooks/use-in-app-nudge';
 import { useTaskSource } from '@/hooks/use-task-source';
 import { useUserSettings } from '@/hooks/use-user-settings';
@@ -30,12 +31,16 @@ const noGuestTasks = () => NO_GUEST_TASKS;
  * Shown only to a signed-in, onboarded account. A guest is never "signed in"
  * here, so Guest Mode never sees it; auth and onboarding are not on the route
  * list either. On Home it also waits while "Keep your tasks?" is open.
+ *
+ * Never during a Focus session — running, paused or between phases — on any
+ * route, including after the user has navigated away from /focus.
  */
 const GlobalGentleNudge = () => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user, onboardingCompleted } = useAuth();
   const taskSource = useTaskSource();
+  const focusSessionActive = useFocusSessionActive();
   const { data: settings } = useUserSettings();
 
   const signedIn = !!user && onboardingCompleted === true && taskSource.mode === 'authenticated';
@@ -58,7 +63,7 @@ const GlobalGentleNudge = () => {
     today: toLocalISODate(new Date())
   });
 
-  if (!isNudgeRoute(pathname) || askingAboutGuestTasks) return null;
+  if (!isNudgeRoute(pathname) || askingAboutGuestTasks || focusSessionActive) return null;
 
   const handleAction = (action: NudgeAction) => {
     const path = act(action);
