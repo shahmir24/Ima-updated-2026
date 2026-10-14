@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { ArrowLeft, ChevronRight, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { DESKTOP_DIALOG_OVERLAY, DESKTOP_DIALOG_PANEL } from '@/components/layout/desktop-dialog';
+import { isDesktopViewport, useDialogDismiss } from '@/hooks/use-dialog-dismiss';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
@@ -75,6 +77,8 @@ const toSelectTime = (value: string | null | undefined): string | null => {
 const toImportance = (value: unknown): TaskImportance =>
   IMPORTANCE_OPTIONS.some((option) => option.value === value) ? (value as TaskImportance) : 'normal';
 
+export const TASK_FORM_HEADING_ID = 'task-form-heading';
+
 const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false }: MeetingModalProps) => {
   const isEditing = !!task;
   const [taskTitle, setTaskTitle] = useState(() => task?.title ?? '');
@@ -84,6 +88,13 @@ const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Escape, Cancel and the close button all do what the back arrow always did
+  // (onClose) — never while a save is in flight, and an Escape that closes an
+  // open date or time picker closes only the picker. On desktop, Tab and
+  // Shift+Tab stay inside the dialog.
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialogDismiss({ open: isOpen, onDismiss: onClose, canDismiss: !isSaving, panelRef, trapFocus: isDesktopViewport });
 
   if (!isOpen) return null;
 
@@ -122,22 +133,37 @@ const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end">
-      <div className="w-full max-w-lg mx-auto bg-background rounded-t-3xl min-h-[60vh] flex flex-col">
+    <div className={cn('fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end', DESKTOP_DIALOG_OVERLAY)}>
+      {/* Phones: the same bottom sheet as always. Desktop: a centred dialog. */}
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={TASK_FORM_HEADING_ID}
+        tabIndex={-1}
+        data-testid="task-form"
+        className={cn(
+          'w-full max-w-lg mx-auto bg-background rounded-t-3xl min-h-[60vh] flex flex-col focus:outline-none',
+          DESKTOP_DIALOG_PANEL,
+          'lg:max-w-[680px]'
+        )}
+      >
 
         {/* Header */}
-        <header className="p-4 flex items-center justify-between">
+        <header className="p-4 flex items-center justify-between lg:px-6 lg:pt-6">
           <Button 
             variant="ghost" 
             size="icon" 
             onClick={onClose}
+            disabled={isSaving}
+            aria-label="Close"
             className="h-10 w-10 rounded-full p-0 hover:bg-white/10"
           >
-            <ArrowLeft className="h-6 w-6 text-white" />
+            <ArrowLeft className="h-6 w-6 text-white" aria-hidden="true" />
           </Button>
           
           <div className="text-center">
-            <h1 className="text-xl font-bold text-white">
+            <h1 id={TASK_FORM_HEADING_ID} className="text-xl font-bold text-white">
               {isEditing ? 'Edit Task' : 'Create New Task'}
             </h1>
           </div>
@@ -146,7 +172,7 @@ const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false
         </header>
 
         {/* Task Details */}
-        <div className="flex-1 px-4 space-y-4">
+        <div className="flex-1 px-4 space-y-4 lg:px-6">
           {/* Task Title Input */}
           <div className="bg-secondary/30 rounded-2xl p-4">
             <h3 className="text-white font-semibold text-lg mb-3">Task Title</h3>
@@ -158,19 +184,26 @@ const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false
             />
           </div>
 
+          {/* Date and Time: stacked on phones, side by side on desktop. */}
+          <div className="space-y-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
           {/* Date Selection */}
           <div className="bg-secondary/30 rounded-2xl p-4">
             <Popover open={showDatePicker} onOpenChange={setShowDatePicker}>
+              {/* A real button, so Tab reaches it and Enter/Space open the picker.
+                  Same look as the row it replaces: preflight strips button styling. */}
               <PopoverTrigger asChild>
-                <div className="flex items-center justify-between cursor-pointer">
-                  <div>
-                    <h3 className="text-white font-semibold text-lg mb-1">Date</h3>
-                    <p className="text-white/80">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between cursor-pointer rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                >
+                  <span className="block">
+                    <span className="block text-white font-semibold text-lg mb-1">Date</span>
+                    <span className="block text-white/80">
                       {selectedDate ? format(selectedDate, 'EEEE, d MMMM yyyy') : 'Later'}
-                    </p>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-white/60" />
-                </div>
+                    </span>
+                  </span>
+                  <ChevronRight className="h-5 w-5 text-white/60" aria-hidden="true" />
+                </button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="center">
                 <Calendar
@@ -213,19 +246,24 @@ const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false
             {/* A time needs a day: with no date ("Later") the row explains and stays shut. */}
             <Popover open={showTimePicker && selectedDate !== null} onOpenChange={(open) => setShowTimePicker(open && selectedDate !== null)}>
               <PopoverTrigger asChild>
-                <div className="flex items-center justify-between cursor-pointer">
-                  <div>
-                    <h3 className="text-white font-semibold text-lg mb-1">Time</h3>
-                    <p className="text-white/80">
+                <button
+                  type="button"
+                  // Still focusable without a date, so the reason is read out; it just does not open.
+                  aria-disabled={selectedDate === null ? true : undefined}
+                  className="flex w-full items-center justify-between cursor-pointer rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                >
+                  <span className="block">
+                    <span className="block text-white font-semibold text-lg mb-1">Time</span>
+                    <span className="block text-white/80">
                       {selectedDate === null
                         ? 'Choose a day to add a time'
                         : selectedTime === null
                           ? 'No time set'
                           : formatDisplayTime(selectedTime)}
-                    </p>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-white/60" />
-                </div>
+                    </span>
+                  </span>
+                  <ChevronRight className="h-5 w-5 text-white/60" aria-hidden="true" />
+                </button>
               </PopoverTrigger>
               <PopoverContent className="w-80 p-0" align="center">
                 <div className="p-4">
@@ -251,6 +289,7 @@ const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false
                 </div>
               </PopoverContent>
             </Popover>
+          </div>
           </div>
 
           {/*
@@ -291,19 +330,30 @@ const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false
           </div>
         </div>
 
-        {/* Save Button */}
-        <div className="p-4 pb-8">
+        {/* Save Button — full width on phones; Cancel + Save, right-aligned, on desktop. */}
+        <div className="p-4 pb-8 lg:px-6 lg:pb-6">
           {saveError && (
-            <p className="text-red-300 text-sm mb-3 text-center">{saveError}</p>
+            <p className="text-red-300 text-sm mb-3 text-center lg:text-right">{saveError}</p>
           )}
-          <Button
-            onClick={handleSave}
-            disabled={isSaving}
-            style={{ backgroundColor: '#2f74db' }}
-            className="w-full hover:opacity-90 text-white rounded-2xl py-4 text-lg font-semibold disabled:opacity-60"
-          >
-            {isSaving ? 'Saving…' : isEditing ? 'Save Changes' : 'Save Task'}
-          </Button>
+          <div className="lg:flex lg:items-center lg:justify-end lg:gap-3">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onClose}
+              disabled={isSaving}
+              className="hidden h-12 rounded-2xl px-6 text-base lg:inline-flex"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={isSaving}
+              style={{ backgroundColor: '#2f74db' }}
+              className="w-full hover:opacity-90 text-white rounded-2xl py-4 text-lg font-semibold disabled:opacity-60 lg:h-12 lg:w-auto lg:min-w-[10rem] lg:px-8 lg:py-0 lg:text-base"
+            >
+              {isSaving ? 'Saving…' : isEditing ? 'Save Changes' : 'Save Task'}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

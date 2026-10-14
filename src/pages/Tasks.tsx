@@ -52,8 +52,11 @@ const describeTimeRange = (task: TaskRow) => {
 
 const toTitleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
-/** A list meant to be read, so it stays narrower than the card hubs. */
-const WORKSPACE = 'max-w-4xl';
+/**
+ * A list meant to be read: below lg the same 4xl as before; on desktop wider,
+ * because each task is a single compact row there.
+ */
+const WORKSPACE = 'max-w-4xl lg:max-w-5xl';
 
 const Tasks = () => {
   const navigate = useNavigate();
@@ -235,7 +238,7 @@ const Tasks = () => {
 
       {/* Task Cards */}
       <main className="flex-1">
-        <PageWorkspace width={WORKSPACE} className="space-y-4">
+        <PageWorkspace width={WORKSPACE} className="space-y-4 lg:space-y-3">
           {mutationError && (
             <p className="text-red-300 text-sm text-center py-2">
               {(mutationError as Error).message}

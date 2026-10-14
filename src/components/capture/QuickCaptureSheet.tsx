@@ -1,6 +1,9 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { ArrowLeft, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DESKTOP_DIALOG_OVERLAY, DESKTOP_DIALOG_PANEL } from '@/components/layout/desktop-dialog';
+import { cn } from '@/lib/utils';
+import { shouldDismissOnKey, useDialogFocusReturn } from '@/hooks/use-dialog-dismiss';
 import type { NewTaskInput } from '@/hooks/use-tasks';
 import { useCaptureOrganizer, type CaptureOrganizer } from '@/hooks/use-capture-organizer';
 import { browserTimeZone, localToday, runOrganize, runSave } from '@/lib/capture/actions';
@@ -71,6 +74,12 @@ const QuickCaptureSheet = (props: QuickCaptureSheetProps) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
+  // Focus returns to whatever opened the sheet ("New Task") when it closes —
+  // including when it closes to open the manual form, which then returns
+  // focus there in turn.
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialogFocusReturn(props.isOpen, panelRef);
+
   if (!props.isOpen) return null;
 
   const today = localToday();
@@ -103,25 +112,35 @@ const QuickCaptureSheet = (props: QuickCaptureSheetProps) => {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end bg-black/50 backdrop-blur-sm"
+      className={cn('fixed inset-0 z-50 flex items-end bg-black/50 backdrop-blur-sm', DESKTOP_DIALOG_OVERLAY)}
       onKeyDown={(event) => {
-        if (event.key === 'Escape' && !state.saving) close();
+        // An Escape a nested picker already used (closing a date picker in
+        // review) must not also close the whole sheet.
+        if (shouldDismissOnKey(event, !state.saving)) close();
       }}
     >
       <div
+        ref={panelRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby={BRAIN_DUMP_HEADING_ID}
         data-testid="quick-capture"
-        className="mx-auto flex max-h-[92dvh] min-h-[60vh] w-full max-w-lg flex-col overflow-y-auto rounded-t-3xl bg-background"
+        className={cn(
+          'mx-auto flex max-h-[92dvh] min-h-[60vh] w-full max-w-lg flex-col overflow-y-auto rounded-t-3xl bg-background',
+          'focus:outline-none',
+          DESKTOP_DIALOG_PANEL,
+          // Writing needs room; reviewing several proposals needs more.
+          !guestBoundary && state.stage !== 'write' ? 'lg:max-w-[920px]' : 'lg:max-w-[720px]'
+        )}
       >
-        <header className="flex items-center p-4">
+        <header className="flex items-center p-4 lg:px-6 lg:pt-6">
           <Button variant="ghost" size="icon" onClick={close} disabled={state.saving} aria-label={CAPTURE_COPY.close} className="h-11 w-11 rounded-full">
             <ArrowLeft className="h-6 w-6" aria-hidden="true" />
           </Button>
         </header>
 
-        <div className="flex flex-1 flex-col px-4 pb-8">
+        <div className="flex flex-1 flex-col px-4 pb-8 lg:px-8">
           {guestBoundary ? (
             <div className="flex flex-1 flex-col gap-4" data-testid="capture-guest-boundary">
               <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 text-primary">

@@ -48,7 +48,12 @@ const ProposalCard = ({ draft, today, error, disabled, importanceQuestionId, onT
     : '';
 
   return (
-    <li className="relative rounded-2xl bg-secondary/30 p-4" data-draft={draft.key}>
+    // Desktop: two lines instead of three — the title across the top, then the
+    // day, time and importance on one row underneath. Phones are unchanged.
+    <li
+      className="relative rounded-2xl bg-secondary/30 p-4 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-x-4 lg:gap-y-3 lg:px-5"
+      data-draft={draft.key}
+    >
       <button
         type="button"
         onClick={onRemove}
@@ -59,6 +64,7 @@ const ProposalCard = ({ draft, today, error, disabled, importanceQuestionId, onT
         <X className="h-5 w-5" aria-hidden="true" />
       </button>
 
+      <div className="lg:col-span-2">
       <label className="sr-only" htmlFor={`title-${draft.key}`}>
         {CAPTURE_COPY.titleLabel}
       </label>
@@ -73,8 +79,9 @@ const ProposalCard = ({ draft, today, error, disabled, importanceQuestionId, onT
         className="mr-10 w-[calc(100%-2.75rem)] rounded-xl border-white/20 bg-white/10 text-base text-foreground"
       />
       {error && <p className="mt-1 text-sm text-red-300">{error}</p>}
+      </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-2 lg:mt-0">
         {/* Date: "Later" when unscheduled. Tap to pick a day, or keep it for later. */}
         <Popover>
           <PopoverTrigger asChild>
@@ -128,7 +135,7 @@ const ProposalCard = ({ draft, today, error, disabled, importanceQuestionId, onT
         aria-label={CAPTURE_COPY.importanceLabel}
         aria-describedby={importanceQuestionId}
         data-importance-unclear={importanceQuestionId ? 'true' : undefined}
-        className={cn('mt-3 grid grid-cols-3 gap-2', importanceQuestionId && 'rounded-xl ring-1 ring-primary/40 ring-offset-2 ring-offset-background')}
+        className={cn('mt-3 grid grid-cols-3 gap-2 lg:mt-0 lg:w-[16.5rem]', importanceQuestionId && 'rounded-xl ring-1 ring-primary/40 ring-offset-2 ring-offset-background')}
       >
         {IMPORTANCE.map((option) => {
           const active = draft.importance === option.value;

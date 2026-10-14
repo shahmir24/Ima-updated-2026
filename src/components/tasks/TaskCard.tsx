@@ -66,13 +66,20 @@ const TaskCard = ({ task, onComplete, onDelete, onEdit, onStart, onStuck, busy =
 
   return (
     <div
-      className={`rounded-3xl p-6 ${task.completed ? 'opacity-70' : ''}`}
+      className={`rounded-3xl p-6 lg:rounded-2xl lg:px-6 lg:py-4 ${task.completed ? 'opacity-70' : ''}`}
       style={{ backgroundColor: getCardBackground() }}
+      data-testid="task-card"
     >
       <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
-            <h3 className={`text-xl font-bold text-white ${task.completed ? 'line-through' : ''}`}>
+        {/*
+          Desktop: one row. Title, details and date/time on the left; Start and
+          I'm stuck in the middle; edit, delete and done on the right. The
+          date/actions wrapper uses lg:contents so its two halves become
+          columns of this grid. Phones keep the stacked card exactly as before.
+        */}
+        <div className="flex-1 lg:min-w-0 lg:grid lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center lg:gap-x-6">
+          <div className="flex items-center gap-3 mb-2 lg:col-start-1 lg:mb-1 lg:min-w-0">
+            <h3 className={`text-xl font-bold text-white lg:truncate lg:text-lg ${task.completed ? 'line-through' : ''}`}>
               {task.title}
             </h3>
             <Badge className={`rounded-full border ${getTagColor(task.tag)}`}>
@@ -80,18 +87,19 @@ const TaskCard = ({ task, onComplete, onDelete, onEdit, onStart, onStuck, busy =
             </Badge>
           </div>
 
-          <p className="text-white/80 text-sm mb-4 leading-relaxed">
+          <p className="text-white/80 text-sm mb-4 leading-relaxed lg:col-start-1 lg:mb-1 empty:lg:hidden">
             {task.description}
           </p>
 
-          <div className="flex items-center justify-between">
-            <div className="text-white/90 text-sm">
+          <div className="flex items-center justify-between lg:contents">
+            <div className="text-white/90 text-sm lg:col-start-1">
               <span className="font-medium">{task.dateLabel}</span>
-              <br />
+              <br className="lg:hidden" />
+              {task.time && <span className="hidden lg:inline" aria-hidden="true"> · </span>}
               <span>{task.time}</span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 lg:col-start-3 lg:row-span-3 lg:row-start-1">
               {onEdit && (
                 <Button
                   variant="ghost"
@@ -158,13 +166,13 @@ const TaskCard = ({ task, onComplete, onDelete, onEdit, onStart, onStuck, busy =
             uses, so at 320px each takes a full line instead of being crushed.
           */}
           {!task.completed && (onStart || onStuck) && (
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-2 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:mt-0 lg:flex-nowrap">
               {onStart && (
                 <Button
                   onClick={onStart}
                   aria-label={`Start "${task.title}" in Focus`}
                   style={{ backgroundColor: '#2f74db' }}
-                  className="min-h-11 flex-1 min-w-[130px] rounded-full text-white hover:opacity-90"
+                  className="min-h-11 flex-1 min-w-[130px] rounded-full text-white hover:opacity-90 lg:flex-none lg:min-w-[7.5rem] lg:px-5"
                 >
                   <Play className="mr-2 h-4 w-4 fill-current" aria-hidden="true" />
                   Start
@@ -175,7 +183,7 @@ const TaskCard = ({ task, onComplete, onDelete, onEdit, onStart, onStuck, busy =
                 <Button
                   onClick={onStuck}
                   aria-label={`Get unstuck on "${task.title}" with Body Double`}
-                  className="min-h-11 flex-1 min-w-[130px] rounded-full bg-white/10 text-white hover:bg-white/20"
+                  className="min-h-11 flex-1 min-w-[130px] rounded-full bg-white/10 text-white hover:bg-white/20 lg:flex-none lg:min-w-[7.5rem] lg:px-5"
                 >
                   <Brain className="mr-2 h-4 w-4" aria-hidden="true" />
                   I’m stuck

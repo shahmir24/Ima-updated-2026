@@ -49,7 +49,7 @@ const BrainDumpInput = ({ text, onTextChange, onOrganize, onAddManually, organiz
         placeholder={CAPTURE_COPY.placeholder}
         maxLength={ORGANIZE_LIMITS.inputMaxLength}
         autoFocus
-        className="min-h-[12rem] flex-1 resize-none rounded-2xl border-white/20 bg-white/10 text-base leading-relaxed text-foreground placeholder:text-white/50"
+        className="min-h-[12rem] flex-1 resize-none rounded-2xl lg:min-h-[18rem] lg:text-lg border-white/20 bg-white/10 text-base leading-relaxed text-foreground placeholder:text-white/50"
       />
       {nearLimit && (
         <p className="-mt-2 text-right text-xs text-muted-foreground" aria-live="polite">

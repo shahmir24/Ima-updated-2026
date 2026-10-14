@@ -83,7 +83,7 @@ const CaptureReview = (props: CaptureReviewProps) => {
         </ul>
       )}
 
-      <Button type="button" variant="outline" onClick={props.onAddAnother} disabled={saving} className="h-11 rounded-2xl border-white/20">
+      <Button type="button" variant="outline" onClick={props.onAddAnother} disabled={saving} className="h-11 rounded-2xl border-white/20 lg:self-start lg:px-6">
         <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
         {CAPTURE_COPY.addAnother}
       </Button>
@@ -104,17 +104,18 @@ const CaptureReview = (props: CaptureReviewProps) => {
         </details>
       )}
 
-      <div className="mt-auto flex flex-col gap-2 pt-2">
+      {/* Desktop: Back and Add tasks side by side at the right, primary last. */}
+      <div className="mt-auto flex flex-col gap-2 pt-2 lg:flex-row-reverse lg:items-center lg:justify-start lg:gap-3">
         <Button
           type="button"
           onClick={props.onAddTasks}
           disabled={saving || drafts.length === 0}
           style={{ backgroundColor: '#2f74db' }}
-          className="h-12 rounded-2xl text-base font-semibold text-white hover:opacity-90 disabled:opacity-60"
+          className="h-12 rounded-2xl text-base font-semibold text-white hover:opacity-90 disabled:opacity-60 lg:min-w-[10rem] lg:px-8"
         >
           {saving ? CAPTURE_COPY.saving : CAPTURE_COPY.addTasks}
         </Button>
-        <Button type="button" variant="ghost" onClick={props.onBack} disabled={saving} className="h-11 rounded-2xl">
+        <Button type="button" variant="ghost" onClick={props.onBack} disabled={saving} className="h-11 rounded-2xl lg:h-12 lg:px-6">
           {CAPTURE_COPY.back}
         </Button>
       </div>
