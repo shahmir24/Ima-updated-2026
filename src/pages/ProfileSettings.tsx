@@ -32,8 +32,12 @@ const toLocalISODate = (date: Date) =>
 const isStorableDateOfBirth = (value: string) =>
   value > '1900-01-01' && value < toLocalISODate(new Date());
 
-/** A settings form: wide enough to feel deliberate, narrow enough to read. */
-const WORKSPACE = 'max-w-3xl';
+/**
+ * A settings form: wide enough to feel deliberate, narrow enough to read.
+ * Below lg the same 3xl as before; on desktop wider, because the profile and
+ * the settings cards sit in two columns there.
+ */
+const WORKSPACE = 'max-w-3xl lg:max-w-5xl';
 
 const ProfileSettings = () => {
   const { signOut } = useAuth();
@@ -232,7 +236,7 @@ const ProfileSettings = () => {
 
       <PageWorkspace width={WORKSPACE} className="py-6">
         <Tabs value={initialTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-8 bg-secondary/50 rounded-2xl p-1">
+          <TabsList className="grid w-full grid-cols-2 mb-8 bg-secondary/50 rounded-2xl p-1 lg:max-w-md">
             <TabsTrigger 
               value="profile" 
               className="h-11 rounded-2xl font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
@@ -252,6 +256,10 @@ const ProfileSettings = () => {
           </TabsList>
 
           <TabsContent value="profile" className="space-y-6 mt-0">
+            {/* Desktop: the photo card beside About You. The grid sits on this
+                wrapper, not on TabsContent, whose inactive panel stays in the
+                page with `hidden` — a display class there would override it. */}
+            <div className="space-y-6 lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start lg:gap-6 lg:space-y-0">
             {/* Profile Picture Section */}
             <Card className="p-6 rounded-3xl border-0 bg-secondary/30">
               <div className="flex flex-col items-center space-y-4">
@@ -334,7 +342,8 @@ const ProfileSettings = () => {
                 <Smile className="h-5 w-5 mr-2 text-primary" />
                 About You
               </h3>
-              <div className="space-y-4">
+              {/* Desktop: short fields in pairs; free text and the mode picker span both columns. */}
+              <div className="space-y-4 lg:grid lg:grid-cols-2 lg:gap-x-6 lg:gap-y-5 lg:space-y-0">
                 <div>
                   <Label htmlFor="firstName">First Name</Label>
                   <Input
@@ -401,7 +410,7 @@ const ProfileSettings = () => {
                   </Select>
                 </div>
 
-                <div>
+                <div className="lg:col-span-2">
                   <Label htmlFor="focusGoals">Focus Goals</Label>
                   <Input
                     id="focusGoals"
@@ -415,7 +424,7 @@ const ProfileSettings = () => {
                   />
                 </div>
 
-                <div>
+                <div className="lg:col-span-2">
                   <Label>Preferred Mode</Label>
                   <div className="grid grid-cols-3 gap-3 mt-2">
                     {preferredModes.map((mode) => (
@@ -441,10 +450,14 @@ const ProfileSettings = () => {
                 </div>
               </div>
             </Card>
+            </div>
 
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6 mt-0">
+            {/* Desktop: the cards in two columns, in the same order (row by
+                row), each sized to its own content. */}
+            <div className="space-y-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0">
             {/* Personalization */}
             <Card className="p-6 rounded-3xl border-0 bg-secondary/30">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
@@ -715,7 +728,12 @@ const ProfileSettings = () => {
 
             {/* Feedback & Support */}
             <Card className="p-6 rounded-3xl border-0 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20">
-              <h3 className="text-lg font-semibold mb-4 flex items-center">
+              {/* This card's background is always the light gradient (the app
+                  never sets the `dark` class, so the dark: variant never
+                  applies), while the card's text colour is the near-white
+                  foreground. The heading uses the app's own dark ink, the
+                  --background token, so it reads on the light card. */}
+              <h3 className="text-lg font-semibold mb-4 flex items-center text-background">
                 <MessageSquare className="h-5 w-5 mr-2 text-primary" />
                 📩 Feedback & Support
               </h3>
@@ -734,6 +752,7 @@ const ProfileSettings = () => {
                 </Button>
               </div>
             </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </PageWorkspace>
