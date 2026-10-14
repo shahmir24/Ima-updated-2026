@@ -82,7 +82,9 @@ const BodyScanSession = () => {
   const [showCompletion, setShowCompletion] = useState(false);
 
   const { data: settings } = useUserSettings();
-  const voice = useSpokenGuidance({ volume: (settings?.sound_volume ?? 75) / 100 });
+  // Active while the scan runs, including its completion screen where the
+  // closing line is spoken. Pausing (or leaving) lets a Soundscape resume.
+  const voice = useSpokenGuidance({ volume: (settings?.sound_volume ?? 75) / 100, active: isPlaying });
   const { speak, repeat, cancel: cancelVoice } = voice;
 
   const currentInstruction = bodyScanSteps[currentStep].instruction;

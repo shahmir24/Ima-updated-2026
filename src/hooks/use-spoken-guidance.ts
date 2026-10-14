@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { audioFocus } from '@/lib/audio/audio-focus';
 
 /**
  * Spoken guidance for the guided wellness exercises.
@@ -16,6 +17,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  *   started the exercise, so loading a route is always silent.
  * - Speech failures are contained. If the API is missing, throws, or errors
  *   mid-utterance, the exercise carries on untouched.
+ * - Guidance takes priority over the Soundscape. While the page says its
+ *   exercise is `active` and the voice is on, this holds audio focus, which
+ *   pauses a playing Soundscape; releasing it lets that Soundscape resume.
  */
 
 /** Slightly slower than default: guidance, not narration. */
@@ -49,6 +53,12 @@ export interface SpokenGuidance {
 export interface SpokenGuidanceOptions {
   /** 0–1. Falls back to DEFAULT_VOLUME when settings have not loaded. */
   volume?: number;
+  /**
+   * The exercise is running, so guidance may speak at any moment. While this
+   * is true and the voice is not muted, the Soundscape steps aside. Defaults
+   * to false: a page that does not say so never pauses anything.
+   */
+  active?: boolean;
 }
 
 function detectSupport(): boolean {
@@ -181,6 +191,14 @@ export function useSpokenGuidance(options: SpokenGuidanceOptions = {}): SpokenGu
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [supported, cancel]);
+
+  // Audible guidance holds audio focus for as long as it is active. Muting,
+  // pausing the exercise or leaving the page releases it.
+  const holdsFocus = supported && !!options.active && !muted;
+  useEffect(() => {
+    if (!holdsFocus) return;
+    return audioFocus.claim();
+  }, [holdsFocus]);
 
   // speechSynthesis lives on window, so an utterance outlives this component.
   // Without this, leaving mid-cue reads the next screen a line of guidance.

@@ -1,51 +1,41 @@
 
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Pause, Droplets, Waves, Zap, Sparkles, Wind, Volume2 } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Volume2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
 import { useAutoSave } from '@/hooks/use-autosave';
-import { useUserSettings, useUpdateUserSettings, type UserSettingsPatch } from '@/hooks/use-user-settings';
-import { useSoundscapePlayer } from '@/hooks/use-soundscape-player';
+import { useUpdateUserSettings, type UserSettingsPatch } from '@/hooks/use-user-settings';
+import { useSoundscape } from '@/contexts/soundscape-context';
+import { HEADPHONE_HINT_ID, soundOptions } from '@/lib/soundscape/soundscape-session';
 import PageWorkspace from '@/components/layout/PageWorkspace';
-
-/** Matches the `user_settings.sound_volume` column default. */
-const FALLBACK_VOLUME = 75;
-
-/**
- * Two ids do not match their filenames — `waves` plays ocean.mp3 and `ambient`
- * plays the binaural track — so each option carries its own path rather than
- * deriving one from the id. Ids stay as they were: they are only local state,
- * and renaming them would change nothing a user can see.
- */
-const soundOptions = [
-  { id: 'rain', icon: Droplets, name: 'Rain', src: '/audio/soundscapes/rain.mp3' },
-  { id: 'waves', icon: Waves, name: 'Ocean', src: '/audio/soundscapes/ocean.mp3' },
-  { id: 'white-noise', icon: Zap, name: 'Brown Noise', src: '/audio/soundscapes/white-noise.mp3' },
-  { id: 'ambient', icon: Sparkles, name: 'Binaural Focus', src: '/audio/soundscapes/binaural-focus-10hz.mp3' },
-  { id: 'wind', icon: Wind, name: 'Wind', src: '/audio/soundscapes/wind.mp3' }
-];
-
-/** The binaural track is a stereo pair, so it only works over two channels. */
-const HEADPHONE_HINT_ID = 'ambient';
 
 /** Wide enough for the five choices to sit in one row, narrow enough to stay a
  *  listening screen rather than a dashboard. */
 const WORKSPACE = 'max-w-3xl';
 
+/**
+ * The Soundscape's full controls. Playback itself lives app-wide
+ * (SoundscapeProvider), so leaving this page no longer stops the sound; this
+ * screen chooses the sound, sets the volume, and plays or pauses it.
+ */
 const Soundscape = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Rain is selected up front so the play button always has something to play.
-  const [selectedSound, setSelectedSound] = useState<string>(soundOptions[0].id);
-  const [volume, setVolume] = useState(FALLBACK_VOLUME);
+  const {
+    selectedSound: activeOption,
+    volume,
+    isActive,
+    isLoading,
+    errorMessage,
+    togglePlay,
+    selectSound,
+    setVolume
+  } = useSoundscape();
+  const selectedSound = activeOption.id;
 
-  const player = useSoundscapePlayer(FALLBACK_VOLUME / 100);
-  const { play, pause, setVolume: setPlayerVolume, isActive, isLoading, errorMessage } = player;
-
-  const { data: settings, isFetched: settingsLoaded } = useUserSettings();
   const updateSettings = useUpdateUserSettings();
 
   const settingsSave = useAutoSave<UserSettingsPatch>(async (patch) => {
@@ -60,42 +50,12 @@ const Soundscape = () => {
     }
   });
 
-  // Seeded once. A later refetch must not move the slider or jolt the volume
-  // of something the user is listening to right now.
-  const seededRef = useRef(false);
-  useEffect(() => {
-    if (seededRef.current || !settingsLoaded) return;
-    seededRef.current = true;
-    if (!settings) return;
-    setVolume(settings.sound_volume);
-    setPlayerVolume(settings.sound_volume / 100);
-  }, [settingsLoaded, settings, setPlayerVolume]);
+  // Only ever reached from a click, so playback always follows a gesture.
+  const handlePlayPause = () => togglePlay();
 
-  const activeOption = soundOptions.find((sound) => sound.id === selectedSound) ?? soundOptions[0];
+  const handleSoundSelect = (soundId: string) => selectSound(soundId);
 
-  const handlePlayPause = () => {
-    if (isActive) {
-      pause();
-      return;
-    }
-    // Only ever reached from this click, so playback always follows a gesture.
-    play(activeOption.id, activeOption.src);
-  };
-
-  const handleSoundSelect = (soundId: string) => {
-    setSelectedSound(soundId);
-
-    // Selecting while paused picks the sound without starting it.
-    if (!isActive) return;
-
-    const next = soundOptions.find((sound) => sound.id === soundId);
-    if (next) play(next.id, next.src);
-  };
-
-  const handleVolumeChange = (value: number[]) => {
-    setVolume(value[0]);
-    setPlayerVolume(value[0] / 100);
-  };
+  const handleVolumeChange = (value: number[]) => setVolume(value[0]);
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">

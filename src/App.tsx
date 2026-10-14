@@ -49,6 +49,8 @@ import DailyJournal from "./pages/DailyJournal";
 import BodyDouble from "./pages/BodyDouble";
 import GlobalGentleNudge from "@/components/nudges/GlobalGentleNudge";
 import FocusTimerProvider from "@/contexts/FocusTimerProvider";
+import SoundscapeProvider from "@/contexts/SoundscapeProvider";
+import SoundscapeMiniPlayer from "@/components/soundscape/SoundscapeMiniPlayer";
 
 const queryClient = new QueryClient();
 
@@ -61,6 +63,10 @@ const App = () => (
         {/* The Focus Timer: ONE for the whole app, outside the routes, so a
             session survives navigation. The Focus page is a view of it. */}
         <FocusTimerProvider>
+        {/* The Soundscape: ONE player for the whole app, so the sound carries
+            on across pages. The Soundscape page and the floating control
+            below are both views of it. */}
+        <SoundscapeProvider>
         <BrowserRouter>
           <Routes>
             {/* Unguarded: where Supabase returns after an email confirmation
@@ -144,7 +150,10 @@ const App = () => (
               <Routes> so navigating never mounts another. It shows itself only
               on its allowlisted browsing routes (lib/nudges/nudge-routes.ts). */}
           <GlobalGentleNudge />
+          {/* Floating play/pause, once a Soundscape has been started. */}
+          <SoundscapeMiniPlayer />
         </BrowserRouter>
+        </SoundscapeProvider>
         </FocusTimerProvider>
       </TooltipProvider>
     </AuthProvider>

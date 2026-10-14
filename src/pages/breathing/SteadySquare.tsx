@@ -46,7 +46,7 @@ const SteadySquare = () => {
 
 
   const { data: settings } = useUserSettings();
-  const voice = useSpokenGuidance({ volume: (settings?.sound_volume ?? 75) / 100 });
+  const voice = useSpokenGuidance({ volume: (settings?.sound_volume ?? 75) / 100, active: isActive });
   const { speak, cancel: cancelVoice, reset: resetVoice } = voice;
 
   // Speaks the phase the component has actually committed to — never from

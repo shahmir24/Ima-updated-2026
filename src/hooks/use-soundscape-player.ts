@@ -26,6 +26,12 @@ export interface SoundscapePlayer {
   /** Start `soundId`, resume it if it is the paused sound, or switch to it. */
   play: (soundId: string, url: string) => void;
   pause: () => void;
+  /**
+   * Stops the sound outright and forgets which one was loaded, so nothing can
+   * be resumed from where it was (sign-out, account change). The audio graph
+   * and decoded buffers are kept for the next play.
+   */
+  stop: () => void;
   /** 0–1, applied to the shared output gain. */
   setVolume: (value: number) => void;
 }
@@ -211,6 +217,18 @@ export function useSoundscapePlayer(initialVolume = 1): SoundscapePlayer {
     void context.suspend().catch(() => undefined);
   }, []);
 
+  const stop = useCallback(() => {
+    // Cancels any load in flight, exactly as pause does.
+    requestRef.current++;
+    stopSource();
+    loadedIdRef.current = null;
+    setStatus('idle');
+    setErrorMessage(null);
+
+    const context = contextRef.current;
+    if (context) void context.suspend().catch(() => undefined);
+  }, [stopSource]);
+
   const setVolume = useCallback((value: number) => {
     const volume = clampVolume(value);
     volumeRef.current = volume;
@@ -254,6 +272,7 @@ export function useSoundscapePlayer(initialVolume = 1): SoundscapePlayer {
     errorMessage,
     play,
     pause,
+    stop,
     setVolume
   };
 }
