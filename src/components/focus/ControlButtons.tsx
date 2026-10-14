@@ -8,15 +8,18 @@ interface ControlButtonsProps {
   onPlayPause: () => void;
   onReset: () => void;
   disabled?: boolean;
+  /** What pressing Play will do, for its accessible name ("Start break", "Start again"…). */
+  playLabel?: string;
 }
 
-const ControlButtons = ({ isPlaying, onPlayPause, onReset, disabled = false }: ControlButtonsProps) => {
+const ControlButtons = ({ isPlaying, onPlayPause, onReset, disabled = false, playLabel = 'Start timer' }: ControlButtonsProps) => {
   return (
     <div className="flex gap-6 mb-8">
       {/* Play/Pause Button */}
       <Button
         onClick={onPlayPause}
         disabled={disabled}
+        aria-label={isPlaying ? 'Pause timer' : playLabel}
         className="w-16 h-16 rounded-2xl bg-white/10 hover:bg-white/20 shadow-lg border border-white/20 backdrop-blur-xl transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
       >
         {isPlaying ? (
@@ -30,6 +33,7 @@ const ControlButtons = ({ isPlaying, onPlayPause, onReset, disabled = false }: C
       <Button
         onClick={onReset}
         disabled={disabled}
+        aria-label="Reset timer"
         className="w-16 h-16 rounded-2xl bg-white/10 hover:bg-white/20 shadow-lg border border-white/20 backdrop-blur-xl transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
       >
         <RotateCcw className="h-5 w-5 text-white" />

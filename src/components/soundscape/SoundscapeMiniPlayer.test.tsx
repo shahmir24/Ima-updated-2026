@@ -99,10 +99,10 @@ describe('floating Soundscape control', () => {
     expect(shown(render(<SoundscapeMiniPlayer />, path, soundscape()))).toBe(false);
   });
 
-  it('on /focus it sits left of the floating settings button', () => {
+  it('on /focus it sits left of the floating settings button on phones, and in its usual corner on desktop', () => {
     const html = render(<SoundscapeMiniPlayer />, '/focus', soundscape());
-    expect(html).toContain('right-[4.75rem]');
-    expect(html).toContain('lg:right-[5.75rem]');
+    expect(html).toContain('right-[4.75rem] lg:right-8');
+    expect(html).not.toContain('lg:right-[5.75rem]');
   });
 
   it('outside a provider it renders nothing', () => {

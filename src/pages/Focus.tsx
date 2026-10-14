@@ -5,19 +5,46 @@ import { ArrowLeft, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import TimerBox from '@/components/focus/TimerBox';
 import ControlButtons from '@/components/focus/ControlButtons';
-import FloatingSettings from '@/components/focus/FloatingSettings';
+import FloatingSettings, { FocusSettingsList } from '@/components/focus/FloatingSettings';
+import FocusRing from '@/components/focus/FocusRing';
+import FocusSessionPanel from '@/components/focus/FocusSessionPanel';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
 import PageWorkspace from '@/components/layout/PageWorkspace';
 import { useUserSettings } from '@/hooks/use-user-settings';
 import { useTaskSource } from '@/hooks/use-task-source';
 import { useFocusTimer } from '@/contexts/focus-timer-context';
+import {
+  currentRound,
+  focusDisplayPhase,
+  phaseLengthMs,
+  phaseLengthToRemember,
+  phaseProgress,
+  type FocusDisplayPhase,
+  type RememberedPhase
+} from '@/lib/focus/focus-progress';
 
 /**
  * Deliberately narrower than the card hubs. This is a concentration screen, so
- * the timer stays centred and close to itself rather than spreading across the
- * desktop workspace.
+ * the timer stays centred and close to itself. On desktop the workspace widens
+ * only to fit the session panel beside the timer.
  */
-const WORKSPACE = 'max-w-2xl';
+const WORKSPACE = 'max-w-2xl lg:max-w-5xl';
+
+/**
+ * The current phase's exact length, as last learned on this page (see
+ * focus-progress). Module scope, so it survives leaving /focus and coming
+ * back; a refresh clears it, and the ring then relies on what the persisted
+ * state can prove. Display only: nothing reads it but the ring.
+ */
+let rememberedPhase: RememberedPhase | null = null;
+
+const PHASE_LABEL: Record<FocusDisplayPhase, string> = {
+  ready: 'Ready',
+  focus: 'Focus',
+  paused: 'Paused',
+  break: 'Break',
+  complete: 'Complete'
+};
 
 const Focus = () => {
   const navigate = useNavigate();
@@ -55,6 +82,29 @@ const Focus = () => {
   const focusTask = shownTaskId
     ? tasks.find((task) => task.id === shownTaskId) ?? null
     : null;
+  // Desktop ring. Derived from the timer's state for display; never written back.
+  const remember = phaseLengthToRemember(timer.state, rememberedPhase);
+  if (remember) rememberedPhase = remember;
+  const displayPhase = focusDisplayPhase(timer.state);
+  const ringProgress = phaseProgress(timer.state, timeLeft, phaseLengthMs(timer.state, rememberedPhase));
+  const round = currentRound(timer.state);
+  const isFinished = timer.state.finished;
+  const ringHint = (() => {
+    switch (displayPhase) {
+      case 'ready':
+        return flowsCompleted > 0 ? `Round ${round} is ready when you are` : 'Press play when you’re ready';
+      case 'focus':
+        return `Round ${round} of ${numberOfFlows}`;
+      case 'break':
+        return isPlaying ? 'Rest before the next round' : 'Your break is ready when you are';
+      case 'paused':
+        return 'Press play to carry on';
+      case 'complete':
+        return 'All rounds done';
+    }
+  })();
+  // What Play will do, for its accessible name.
+  const playLabel = ({ ready: 'Start timer', focus: 'Start timer', paused: 'Resume timer', break: 'Start break', complete: 'Start again' } as const)[displayPhase];
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
 
@@ -144,7 +194,8 @@ const Focus = () => {
       )}
 
       {/* Header */}
-      <PageWorkspace width={WORKSPACE} className="flex items-center justify-between py-4">
+      {/* Desktop: the title sits left beside the back arrow, the lock on the right. */}
+      <PageWorkspace width={WORKSPACE} className="flex items-center justify-between py-4 lg:justify-start lg:gap-3">
         <Button 
           variant="ghost" 
           size="icon" 
@@ -162,14 +213,15 @@ const Focus = () => {
           variant="ghost" 
           size="icon" 
           onClick={handleLockToggle}
-          className="h-11 w-11 rounded-full p-0 hover:bg-white/10 z-50"
+          className="h-11 w-11 rounded-full p-0 hover:bg-white/10 z-50 lg:ml-auto"
         >
           <Lock className="h-5 w-5 text-white" />
         </Button>
       </PageWorkspace>
 
-      {/* Flows Counter & Affirmation */}
-      <PageWorkspace width={WORKSPACE} className="mb-4">
+      {/* Flows Counter & Affirmation. Desktop shows the same information in
+          the ring, above it and in the session panel instead. */}
+      <PageWorkspace width={WORKSPACE} className="mb-4 lg:hidden">
         <div className="text-center">
           <div className="text-white/60 text-sm mb-1">
             {flowsCompleted}/{numberOfFlows}
@@ -198,14 +250,81 @@ const Focus = () => {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center pb-20 lg:pb-10">
-        <PageWorkspace width={WORKSPACE} className="flex flex-col items-center justify-center">
-          <TimerBox timeLeft={timeLeft} isBreak={currentPhase === 'break'} />
-          <ControlButtons
-            isPlaying={isPlaying}
-            onPlayPause={handlePlayPause}
-            onReset={handleReset}
-            disabled={isLocked}
-          />
+        {/* Desktop: the timer on the left, the session panel on the right. */}
+        <PageWorkspace
+          width={WORKSPACE}
+          className="flex flex-col items-center justify-center lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-center lg:gap-10"
+        >
+          {/* On phones `contents`, so the timer card and controls stay direct
+              children of the column exactly as before. */}
+          <div className="contents lg:flex lg:flex-col lg:items-center">
+            {focusTask && (
+              <div className="hidden lg:block mb-6 max-w-xl text-center">
+                <p className="text-white/50 text-sm">Working on</p>
+                <p className="mt-1 text-white text-xl font-medium break-words">{focusTask.title}</p>
+              </div>
+            )}
+            <FocusRing
+              timeLeft={timeLeft}
+              progress={ringProgress}
+              label={PHASE_LABEL[displayPhase]}
+              hint={ringHint}
+              isBreak={currentPhase === 'break' && !isFinished}
+              className="hidden lg:flex mb-10"
+            />
+            <TimerBox timeLeft={timeLeft} isBreak={currentPhase === 'break'} className="lg:hidden" />
+            <ControlButtons
+              isPlaying={isPlaying}
+              onPlayPause={handlePlayPause}
+              onReset={handleReset}
+              disabled={isLocked}
+              playLabel={playLabel}
+            />
+            {!isPlaying && !isFinished && showEncouragement && (
+              <p className="hidden lg:block text-white/60 text-sm">{getAffirmationMessage()}</p>
+            )}
+            {/* Completion, from the timer's own state. Nothing here says the
+                session was saved: the timer does not report that. */}
+            {isFinished && (
+              <div className="hidden lg:block w-full max-w-md rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-center">
+                <p className="text-white font-medium">Session complete</p>
+                <p className="mt-1 text-white/60 text-sm">
+                  {flowsCompleted} of {numberOfFlows} {numberOfFlows === 1 ? 'round' : 'rounds'} ·{' '}
+                  {Math.round(timer.state.focusMs / 60000)} min of focus
+                </p>
+                {mode === 'guest' ? (
+                  <p className="mt-3 text-white/40 text-xs">Guest sessions aren’t recorded.</p>
+                ) : (
+                  <Button variant="secondary" className="mt-4" onClick={() => navigate('/stats')}>
+                    View stats
+                  </Button>
+                )}
+                <p className="mt-3 text-white/40 text-xs">Press play to start a new session.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="hidden lg:block">
+            <FocusSessionPanel
+              round={round}
+              flows={numberOfFlows}
+              flowsCompleted={flowsCompleted}
+              focusMinutes={timeBoxDuration}
+              breakMinutes={intervalDuration}
+            >
+              {isLocked ? (
+                <p className="text-white/50 text-sm">Settings are locked while Focus Mode is on.</p>
+              ) : (
+                <FocusSettingsList
+                  className="space-y-2"
+                  timeBoxDuration={timeBoxDuration}
+                  intervalDuration={intervalDuration}
+                  numberOfFlows={numberOfFlows}
+                  onSettingChange={handleSettingChange}
+                />
+              )}
+            </FocusSessionPanel>
+          </div>
         </PageWorkspace>
       </main>
 

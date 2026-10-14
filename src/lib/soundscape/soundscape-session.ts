@@ -81,9 +81,10 @@ export function isMiniPlayerVisible(input: { signedIn: boolean; activated: boole
 }
 
 /**
- * Focus has its own floating settings button in the same corner, so there the
- * control sits immediately to its left, on the same row, clear of the panel
- * that opens upwards from it.
+ * Focus has its own floating settings button in the same corner on phones, so
+ * there the control sits immediately to its left, on the same row, clear of the
+ * panel that opens upwards from it. From lg the Focus settings are inline and
+ * the button is gone, so the control keeps its usual corner there.
  */
 export function miniPlayerPlacement(pathname: string): 'default' | 'beside-focus-settings' {
   return normalise(pathname) === '/focus' ? 'beside-focus-settings' : 'default';

@@ -34,7 +34,8 @@ const SoundscapeMiniPlayer = () => {
     : `Play ${selectedSound.name} soundscape`;
   const position =
     miniPlayerPlacement(pathname) === 'beside-focus-settings'
-      ? 'right-[4.75rem] lg:right-[5.75rem]'
+      ? // Phones only: from lg the Focus settings sit inline, with no gear to clear.
+        'right-[4.75rem] lg:right-8'
       : 'right-4 lg:right-8';
 
   return (

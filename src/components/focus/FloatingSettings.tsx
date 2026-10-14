@@ -12,13 +12,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-interface FloatingSettingsProps {
-  isOpen: boolean;
-  onToggle: () => void;
+interface FocusSettingsValues {
   timeBoxDuration: number;
   intervalDuration: number;
   numberOfFlows: number;
   onSettingChange: (setting: string, value: number) => void;
+}
+
+interface FloatingSettingsProps extends FocusSettingsValues {
+  isOpen: boolean;
+  onToggle: () => void;
 }
 
 /**
@@ -53,14 +56,19 @@ const CUSTOM_ENTRY: Partial<Record<string, { range: MinuteRange; label: string }
   interval: { range: CUSTOM_BREAK_MINUTES, label: 'Custom break minutes' }
 };
 
-const FloatingSettings = ({ 
-  isOpen, 
-  onToggle, 
-  timeBoxDuration, 
-  intervalDuration, 
-  numberOfFlows, 
-  onSettingChange 
-}: FloatingSettingsProps) => {
+/**
+ * The settings rows themselves: presets, Custom… and its validation. Shared by
+ * the phone's floating panel and the desktop session panel, so both change the
+ * timer through the same onSettingChange and hold no settings of their own —
+ * only the text being typed into a custom entry.
+ */
+export const FocusSettingsList = ({
+  timeBoxDuration,
+  intervalDuration,
+  numberOfFlows,
+  onSettingChange,
+  className
+}: FocusSettingsValues & { className: string }) => {
   // Manual entry: which setting is being typed, the text, and any problem with it.
   const [customFor, setCustomFor] = useState<string | null>(null);
   const [customText, setCustomText] = useState('');
@@ -113,98 +121,108 @@ const FloatingSettings = ({
   ];
 
   return (
-    <div className="fixed bottom-24 right-4 z-50 lg:bottom-10 lg:right-8">
-      {/* Settings Cards Stack */}
-      {isOpen && (
-        <div className="mb-2 space-y-2 animate-fade-in">
-          {settingsOptions.map((option, index) => {
-            const IconComponent = option.icon;
-            return (
-              <div
-                key={index}
-                className="bg-white/10 backdrop-blur-xl rounded-2xl px-4 py-3 shadow-lg border border-white/20 min-w-[260px]"
-              >
-                <div className="flex items-center gap-3">
-                  <IconComponent className="h-4 w-4 text-white flex-shrink-0" />
-                  <div className="flex-1">
-                    <span className="text-white text-sm font-medium">{option.label}</span>
-                  </div>
-                  <div className="text-white/80 text-sm min-w-[70px]">
-                    <Select
-                      value={option.setting === 'timeBox' ? timeBoxDuration.toString() :
-                             option.setting === 'interval' ? intervalDuration.toString() :
-                             numberOfFlows.toString()}
-                      onValueChange={(value) => {
-                        if (value === CUSTOM_OPTION) {
-                          openCustom(option.setting, option.setting === 'timeBox' ? timeBoxDuration : intervalDuration);
-                          return;
-                        }
-                        closeCustom();
-                        onSettingChange(option.setting, parseInt(value));
-                      }}
-                    >
-                      <SelectTrigger className="h-7 bg-white/10 border-white/20 text-white text-xs rounded-lg">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(option.options as number[]).map((opt) => (
-                          <SelectItem key={opt} value={opt.toString()}>
-                            {opt}{option.setting !== 'flows' ? ' min' : ''}
-                          </SelectItem>
-                        ))}
-                        {CUSTOM_ENTRY[option.setting] && <SelectItem value={CUSTOM_OPTION}>Custom…</SelectItem>}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                {customFor === option.setting && CUSTOM_ENTRY[option.setting] && (
-                  <form
-                    className="mt-3 flex items-start gap-2"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      applyCustom(option.setting);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Escape') closeCustom();
-                    }}
-                  >
-                    <div className="flex-1">
-                      <Input
-                        autoFocus
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={customText}
-                        onChange={(event) => {
-                          setCustomText(event.target.value);
-                          setCustomError(null);
-                        }}
-                        aria-label={`${CUSTOM_ENTRY[option.setting]!.label} (${CUSTOM_ENTRY[option.setting]!.range.min}–${CUSTOM_ENTRY[option.setting]!.range.max})`}
-                        aria-invalid={customError ? true : undefined}
-                        aria-describedby={customError ? `custom-${option.setting}-error` : undefined}
-                        className="h-9 bg-white/10 border-white/20 text-white text-sm rounded-lg"
-                      />
-                      {customError && (
-                        <p id={`custom-${option.setting}-error`} role="alert" className="mt-1 text-xs text-red-300">
-                          {customError}
-                        </p>
-                      )}
-                    </div>
-                    <span className="h-9 flex items-center text-white/70 text-xs">min</span>
-                    <Button type="submit" size="sm" className="h-9 rounded-lg">
-                      Set
-                    </Button>
-                  </form>
-                )}
+    <div className={className}>
+      {settingsOptions.map((option, index) => {
+        const IconComponent = option.icon;
+        return (
+          <div
+            key={index}
+            className="bg-white/10 backdrop-blur-xl rounded-2xl px-4 py-3 shadow-lg border border-white/20 min-w-[260px]"
+          >
+            <div className="flex items-center gap-3">
+              <IconComponent className="h-4 w-4 text-white flex-shrink-0" />
+              <div className="flex-1">
+                <span className="text-white text-sm font-medium">{option.label}</span>
               </div>
-            );
-          })}
-        </div>
-      )}
+              <div className="text-white/80 text-sm min-w-[70px]">
+                <Select
+                  value={option.setting === 'timeBox' ? timeBoxDuration.toString() :
+                         option.setting === 'interval' ? intervalDuration.toString() :
+                         numberOfFlows.toString()}
+                  onValueChange={(value) => {
+                    if (value === CUSTOM_OPTION) {
+                      openCustom(option.setting, option.setting === 'timeBox' ? timeBoxDuration : intervalDuration);
+                      return;
+                    }
+                    closeCustom();
+                    onSettingChange(option.setting, parseInt(value));
+                  }}
+                >
+                  <SelectTrigger className="h-7 bg-white/10 border-white/20 text-white text-xs rounded-lg">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(option.options as number[]).map((opt) => (
+                      <SelectItem key={opt} value={opt.toString()}>
+                        {opt}{option.setting !== 'flows' ? ' min' : ''}
+                      </SelectItem>
+                    ))}
+                    {CUSTOM_ENTRY[option.setting] && <SelectItem value={CUSTOM_OPTION}>Custom…</SelectItem>}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {customFor === option.setting && CUSTOM_ENTRY[option.setting] && (
+              <form
+                className="mt-3 flex items-start gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  applyCustom(option.setting);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') closeCustom();
+                }}
+              >
+                <div className="flex-1">
+                  <Input
+                    autoFocus
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={customText}
+                    onChange={(event) => {
+                      setCustomText(event.target.value);
+                      setCustomError(null);
+                    }}
+                    aria-label={`${CUSTOM_ENTRY[option.setting]!.label} (${CUSTOM_ENTRY[option.setting]!.range.min}–${CUSTOM_ENTRY[option.setting]!.range.max})`}
+                    aria-invalid={customError ? true : undefined}
+                    aria-describedby={customError ? `custom-${option.setting}-error` : undefined}
+                    className="h-9 bg-white/10 border-white/20 text-white text-sm rounded-lg"
+                  />
+                  {customError && (
+                    <p id={`custom-${option.setting}-error`} role="alert" className="mt-1 text-xs text-red-300">
+                      {customError}
+                    </p>
+                  )}
+                </div>
+                <span className="h-9 flex items-center text-white/70 text-xs">min</span>
+                <Button type="submit" size="sm" className="h-9 rounded-lg">
+                  Set
+                </Button>
+              </form>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+/**
+ * Phones: the gear in the corner and the panel that opens above it. From lg
+ * the same settings sit inline in the session panel instead, so this is hidden.
+ */
+const FloatingSettings = ({ isOpen, onToggle, ...values }: FloatingSettingsProps) => {
+  return (
+    <div className="fixed bottom-24 right-4 z-50 lg:bottom-10 lg:right-8 lg:hidden">
+      {/* Settings Cards Stack */}
+      {isOpen && <FocusSettingsList {...values} className="mb-2 space-y-2 animate-fade-in" />}
 
       {/* Floating Settings Button */}
       <Button
         onClick={onToggle}
+        aria-label="Timer settings"
+        aria-expanded={isOpen}
         className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 shadow-lg border border-white/20 backdrop-blur-xl transition-all duration-200 hover:scale-105"
       >
         <Settings className="h-5 w-5 text-white" />

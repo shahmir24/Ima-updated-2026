@@ -4,9 +4,10 @@ import React from 'react';
 interface TimerBoxProps {
   timeLeft: number; // in seconds
   isBreak?: boolean;
+  className?: string;
 }
 
-const TimerBox = ({ timeLeft, isBreak = false }: TimerBoxProps) => {
+const TimerBox = ({ timeLeft, isBreak = false, className = '' }: TimerBoxProps) => {
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -14,7 +15,7 @@ const TimerBox = ({ timeLeft, isBreak = false }: TimerBoxProps) => {
   };
 
   return (
-    <div className="relative mb-12 w-full max-w-sm sm:max-w-md">
+    <div className={`relative mb-12 w-full max-w-sm sm:max-w-md ${className}`}>
       <div className={`bg-white/5 backdrop-blur-xl border border-white/20 rounded-3xl p-8 sm:p-12 shadow-2xl ${
         isBreak ? 'ring-2 ring-orange-300/20' : ''
       }`}>
