@@ -154,15 +154,6 @@ export function describeTime(time: string | null): string {
   return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
 }
 
-/** Half-hour choices, plus the draft's own time if it is off the grid. */
-export function timeOptions(current: string | null): string[] {
-  const options: string[] = [];
-  for (let h = 0; h < 24; h++) for (const m of [0, 30]) options.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
-  const clock = toClockTime(current);
-  if (clock && !options.includes(clock)) options.push(clock);
-  return options.sort();
-}
-
 // ---------------------------------------------------------------------------
 // Review state
 // ---------------------------------------------------------------------------
@@ -253,7 +244,8 @@ export function captureReducer(state: CaptureState, action: CaptureAction): Capt
         checkDate: false
       }));
     case 'time':
-      return editDraft(state, action.key, (draft) => ({ ...draft, time: draft.date === null ? null : action.time, checkDate: false }));
+      // Any exact minute; anything that is not a clock time is "no time", never a guess.
+      return editDraft(state, action.key, (draft) => ({ ...draft, time: draft.date === null ? null : toClockTime(action.time), checkDate: false }));
     case 'remove': {
       const { [action.key]: _cleared, ...invalid } = state.invalid;
       return { ...state, invalid, drafts: state.drafts.filter((draft) => draft.key !== action.key) };

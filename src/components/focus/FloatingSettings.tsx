@@ -1,7 +1,9 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Settings, Clock, Timer, BarChart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { CUSTOM_BREAK_MINUTES, CUSTOM_FOCUS_MINUTES, parseWholeMinutes, type MinuteRange } from '@/lib/focus/custom-duration';
 import {
   Select,
   SelectContent,
@@ -42,6 +44,15 @@ const FLOW_OPTIONS = [1, 2, 3, 4];
 const withCurrent = (options: number[], current: number) =>
   options.includes(current) ? options : [...options, current].sort((a, b) => a - b);
 
+/** The Select value that opens manual entry instead of choosing a preset. */
+export const CUSTOM_OPTION = 'custom';
+
+/** Which settings take a typed value, and within which range. */
+const CUSTOM_ENTRY: Partial<Record<string, { range: MinuteRange; label: string }>> = {
+  timeBox: { range: CUSTOM_FOCUS_MINUTES, label: 'Custom focus minutes' },
+  interval: { range: CUSTOM_BREAK_MINUTES, label: 'Custom break minutes' }
+};
+
 const FloatingSettings = ({ 
   isOpen, 
   onToggle, 
@@ -50,6 +61,33 @@ const FloatingSettings = ({
   numberOfFlows, 
   onSettingChange 
 }: FloatingSettingsProps) => {
+  // Manual entry: which setting is being typed, the text, and any problem with it.
+  const [customFor, setCustomFor] = useState<string | null>(null);
+  const [customText, setCustomText] = useState('');
+  const [customError, setCustomError] = useState<string | null>(null);
+
+  const openCustom = (setting: string, current: number) => {
+    setCustomFor(setting);
+    setCustomText(String(current));
+    setCustomError(null);
+  };
+  const closeCustom = () => {
+    setCustomFor(null);
+    setCustomError(null);
+  };
+  const applyCustom = (setting: string) => {
+    const entry = CUSTOM_ENTRY[setting];
+    if (!entry) return;
+    const parsed = parseWholeMinutes(customText, entry.range);
+    if ('message' in parsed) {
+      // Nothing changes until the value is valid.
+      setCustomError(parsed.message);
+      return;
+    }
+    onSettingChange(setting, parsed.value);
+    closeCustom();
+  };
+
   const settingsOptions = [
     { 
       icon: Clock, 
@@ -96,7 +134,14 @@ const FloatingSettings = ({
                       value={option.setting === 'timeBox' ? timeBoxDuration.toString() :
                              option.setting === 'interval' ? intervalDuration.toString() :
                              numberOfFlows.toString()}
-                      onValueChange={(value) => onSettingChange(option.setting, parseInt(value))}
+                      onValueChange={(value) => {
+                        if (value === CUSTOM_OPTION) {
+                          openCustom(option.setting, option.setting === 'timeBox' ? timeBoxDuration : intervalDuration);
+                          return;
+                        }
+                        closeCustom();
+                        onSettingChange(option.setting, parseInt(value));
+                      }}
                     >
                       <SelectTrigger className="h-7 bg-white/10 border-white/20 text-white text-xs rounded-lg">
                         <SelectValue />
@@ -107,10 +152,50 @@ const FloatingSettings = ({
                             {opt}{option.setting !== 'flows' ? ' min' : ''}
                           </SelectItem>
                         ))}
+                        {CUSTOM_ENTRY[option.setting] && <SelectItem value={CUSTOM_OPTION}>Custom…</SelectItem>}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
+                {customFor === option.setting && CUSTOM_ENTRY[option.setting] && (
+                  <form
+                    className="mt-3 flex items-start gap-2"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      applyCustom(option.setting);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Escape') closeCustom();
+                    }}
+                  >
+                    <div className="flex-1">
+                      <Input
+                        autoFocus
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={customText}
+                        onChange={(event) => {
+                          setCustomText(event.target.value);
+                          setCustomError(null);
+                        }}
+                        aria-label={`${CUSTOM_ENTRY[option.setting]!.label} (${CUSTOM_ENTRY[option.setting]!.range.min}–${CUSTOM_ENTRY[option.setting]!.range.max})`}
+                        aria-invalid={customError ? true : undefined}
+                        aria-describedby={customError ? `custom-${option.setting}-error` : undefined}
+                        className="h-9 bg-white/10 border-white/20 text-white text-sm rounded-lg"
+                      />
+                      {customError && (
+                        <p id={`custom-${option.setting}-error`} role="alert" className="mt-1 text-xs text-red-300">
+                          {customError}
+                        </p>
+                      )}
+                    </div>
+                    <span className="h-9 flex items-center text-white/70 text-xs">min</span>
+                    <Button type="submit" size="sm" className="h-9 rounded-lg">
+                      Set
+                    </Button>
+                  </form>
+                )}
               </div>
             );
           })}

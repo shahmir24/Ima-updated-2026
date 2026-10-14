@@ -297,12 +297,31 @@ export function resetFocusTimer(state: FocusTimerState, now: number): FocusTimer
 }
 
 /** The settings panel. Same rules as before: a stopped phase is re-timed, a running one is not. */
+/**
+ * The values each setting may hold — the same ranges as the user_settings
+ * CHECKs (focus_block_minutes 1–240, buffer_minutes 0–60, default_flows 1–12),
+ * in whole numbers. Presets, saved settings and custom entries all pass through
+ * this, so the timer can never hold a value the schema would reject.
+ */
+export const FOCUS_SETTING_RANGES: Readonly<Record<FocusSetting, { min: number; max: number }>> = Object.freeze({
+  timeBox: { min: 1, max: 240 },
+  interval: { min: 0, max: 60 },
+  flows: { min: 1, max: 12 }
+});
+
+export function isValidFocusSetting(setting: FocusSetting, value: unknown): value is number {
+  const range = FOCUS_SETTING_RANGES[setting];
+  return typeof value === 'number' && Number.isInteger(value) && value >= range.min && value <= range.max;
+}
+
 export function changeFocusTimerSetting(
   state: FocusTimerState,
   now: number,
   setting: FocusSetting,
   value: number
 ): FocusTimerTransition {
+  // Out of range, fractional or not a number: nothing changes at all.
+  if (!isValidFocusSetting(setting, value)) return { state, events: [] };
   const reconciled = reconcileFocusTimer(state, now);
   let next = { ...reconciled.state, lastActionAt: now };
   const running = isRunning(next);
@@ -348,7 +367,9 @@ export function parseFocusTimerState(value: unknown): FocusTimerState | null {
   const c = s.config as Record<string, unknown> | null | undefined;
   if (s.version !== FOCUS_TIMER_STATE_VERSION) return null;
   if (!c || typeof c !== 'object' || !isNum(c.blockMinutes) || !isNum(c.breakMinutes) || !isNum(c.flows)) return null;
-  if (c.blockMinutes <= 0 || c.breakMinutes < 0 || c.flows < 1) return null;
+  if (!isValidFocusSetting('timeBox', c.blockMinutes) || !isValidFocusSetting('interval', c.breakMinutes) || !isValidFocusSetting('flows', c.flows)) {
+    return null;
+  }
   if (s.phase !== 'focus' && s.phase !== 'break') return null;
   if (!isNum(s.remainingMs) || !isNumOrNull(s.phaseEndsAt) || !isNumOrNull(s.runningSince)) return null;
   if ((s.phaseEndsAt === null) !== (s.runningSince === null)) return null;

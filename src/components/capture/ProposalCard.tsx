@@ -4,13 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import TimeField from '@/components/time/TimeField';
 import { cn } from '@/lib/utils';
 import type { TaskImportance } from '@/hooks/use-tasks';
 import { ORGANIZE_LIMITS } from '@/lib/ai/organize-contract';
-import { CAPTURE_COPY, describeDraftDate, describeTime, timeOptions, type CaptureDraft } from '@/lib/capture/drafts';
+import { CAPTURE_COPY, describeDraftDate, describeTime, type CaptureDraft } from '@/lib/capture/drafts';
 
-const NO_TIME = '__none__';
 const IMPORTANCE: ReadonlyArray<{ value: TaskImportance; label: string }> = [
   { value: 'low', label: 'Low' },
   { value: 'normal', label: 'Normal' },
@@ -98,20 +97,22 @@ const ProposalCard = ({ draft, today, error, disabled, importanceQuestionId, onT
 
         {/* Time: only once there is a date. */}
         {draft.date !== null && (
-          <Select value={draft.time ?? NO_TIME} onValueChange={(value) => onTime(value === NO_TIME ? null : value)} disabled={disabled}>
-            <SelectTrigger className="h-11 w-auto gap-2 rounded-full border-white/20 px-4" aria-label={`${CAPTURE_COPY.timeLabel}: ${describeTime(draft.time)}`}>
-              <Clock className="h-4 w-4" aria-hidden="true" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="max-h-60">
-              <SelectItem value={NO_TIME}>{CAPTURE_COPY.noTime}</SelectItem>
-              {timeOptions(draft.time).map((time) => (
-                <SelectItem key={time} value={time}>
-                  {describeTime(time)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          // Any minute. The AI's proposed time is shown as proposed; empty means no time.
+          <div className="flex items-center gap-1">
+            <Clock className="h-4 w-4 text-white/70" aria-hidden="true" />
+            <TimeField
+              value={draft.time}
+              onChange={onTime}
+              label={`${CAPTURE_COPY.timeLabel}: ${describeTime(draft.time)}`}
+              disabled={disabled}
+              className="rounded-full border-white/20 px-4"
+            />
+            {draft.time !== null && (
+              <Button type="button" variant="ghost" size="sm" className="h-11 rounded-full px-3" onClick={() => onTime(null)} disabled={disabled}>
+                {CAPTURE_COPY.noTime}
+              </Button>
+            )}
+          </div>
         )}
 
         {draft.checkDate && (

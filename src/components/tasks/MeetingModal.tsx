@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import TimeField from '@/components/time/TimeField';
+import { buildTaskFormInput } from '@/lib/tasks/task-form-input';
 import { format, parse } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { TaskImportance, TaskRow } from '@/hooks/use-tasks';
@@ -29,14 +30,6 @@ interface MeetingModalProps {
   onSubmit: (input: TaskFormInput) => Promise<void>;
   isSaving?: boolean;
 }
-
-/**
- * The time picker's "no particular time" entry.
- *
- * A sentinel rather than an empty string because Radix's Select rejects an
- * item whose value is '' — it reserves that for "nothing selected".
- */
-const NO_TIME = '__none__';
 
 const IMPORTANCE_OPTIONS: ReadonlyArray<{ value: TaskImportance; label: string }> = [
   { value: 'low', label: 'Low' },
@@ -64,7 +57,7 @@ const initialDate = (task: TaskRow | null): Date | null =>
   task && task.scheduled_date === null ? null : parseScheduledDate(task?.scheduled_date);
 
 /**
- * Postgres `time` reads back as 'HH:MM:SS'; the Select's values are 'HH:MM'.
+ * Postgres `time` reads back as 'HH:MM:SS'; the time field works in 'HH:MM'.
  *
  * Null stays null. A task with no start time now keeps no start time: the form
  * used to substitute 2 PM here, which meant every task carried a time nobody
@@ -103,14 +96,7 @@ const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false
 
     setSaveError(null);
     try {
-      await onSubmit({
-        title,
-        // Local date, not toISOString(): that converts to UTC and can shift the
-        // task to the previous or next day depending on the timezone.
-        scheduled_date: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null,
-        start_time: selectedTime,
-        importance
-      });
+      await onSubmit(buildTaskFormInput({ title, date: selectedDate, time: selectedTime, importance }));
       // Reset only after a confirmed write, so a failure keeps the input. An
       // edit keeps its values instead: the caller remounts the form per task.
       if (!isEditing) {
@@ -134,26 +120,6 @@ const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false
       hour12: true 
     });
   };
-
-  const timeOptions = [];
-  for (let hour = 0; hour < 24; hour++) {
-    for (let minute = 0; minute < 60; minute += 30) {
-      const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-      const displayTime = new Date(2024, 0, 1, hour, minute).toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit',
-        hour12: true 
-      });
-      timeOptions.push({ value: timeString, label: displayTime });
-    }
-  }
-
-  // An existing row can hold a time off the 30-minute grid. Offer it rather
-  // than letting the Select render blank against a value it cannot find.
-  if (selectedTime !== null && !timeOptions.some((option) => option.value === selectedTime)) {
-    timeOptions.push({ value: selectedTime, label: formatDisplayTime(selectedTime) });
-    timeOptions.sort((a, b) => (a.value < b.value ? -1 : 1));
-  }
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end">
@@ -228,7 +194,9 @@ const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false
                       variant="ghost"
                       className="h-11 w-full rounded-xl"
                       onClick={() => {
+                        // Later means no day, and so no time either.
                         setSelectedDate(null);
+                        setSelectedTime(null);
                         setShowDatePicker(false);
                       }}
                     >
@@ -242,13 +210,18 @@ const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false
 
           {/* Time Selection */}
           <div className="bg-secondary/30 rounded-2xl p-4">
-            <Popover open={showTimePicker} onOpenChange={setShowTimePicker}>
+            {/* A time needs a day: with no date ("Later") the row explains and stays shut. */}
+            <Popover open={showTimePicker && selectedDate !== null} onOpenChange={(open) => setShowTimePicker(open && selectedDate !== null)}>
               <PopoverTrigger asChild>
                 <div className="flex items-center justify-between cursor-pointer">
                   <div>
                     <h3 className="text-white font-semibold text-lg mb-1">Time</h3>
                     <p className="text-white/80">
-                      {selectedTime === null ? 'No time set' : formatDisplayTime(selectedTime)}
+                      {selectedDate === null
+                        ? 'Choose a day to add a time'
+                        : selectedTime === null
+                          ? 'No time set'
+                          : formatDisplayTime(selectedTime)}
                     </p>
                   </div>
                   <ChevronRight className="h-5 w-5 text-white/60" />
@@ -257,26 +230,24 @@ const MeetingModal = ({ isOpen, onClose, task = null, onSubmit, isSaving = false
               <PopoverContent className="w-80 p-0" align="center">
                 <div className="p-4">
                   <h4 className="font-medium mb-3">Select Time</h4>
-                  <Select
-                    value={selectedTime ?? NO_TIME}
-                    onValueChange={(value) => {
-                      setSelectedTime(value === NO_TIME ? null : value);
-                      setShowTimePicker(false);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-60">
-                      {/* First, so a task can be left untimed without scrolling. */}
-                      <SelectItem value={NO_TIME}>No time</SelectItem>
-                      {timeOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {/* Any minute of the day. Empty or half-typed is "no time". */}
+                  <TimeField value={selectedTime} onChange={setSelectedTime} label="Start time" className="w-full" />
+                  <div className="mt-3 flex gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-11 flex-1 rounded-xl"
+                      onClick={() => {
+                        setSelectedTime(null);
+                        setShowTimePicker(false);
+                      }}
+                    >
+                      No time
+                    </Button>
+                    <Button type="button" className="h-11 flex-1 rounded-xl" onClick={() => setShowTimePicker(false)}>
+                      Done
+                    </Button>
+                  </div>
                 </div>
               </PopoverContent>
             </Popover>
