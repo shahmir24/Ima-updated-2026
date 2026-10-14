@@ -72,6 +72,18 @@ interface SessionWrapUp {
 const FALLBACK_BLOCK_MINUTES = 25;
 const FALLBACK_BREAK_MINUTES = 5;
 
+/**
+ * Desktop (lg and up) layout. Phones keep the single narrow column exactly as
+ * it was; every class below is lg-only. Each screen's title row also gets
+ * `lg:justify-start` (and hides its balancing spacer), so on desktop the
+ * title sits left, beside the back arrow, in line with the workspace.
+ */
+const DESKTOP_SETUP_WIDTH = 'lg:max-w-4xl';
+const DESKTOP_SESSION_WIDTH = 'lg:max-w-5xl';
+const DESKTOP_WRAPUP_WIDTH = 'lg:max-w-3xl';
+/** A quiet panel around a desktop column. */
+const DESKTOP_PANEL = 'lg:rounded-3xl lg:border lg:border-white/10 lg:bg-white/[0.03] lg:p-6';
+
 const moods = [
   { name: 'calm', icon: '😌', color: 'from-blue-400 to-blue-600' },
   { name: 'anxious', icon: '😰', color: 'from-yellow-400 to-orange-500' },
@@ -568,7 +580,7 @@ const BodyDouble = () => {
     return (
       <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
         {/* Header */}
-        <header className="w-full max-w-lg mx-auto p-4 flex items-center justify-between">
+        <header className={`w-full max-w-lg mx-auto p-4 flex items-center justify-between lg:justify-start lg:gap-3 ${DESKTOP_SETUP_WIDTH}`}>
           <Button
             variant="ghost"
             size="icon"
@@ -580,25 +592,30 @@ const BodyDouble = () => {
 
           <h1 className="text-2xl font-bold text-white">BodyDouble</h1>
 
-          <div className="w-10"></div>
+          <div className="w-10 lg:hidden"></div>
         </header>
 
-        {/* Welcome Content */}
-        <main className="flex-1 w-full max-w-lg mx-auto px-4 flex flex-col items-center justify-center space-y-8">
-          <div className="text-center space-y-4">
-            <div className="w-20 h-20 mx-auto bg-purple-500/20 rounded-full flex items-center justify-center">
-              <Heart className="h-10 w-10 text-purple-300" />
+        {/* Welcome Content. Desktop: a compact greeting across the top, then
+            how you're arriving (mood, reason) on the left and what we'll do
+            (task, timer, start) on the right. */}
+        <main className={`flex-1 w-full max-w-lg mx-auto px-4 flex flex-col items-center justify-center space-y-8 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:content-start lg:items-start lg:gap-x-10 lg:gap-y-8 lg:space-y-0 lg:pt-2 ${DESKTOP_SETUP_WIDTH}`}>
+          <div className="text-center space-y-4 lg:col-span-2 lg:flex lg:items-center lg:gap-5 lg:space-y-0 lg:text-left">
+            <div className="w-20 h-20 mx-auto bg-purple-500/20 rounded-full flex items-center justify-center lg:mx-0 lg:h-14 lg:w-14 lg:shrink-0">
+              <Heart className="h-10 w-10 text-purple-300 lg:h-7 lg:w-7" />
             </div>
-            <h2 className="text-2xl font-bold text-white">Hey, what's on your mind today?</h2>
-            <p className="text-white/80 text-lg leading-relaxed">
-              Let's set the vibe and get you focused ✨
-            </p>
+            <div className="space-y-4 lg:space-y-1">
+              <h2 className="text-2xl font-bold text-white">Hey, what's on your mind today?</h2>
+              <p className="text-white/80 text-lg leading-relaxed lg:text-base">
+                Let's set the vibe and get you focused ✨
+              </p>
+            </div>
           </div>
 
+          <div className="w-full space-y-8">
           {/* Mood Selector */}
           <div className="w-full space-y-4">
-            <p className="text-white/80 text-center">How are you feeling?</p>
-            <div className="flex justify-center gap-3 flex-wrap">
+            <p className="text-white/80 text-center lg:text-left">How are you feeling?</p>
+            <div className="flex justify-center gap-3 flex-wrap lg:justify-start">
               {moods.map((mood) => (
                 <button
                   key={mood.name}
@@ -619,7 +636,7 @@ const BodyDouble = () => {
 
           {/* Start Options */}
           <div className="w-full space-y-3">
-            <p className="text-white/80 text-center">What brings you here?</p>
+            <p className="text-white/80 text-center lg:text-left">What brings you here?</p>
             {startOptions.map((option) => {
               const IconComponent = option.icon;
               return (
@@ -641,10 +658,11 @@ const BodyDouble = () => {
               );
             })}
           </div>
+          </div>
 
           {/* Task Input */}
-          {session.startType && (
-            <div className="w-full space-y-3 animate-fade-in">
+          {session.startType ? (
+            <div className={`w-full space-y-3 animate-fade-in ${DESKTOP_PANEL}`}>
               {/* The user's own unfinished tasks, when this screen has them and
                   the user has not chosen to type something else instead. iMA
                   already knows this list; making them retype a task they
@@ -748,6 +766,13 @@ const BodyDouble = () => {
                 </Button>
               </div>
             </div>
+          ) : (
+            // Desktop only: the right column says what will appear there, so
+            // it is not an unexplained empty half of the screen. Phones show
+            // nothing here, as before.
+            <div className={`hidden lg:block text-white/50 text-sm ${DESKTOP_PANEL}`}>
+              Pick what brings you here. Then you can choose a task and how I keep you company.
+            </div>
           )}
         </main>
 
@@ -763,7 +788,7 @@ const BodyDouble = () => {
     return (
       <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
         {/* Header */}
-        <header className="w-full max-w-lg mx-auto p-4 flex items-center justify-between">
+        <header className={`w-full max-w-lg mx-auto p-4 flex items-center justify-between lg:justify-start lg:gap-3 ${DESKTOP_WRAPUP_WIDTH}`}>
           <Button
             variant="ghost"
             size="icon"
@@ -775,11 +800,12 @@ const BodyDouble = () => {
 
           <h1 className="text-lg font-bold text-white">Session Complete</h1>
 
-          <div className="w-10"></div>
+          <div className="w-10 lg:hidden"></div>
         </header>
 
-        {/* Wrap-up Content */}
-        <main className="flex-1 w-full max-w-lg mx-auto px-4 space-y-6">
+        {/* Wrap-up Content. Desktop: one wider card, the two questions side
+            by side, and the three actions in a row. */}
+        <main className={`flex-1 w-full max-w-lg mx-auto px-4 space-y-6 lg:flex-none ${DESKTOP_WRAPUP_WIDTH} ${DESKTOP_PANEL}`}>
           <div className="text-center space-y-4">
             <div className="w-16 h-16 mx-auto bg-green-500/20 rounded-full flex items-center justify-center">
               <CheckCircle className="h-8 w-8 text-green-300" />
@@ -797,7 +823,7 @@ const BodyDouble = () => {
           </div>
 
           {/* Reflection Questions */}
-          <div className="space-y-4">
+          <div className="space-y-4 lg:grid lg:grid-cols-2 lg:gap-x-6 lg:gap-y-5 lg:space-y-0">
             <div>
               <label className="block text-white/80 text-sm mb-2">What went well?</label>
               <Input
@@ -819,7 +845,7 @@ const BodyDouble = () => {
             </div>
 
             {/* End Mood */}
-            <div>
+            <div className="lg:col-span-2">
               <label className="block text-white/80 text-sm mb-2">How do you feel now?</label>
               <div className="flex justify-center gap-3">
                 {moods.map((mood) => (
@@ -841,8 +867,9 @@ const BodyDouble = () => {
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="space-y-3">
+          {/* Action Buttons. Desktop: Save, Start Another and Return to Home
+              in one row, in that order, with the note under them. */}
+          <div className="space-y-3 lg:grid lg:grid-cols-3 lg:gap-3 lg:space-y-0">
             <Button
               className="w-full bg-purple-500 hover:bg-purple-600 text-white"
               onClick={handleSaveReflection}
@@ -855,7 +882,7 @@ const BodyDouble = () => {
                   ? 'Saving…'
                   : 'Save Reflection'}
             </Button>
-            <p className="text-white/40 text-xs text-center">
+            <p className="text-white/40 text-xs text-center lg:order-last lg:col-span-3">
               Saved with this session, and to your journal if you have written something.
             </p>
 
@@ -889,9 +916,16 @@ const BodyDouble = () => {
     // The mobile bar is fixed over this screen too, so it needs the same
     // allowance as the welcome and wrap-up screens.
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
+      {/* Desktop: a two-pane workspace — the timer and the session on the
+          left, the support panel on the right. Both panes stick to the top
+          while the page scrolls, so the timer stays in view as check-ins
+          build up, and neither pane scrolls on its own. On phones this
+          wrapper is just the column the header and support area always sat
+          in. */}
+      <div className={`flex flex-1 flex-col lg:mx-auto lg:grid lg:w-full lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-8 lg:px-8 lg:pt-4 ${DESKTOP_SESSION_WIDTH}`}>
       {/* Header with Timer */}
-      <header className="w-full max-w-lg mx-auto p-4">
-        <div className="flex items-center justify-between mb-4">
+      <header className="w-full max-w-lg mx-auto p-4 lg:sticky lg:top-6 lg:mx-0 lg:max-w-none lg:p-0">
+        <div className="flex items-center justify-between mb-4 lg:justify-start lg:gap-3">
           <Button
             variant="ghost"
             size="icon"
@@ -903,46 +937,55 @@ const BodyDouble = () => {
 
           <h1 className="text-lg font-bold text-white">BodyDouble Session</h1>
 
-          <div className="w-10"></div>
+          <div className="w-10 lg:hidden"></div>
         </div>
 
         {/* Animated Timer Display */}
-        <div className="bg-[#1F1F1F] rounded-3xl p-6 text-center relative overflow-hidden">
+        {/* Desktop: a 256px ring with only the time and phase inside it;
+            the task, next step and controls sit below the ring instead of
+            across it. On phones the small ring stays behind the text. */}
+        <div className="bg-[#1F1F1F] rounded-3xl p-6 text-center relative overflow-hidden lg:p-10">
           {/* Animated Ring Background */}
-          <div className="absolute inset-0 flex items-center justify-center">
+          <div className="absolute inset-0 flex items-center justify-center lg:bottom-auto lg:top-10">
             <div
-              className="w-32 h-32 rounded-full border-4 border-purple-500/20"
+              className="w-32 h-32 rounded-full border-4 border-purple-500/20 lg:relative lg:h-64 lg:w-64"
               style={{
                 background:
                   timerMode === 'untimed'
                     ? undefined
                     : `conic-gradient(from 0deg, #a855f7 ${progressPercentage * 3.6}deg, transparent ${progressPercentage * 3.6}deg)`
               }}
-            />
+            >
+              {/* Desktop: hollows the progress disc into a ring, so the time
+                  inside it sits on the card colour, not on the fill. */}
+              <div className="hidden lg:block absolute inset-2 rounded-full bg-[#1F1F1F]" />
+            </div>
           </div>
 
           <div className="relative z-10">
-            <div className="text-4xl font-bold text-white mb-2">
-              {formatTime(timerMode === 'untimed' ? session.focusSeconds : session.timeRemaining)}
+            <div className="lg:flex lg:h-64 lg:flex-col lg:items-center lg:justify-center">
+              <div className="text-4xl font-bold text-white mb-2 lg:text-6xl lg:tabular-nums lg:mb-3">
+                {formatTime(timerMode === 'untimed' ? session.focusSeconds : session.timeRemaining)}
+              </div>
+              <p className="text-white/60 text-sm mb-1 lg:text-base lg:mb-0">
+                {timerMode === 'untimed'
+                  ? 'Here with you'
+                  : `${session.phase === 'work' ? 'Focus Time' : 'Break Time'} • Block ${session.cycles + 1}`}
+              </p>
             </div>
-            <p className="text-white/60 text-sm mb-1">
-              {timerMode === 'untimed'
-                ? 'Here with you'
-                : `${session.phase === 'work' ? 'Focus Time' : 'Break Time'} • Block ${session.cycles + 1}`}
-            </p>
             {taskContext && (
-              <p className="text-purple-300 text-sm">
+              <p className="text-purple-300 text-sm lg:mt-6 lg:text-base">
                 Working on: {taskContext}
               </p>
             )}
             {nextStep && (
-              <p className="text-white/70 text-xs mt-1">
+              <p className="text-white/70 text-xs mt-1 lg:mt-2 lg:text-sm lg:text-white/80">
                 Next step: {nextStep}
               </p>
             )}
 
             <div
-              className={`flex items-center justify-center space-x-4 mt-4 ${
+              className={`flex items-center justify-center space-x-4 mt-4 lg:mt-6 ${
                 timerMode === 'untimed' ? 'hidden' : ''
               }`}
             >
@@ -971,11 +1014,11 @@ const BodyDouble = () => {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-3 mt-4">
+        <div className="flex gap-3 mt-4 lg:mt-6">
           <Button
             onClick={openSupport}
             variant="outline"
-            className="flex-1 border-orange-400/50 text-orange-300 hover:bg-orange-500/20"
+            className="flex-1 border-orange-400/50 text-orange-300 hover:bg-orange-500/20 lg:h-12"
           >
             <LifeBuoy className="h-4 w-4 mr-2" />
             I'm stuck
@@ -983,29 +1026,38 @@ const BodyDouble = () => {
 
           <Button
             onClick={handleSessionComplete}
-            className="flex-1 bg-green-500/20 hover:bg-green-500/30 border border-green-400/50 text-green-300"
+            className="flex-1 bg-green-500/20 hover:bg-green-500/30 border border-green-400/50 text-green-300 lg:h-12"
           >
             I'm done
           </Button>
         </div>
-      </header>
 
-      {/* Floating nudge */}
-      {showNudge && (
-        <div className="absolute top-1/3 left-4 right-4 z-50 animate-fade-in">
-          <Card className="bg-purple-500/10 border border-purple-400/30 p-4 backdrop-blur-sm">
-            <div className="flex items-center gap-3">
-              <Heart className="h-5 w-5 text-purple-300" />
-              <p className="text-white text-sm">{nudgeText}</p>
-            </div>
-          </Card>
-        </div>
-      )}
+        {/* Desktop only, and informational only: the sidebar stays clickable
+            during a session, and leaving the page ends it. */}
+        <p className="hidden lg:block text-white/40 text-xs text-center mt-4">
+          Leaving this page ends your co-working session.
+        </p>
+
+        {/* Floating nudge. On phones it is placed against the screen, as it
+            always was. On desktop the sticky header above is its containing
+            block, so it appears just below the session controls, inside the
+            left pane — never over the sidebar or the controls. */}
+        {showNudge && (
+          <div className="absolute top-1/3 left-4 right-4 z-50 animate-fade-in lg:left-0 lg:right-0 lg:top-full lg:mt-4">
+            <Card className="bg-purple-500/10 border border-purple-400/30 p-4 backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                <Heart className="h-5 w-5 text-purple-300" />
+                <p className="text-white text-sm">{nudgeText}</p>
+              </div>
+            </Card>
+          </div>
+        )}
+      </header>
 
       {/* Support area — timed nudges, session status, and help the user asks
           for. Deliberately not a chat: there is nothing here that could
           understand a typed message yet. */}
-      <main className="flex-1 w-full max-w-lg mx-auto px-4 pb-8">
+      <main className={`flex-1 w-full max-w-lg mx-auto px-4 pb-8 lg:sticky lg:top-6 lg:mx-0 lg:max-w-none ${DESKTOP_PANEL}`}>
         <div className="flex items-center gap-2 mb-1">
           <Heart className="h-4 w-4 text-purple-300" />
           <h2 className="text-purple-300 text-sm font-medium">Support</h2>
@@ -1040,6 +1092,7 @@ const BodyDouble = () => {
           </p>
         )}
       </main>
+      </div>
 
       {/* Support dialog */}
       <Dialog
