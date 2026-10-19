@@ -115,8 +115,10 @@ const SleepSwitch = () => {
 
       <main className="flex-1 max-w-lg w-full mx-auto px-4 flex flex-col items-center justify-center space-y-8">
         {/* Stars background — positions fixed once, so they do not jump on
-            every re-render of the running timer. */}
-        <div className="absolute inset-0 overflow-hidden">
+            every re-render of the running timer. Purely decorative: it covers
+            the whole screen, header included, so it must not take clicks —
+            it used to sit on top of the Back button and swallow every tap. */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
           {stars.map((star, i) => (
             <div
               key={i}

@@ -5,11 +5,19 @@ import { ArrowLeft, Play, Pause, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import WellnessHeader from '@/components/wellness/WellnessHeader';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import { waveStep, WAVE_START_HEIGHT, type WaveDirection } from '@/lib/ride-the-wave';
+
+/**
+ * One half of the wave. Same look as before — full width, a pointer and a
+ * faint hover while the exercise runs — and inert, with no hover, until then.
+ */
+const ZONE =
+  'block w-full flex-1 cursor-pointer hover:bg-white/5 transition-colors disabled:cursor-default disabled:hover:bg-transparent';
 
 const RideTheWave = () => {
   const navigate = useNavigate();
   const [isActive, setIsActive] = useState(false);
-  const [waveHeight, setWaveHeight] = useState(50);
+  const [waveHeight, setWaveHeight] = useState(WAVE_START_HEIGHT);
   const [breathPhase, setBreathPhase] = useState('neutral'); // 'inhale', 'exhale', 'neutral'
   const [cycles, setCycles] = useState(0);
   const [waveOffset, setWaveOffset] = useState(0);
@@ -32,31 +40,33 @@ const RideTheWave = () => {
     };
   }, [isActive]);
 
-  const handleWaveInteraction = (direction: 'up' | 'down') => {
-    if (direction === 'up') {
-      setBreathPhase('inhale');
-      setWaveHeight(Math.min(120, waveHeight + 10));
-    } else {
-      setBreathPhase('exhale');
-      setWaveHeight(Math.max(20, waveHeight - 15));
-      if (waveHeight <= 30) {
-        setCycles(prev => prev + 1);
-      }
+  // One breath input. Called only from the zones' onClick, which a mouse
+  // click, a touch tap and Enter/Space each fire exactly once. The zones used
+  // to listen to touchstart AND mousedown, and a tap fires both, so one touch
+  // moved the wave twice and could count a cycle twice.
+  const handleWaveInteraction = (direction: WaveDirection) => {
+    // Nothing responds until the exercise is started.
+    if (!isActive) return;
+    const step = waveStep(waveHeight, direction);
+    setBreathPhase(direction === 'up' ? 'inhale' : 'exhale');
+    setWaveHeight(step.height);
+    if (step.completesCycle) {
+      setCycles(prev => prev + 1);
     }
-    
+
     setTimeout(() => setBreathPhase('neutral'), 500);
   };
 
   const toggleBreathing = () => {
     setIsActive(!isActive);
     if (!isActive) {
-      setWaveHeight(50);
+      setWaveHeight(WAVE_START_HEIGHT);
     }
   };
 
   const resetBreathing = () => {
     setIsActive(false);
-    setWaveHeight(50);
+    setWaveHeight(WAVE_START_HEIGHT);
     setBreathPhase('neutral');
     setCycles(0);
     setWaveOffset(0);
@@ -118,30 +128,38 @@ const RideTheWave = () => {
             />
           </svg>
           
-          {/* Interaction overlay */}
+          {/* Interaction overlay: the top half breathes in, the bottom half
+              breathes out. Real buttons, so a keyboard can do the same with
+              Tab and Enter or Space; disabled until the wave is started. */}
           <div className="absolute inset-0 flex flex-col">
-            <div 
-              className="flex-1 cursor-pointer hover:bg-white/5 transition-colors"
-              onMouseDown={() => handleWaveInteraction('up')}
-              onTouchStart={() => handleWaveInteraction('up')}
+            <button
+              type="button"
+              onClick={() => handleWaveInteraction('up')}
+              disabled={!isActive}
+              aria-label="Breathe in: raise the wave"
+              aria-describedby="ride-the-wave-how"
+              className={`${ZONE} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-200`}
             >
-              <div className="h-full flex items-center justify-center">
-                <div className={`text-white/60 text-sm transition-opacity ${breathPhase === 'inhale' ? 'opacity-100' : 'opacity-0'}`}>
+              <span className="h-full flex items-center justify-center" aria-hidden="true">
+                <span className={`text-white/60 text-sm transition-opacity ${breathPhase === 'inhale' ? 'opacity-100' : 'opacity-0'}`}>
                   Inhale ↑
-                </div>
-              </div>
-            </div>
-            <div 
-              className="flex-1 cursor-pointer hover:bg-white/5 transition-colors"
-              onMouseDown={() => handleWaveInteraction('down')}
-              onTouchStart={() => handleWaveInteraction('down')}
+                </span>
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleWaveInteraction('down')}
+              disabled={!isActive}
+              aria-label="Breathe out: lower the wave"
+              aria-describedby="ride-the-wave-how"
+              className={`${ZONE} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-200`}
             >
-              <div className="h-full flex items-center justify-center">
-                <div className={`text-white/60 text-sm transition-opacity ${breathPhase === 'exhale' ? 'opacity-100' : 'opacity-0'}`}>
+              <span className="h-full flex items-center justify-center" aria-hidden="true">
+                <span className={`text-white/60 text-sm transition-opacity ${breathPhase === 'exhale' ? 'opacity-100' : 'opacity-0'}`}>
                   Exhale ↓
-                </div>
-              </div>
-            </div>
+                </span>
+              </span>
+            </button>
           </div>
         </div>
 
@@ -153,7 +171,7 @@ const RideTheWave = () => {
           <p className="text-white/60 text-sm">
             Just let the wave move through you.
           </p>
-          <div className="text-white/60 text-sm">
+          <div className="text-white/60 text-sm" aria-live="polite" aria-atomic="true">
             Breath cycles: {cycles}
           </div>
         </div>
@@ -187,6 +205,12 @@ const RideTheWave = () => {
           <p className="text-white/70 text-sm">
             Touch the upper half of the wave to inhale, lower half to exhale. 
             Or just watch and breathe naturally. There's no wrong way.
+          </p>
+          {/* For screen readers and keyboards: the same instruction in terms
+              of the two buttons over the wave. */}
+          <p id="ride-the-wave-how" className="sr-only">
+            Start the wave first. Then use Breathe in to raise the wave and Breathe out to lower it,
+            with a tap, a click, or Enter or Space. Breathing out while the wave is low completes a cycle.
           </p>
         </div>
       </main>

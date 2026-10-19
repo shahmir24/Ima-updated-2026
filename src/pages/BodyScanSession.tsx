@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pause, Play, SkipForward, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { speaksCompletionLine } from '@/lib/body-scan-voice';
 import { Progress } from '@/components/ui/progress';
 import VoiceToggle from '@/components/wellness/VoiceToggle';
 import { useUserSettings } from '@/hooks/use-user-settings';
@@ -118,10 +119,12 @@ const BodyScanSession = () => {
     speak(stepKey, currentInstruction);
   }, [isPlaying, showCompletion, stepKey, currentInstruction, speak]);
 
+  // Silent when the end was reached by skipping without playing; see
+  // speaksCompletionLine.
   useEffect(() => {
-    if (!showCompletion) return;
+    if (!speaksCompletionLine({ showCompletion, isPlaying })) return;
     speak('complete', COMPLETION_LINE);
-  }, [showCompletion, speak]);
+  }, [showCompletion, isPlaying, speak]);
 
   const handleNext = () => {
     // Drop the instruction being read before moving on, so the outgoing step

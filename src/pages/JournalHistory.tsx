@@ -6,20 +6,8 @@ import PageHeader from '@/components/layout/PageHeader';
 import PageWorkspace from '@/components/layout/PageWorkspace';
 import { useJournalHistory, JOURNAL_HISTORY_LIMIT, type JournalEntryRow } from '@/hooks/use-journal';
 import { journalTypeTitle, readJournalAnswers } from '@/lib/journal-types';
-
-/**
- * Supabase rejects with a PostgrestError — a plain object with a `message`,
- * not an Error instance — so `instanceof Error` alone would silently swallow
- * the only useful part of a failure.
- */
-function errorMessage(cause: unknown): string | null {
-  if (cause instanceof Error) return cause.message;
-  if (cause && typeof cause === 'object' && 'message' in cause) {
-    const message = (cause as { message: unknown }).message;
-    if (typeof message === 'string' && message.trim()) return message;
-  }
-  return null;
-}
+import { friendlyJournalHistoryError } from '@/lib/friendly-errors';
+import { Button } from '@/components/ui/button';
 
 /**
  * The user's own locale and timezone, not the server's. A journal entry is
@@ -40,7 +28,7 @@ function formatWrittenAt(createdAt: string): string {
 const WORKSPACE = 'max-w-4xl';
 
 const JournalHistory = () => {
-  const { data: entries, isFetched, isError, error } = useJournalHistory();
+  const { data: entries, isFetched, isError, isFetching, error, refetch } = useJournalHistory();
 
   // One open entry at a time: the list is the point, and it keeps the screen
   // from turning into a wall of text.
@@ -109,12 +97,20 @@ const JournalHistory = () => {
     }
 
     if (isError) {
+      // Fixed wording only — never the database's own text — and a way to
+      // try again without leaving the page.
       return (
-        <div className="bg-secondary/40 rounded-3xl p-6 text-center">
+        <div role="alert" className="bg-secondary/40 rounded-3xl p-6 text-center">
           <p className="text-white/90 text-sm mb-2">We couldn’t load your entries.</p>
-          <p className="text-white/50 text-xs">
-            {errorMessage(error) ?? 'Please try again in a moment.'}
-          </p>
+          <p className="text-white/50 text-xs">{friendlyJournalHistoryError(error)}</p>
+          <Button
+            variant="secondary"
+            className="mt-4"
+            disabled={isFetching}
+            onClick={() => void refetch()}
+          >
+            {isFetching ? 'Trying again…' : 'Try again'}
+          </Button>
         </div>
       );
     }

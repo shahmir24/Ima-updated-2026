@@ -3,6 +3,7 @@ import React from 'react';
 import { BarChart3, CheckCircle2, CircleSlash, Percent } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import PageWorkspace from '@/components/layout/PageWorkspace';
+import BottomNavigation from '@/components/productivity/BottomNavigation';
 import { Button } from '@/components/ui/button';
 import { useFocusStats } from '@/hooks/use-focus-stats';
 import type { FocusStatsGroup, FocusStatsSummary } from '@/lib/focus/focus-stats';
@@ -104,7 +105,9 @@ const Stats = () => {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground">
+    // pb-20 keeps the last card clear of the phone bottom bar; the bar is
+    // lg:hidden, so desktop keeps its spacing exactly as it was.
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-0">
       <PageHeader title="Statistics" backPath="/productivity" width={WORKSPACE} />
 
       {/* Main Content */}
@@ -113,6 +116,8 @@ const Stats = () => {
           {content}
         </PageWorkspace>
       </main>
+
+      <BottomNavigation />
     </div>
   );
 };

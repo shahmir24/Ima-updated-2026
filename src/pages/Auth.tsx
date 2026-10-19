@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
+import { friendlyAuthError } from '@/lib/friendly-errors';
 import { getEmailRedirectTo, consumeAuthCallbackError } from '@/lib/auth-redirect';
 import { opensOnSignUp } from '@/lib/auth-entry';
 import { useToast } from '@/hooks/use-toast';
@@ -130,21 +131,12 @@ const Auth = () => {
           description: "You're successfully signed in."
         });
       }
-    } catch (error: any) {
-      let errorMessage = error.message;
-      
-      // Handle common auth errors with user-friendly messages
-      if (error.message.includes('Invalid login credentials')) {
-        errorMessage = "Invalid email or password. Please check your credentials and try again.";
-      } else if (error.message.includes('User already registered')) {
-        errorMessage = "An account with this email already exists. Please sign in instead.";
-      } else if (error.message.includes('Email not confirmed')) {
-        errorMessage = "Please check your email and click the confirmation link before signing in.";
-      }
-      
+    } catch (error) {
+      // Fixed wording only — never the server's own text. What was typed
+      // stays in the form, so the user can correct it and try again.
       toast({
         title: "Authentication Error",
-        description: errorMessage,
+        description: friendlyAuthError(error),
         variant: "destructive"
       });
     } finally {

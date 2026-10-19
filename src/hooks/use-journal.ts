@@ -145,6 +145,9 @@ export function useTodayJournalEntry(entryType: JournalType) {
   });
 }
 
+export const JOURNAL_HISTORY_RETRIES = 1;
+export const JOURNAL_HISTORY_RETRY_DELAY_MS = 1000;
+
 /**
  * Every journal entry the signed-in user has written, newest first, capped at
  * JOURNAL_HISTORY_LIMIT.
@@ -161,6 +164,11 @@ export function useJournalHistory() {
   return useQuery({
     queryKey: historyKey(userId),
     enabled: !!userId,
+    // One retry a second later, then the error and its Try again button —
+    // not React Query's default three retries with backoff (about 7 seconds
+    // of "Loading"). Reads only; saving is untouched.
+    retry: JOURNAL_HISTORY_RETRIES,
+    retryDelay: JOURNAL_HISTORY_RETRY_DELAY_MS,
     queryFn: async (): Promise<JournalEntryRow[]> => {
       const { data, error } = await supabase
         .from('journal_entries')

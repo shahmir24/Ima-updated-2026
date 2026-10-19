@@ -6,6 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
+import { friendlyOnboardingError } from '@/lib/friendly-errors';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -206,11 +207,13 @@ const Onboarding = () => {
       });
 
       return true;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error saving onboarding data:', error);
+      // Fixed wording only — never the database's own text. The answers stay
+      // in state and the user stays on this step, so Complete can be retried.
       toast({
         title: "Something went wrong",
-        description: error.message || "Failed to save your responses. Please try again.",
+        description: friendlyOnboardingError(error),
         variant: "destructive"
       });
       return false;
