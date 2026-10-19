@@ -73,6 +73,10 @@ const SteadySquare = () => {
     setCycles(0);
   };
 
+  // Read-only, for the play button's name: nothing moves before the first
+  // Play and Reset puts everything back, so any movement means paused, not new.
+  const hasStarted = isActive || phase !== 0 || count !== 4 || cycles > 0;
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
       <WellnessHeader title="Steady Square" backPath="/breathing" />
@@ -123,6 +127,7 @@ const SteadySquare = () => {
         <div className="flex items-center space-x-6">
           <Button
             onClick={toggleBreathing}
+            aria-label={isActive ? 'Pause Steady Square' : hasStarted ? 'Resume Steady Square' : 'Start Steady Square'}
             className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/50"
           >
             {isActive ? (
@@ -134,6 +139,7 @@ const SteadySquare = () => {
           
           <Button
             onClick={resetBreathing}
+            aria-label="Reset Steady Square"
             variant="ghost"
             className="w-12 h-12 rounded-full hover:bg-white/10"
           >

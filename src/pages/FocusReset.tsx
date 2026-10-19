@@ -138,6 +138,7 @@ const FocusReset = () => {
               <>
                 <Button
                   onClick={pauseResume}
+                  aria-label={isActive ? 'Pause Focus Reset' : 'Resume Focus Reset'}
                   variant="outline"
                   className="rounded-2xl px-6 py-3"
                 >
@@ -145,6 +146,7 @@ const FocusReset = () => {
                 </Button>
                 <Button
                   onClick={restart}
+                  aria-label="Restart Focus Reset"
                   variant="outline"
                   className="rounded-2xl px-6 py-3"
                 >

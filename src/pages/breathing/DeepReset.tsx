@@ -85,6 +85,10 @@ const DeepReset = () => {
     setRipple(false);
   };
 
+  // Read-only, for the play button's name: nothing moves before the first
+  // Play and Reset puts everything back, so any movement means paused, not new.
+  const hasStarted = isActive || phase !== 0 || count !== phaseCounts[0] || cycles > 0;
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
       <WellnessHeader title="Deep Reset" backPath="/breathing" />
@@ -143,6 +147,7 @@ const DeepReset = () => {
         <div className="flex items-center space-x-6">
           <Button
             onClick={toggleBreathing}
+            aria-label={isActive ? 'Pause Deep Reset' : hasStarted ? 'Resume Deep Reset' : 'Start Deep Reset'}
             className="w-16 h-16 rounded-full bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-400/50"
           >
             {isActive ? (
@@ -154,6 +159,7 @@ const DeepReset = () => {
           
           <Button
             onClick={resetBreathing}
+            aria-label="Reset Deep Reset"
             variant="ghost"
             className="w-12 h-12 rounded-full hover:bg-white/10"
           >

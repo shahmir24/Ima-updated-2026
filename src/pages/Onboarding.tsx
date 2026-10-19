@@ -339,7 +339,8 @@ const Onboarding = () => {
       {/* Question content */}
       <div className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="max-w-md w-full space-y-8">
-          <h2 className="text-2xl font-bold text-center leading-relaxed">
+          {/* The question is also the label of the free-text answer below. */}
+          <h2 id="onboarding-question" className="text-2xl font-bold text-center leading-relaxed">
             {currentQuestion.title}
           </h2>
 
@@ -382,6 +383,7 @@ const Onboarding = () => {
 
             {currentQuestion.type === 'text' && (
               <Textarea
+                aria-labelledby="onboarding-question"
                 placeholder={currentQuestion.placeholder}
                 value={data[currentQuestion.field as keyof OnboardingData] as string}
                 onChange={(e) => handleTextChange(currentQuestion.field, e.target.value)}

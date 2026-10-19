@@ -1,6 +1,7 @@
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { MENU_CARD_FOCUS } from '@/components/layout/menu-card';
 import { Wind, Timer, Zap, Moon, Heart } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
@@ -70,12 +71,6 @@ const breathingOptions: BreathingOption[] = [
 const WORKSPACE = 'max-w-5xl';
 
 const BreathingMenu = () => {
-  const navigate = useNavigate();
-
-  const handleOptionClick = (route: string) => {
-    navigate(route);
-  };
-
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
       <PageHeader title="Pick Your Rhythm" backPath="/wellness" width={WORKSPACE} />
@@ -93,10 +88,10 @@ const BreathingMenu = () => {
 
           <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
             {breathingOptions.map((option, index) => (
-            <div
+            <Link
               key={option.id}
-              onClick={() => handleOptionClick(option.route)}
-              className="bg-secondary/40 rounded-3xl p-4 sm:p-6 hover:bg-secondary/60 transition-all duration-300 cursor-pointer card-hover animate-fade-in"
+              to={option.route}
+              className={`block bg-secondary/40 rounded-3xl p-4 sm:p-6 hover:bg-secondary/60 transition-all duration-300 cursor-pointer card-hover animate-fade-in ${MENU_CARD_FOCUS}`}
               style={{ animationDelay: `${index * 0.1}s` }}
             >
               <div className="flex items-start space-x-3 sm:space-x-4">
@@ -126,7 +121,7 @@ const BreathingMenu = () => {
                   )}
                 </div>
               </div>
-            </div>
+            </Link>
             ))}
           </div>
 

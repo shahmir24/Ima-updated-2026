@@ -105,6 +105,10 @@ const SleepSwitch = () => {
     []
   );
 
+  // Read-only, for the play button's name: nothing moves before the first
+  // Play and Reset puts everything back, so any movement means paused, not new.
+  const hasStarted = isActive || phase !== 0 || count !== phaseCounts[0] || cycles > 0;
+
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-b from-indigo-900 via-purple-900 to-indigo-800 text-foreground pb-20 lg:pb-10">
       <WellnessHeader title="Sleep Switch" backPath="/breathing" />
@@ -165,6 +169,7 @@ const SleepSwitch = () => {
         <div className="flex items-center space-x-6 z-10">
           <Button
             onClick={toggleBreathing}
+            aria-label={isActive ? 'Pause Sleep Switch' : hasStarted ? 'Resume Sleep Switch' : 'Start Sleep Switch'}
             className="w-16 h-16 rounded-full bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/50"
           >
             {isActive ? (
@@ -176,6 +181,7 @@ const SleepSwitch = () => {
           
           <Button
             onClick={resetBreathing}
+            aria-label="Reset Sleep Switch"
             variant="ghost"
             className="w-12 h-12 rounded-full hover:bg-white/10"
           >

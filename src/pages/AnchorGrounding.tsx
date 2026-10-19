@@ -53,6 +53,10 @@ const AnchorGrounding = () => {
     setCycles(0);
   };
 
+  // Read-only, for the play button's name: nothing moves before the first
+  // Play and Reset puts everything back, so any movement means paused, not new.
+  const hasStarted = isActive || currentStep !== 0 || cycles > 0;
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
       <WellnessHeader title="Anchor Grounding" backPath={backPath} />
@@ -97,6 +101,7 @@ const AnchorGrounding = () => {
         <div className="flex items-center space-x-6">
           <Button
             onClick={toggleExercise}
+            aria-label={isActive ? 'Pause Anchor Grounding' : hasStarted ? 'Resume Anchor Grounding' : 'Start Anchor Grounding'}
             className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-green-500/20 hover:bg-green-500/30 border border-green-400/50"
           >
             {isActive ? (
@@ -108,6 +113,7 @@ const AnchorGrounding = () => {
           
           <Button
             onClick={resetExercise}
+            aria-label="Reset Anchor Grounding"
             variant="ghost"
             className="w-10 h-10 sm:w-12 sm:h-12 rounded-full hover:bg-white/10"
           >

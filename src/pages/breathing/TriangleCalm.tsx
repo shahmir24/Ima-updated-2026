@@ -91,6 +91,10 @@ const TriangleCalm = () => {
     setScale(1);
   };
 
+  // Read-only, for the play button's name: nothing moves before the first
+  // Play and Reset puts everything back, so any movement means paused, not new.
+  const hasStarted = isActive || phase !== 0 || count !== phaseCounts[0] || cycles > 0;
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
       <WellnessHeader title="Triangle Calm" backPath="/breathing" />
@@ -146,6 +150,7 @@ const TriangleCalm = () => {
         <div className="flex items-center space-x-6">
           <Button
             onClick={toggleBreathing}
+            aria-label={isActive ? 'Pause Triangle Calm' : hasStarted ? 'Resume Triangle Calm' : 'Start Triangle Calm'}
             className="w-16 h-16 rounded-full bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/50"
           >
             {isActive ? (
@@ -157,6 +162,7 @@ const TriangleCalm = () => {
           
           <Button
             onClick={resetBreathing}
+            aria-label="Reset Triangle Calm"
             variant="ghost"
             className="w-12 h-12 rounded-full hover:bg-white/10"
           >

@@ -216,6 +216,7 @@ const BodyScanSession = () => {
           variant="ghost" 
           size="icon" 
           onClick={handleExit}
+          aria-label="Exit body scan"
           className="h-10 w-10 rounded-full p-0 hover:bg-white/10"
         >
           <X className="h-6 w-6 text-white" />

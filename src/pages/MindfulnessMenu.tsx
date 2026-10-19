@@ -1,5 +1,6 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { MENU_CARD_FOCUS } from '@/components/layout/menu-card';
 import { Heart, Scan, Footprints } from 'lucide-react';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
 import PageHeader from '@/components/layout/PageHeader';
@@ -44,13 +45,6 @@ const mindfulnessOptions: MindfulnessOption[] = [
 const WORKSPACE = 'max-w-4xl';
 
 const MindfulnessMenu = () => {
-  const navigate = useNavigate();
-
-  const handleOptionClick = (route: string) => {
-    console.log(`Navigating to ${route}`);
-    navigate(route);
-  };
-
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
       <PageHeader title="Mindfulness" backPath="/wellness" width={WORKSPACE} />
@@ -60,10 +54,10 @@ const MindfulnessMenu = () => {
           {/* Three destinations: stacked on a phone, paired once there is room. */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {mindfulnessOptions.map((option, index) => (
-            <div
+            <Link
               key={option.id}
-              onClick={() => handleOptionClick(option.route)}
-              className="bg-secondary/40 rounded-3xl p-6 hover:bg-secondary/60 transition-all duration-300 cursor-pointer card-hover animate-fade-in"
+              to={option.route}
+              className={`block bg-secondary/40 rounded-3xl p-6 hover:bg-secondary/60 transition-all duration-300 cursor-pointer card-hover animate-fade-in ${MENU_CARD_FOCUS}`}
               style={{ animationDelay: `${index * 0.1}s` }}
             >
               <div className="flex items-center space-x-4">
@@ -80,7 +74,7 @@ const MindfulnessMenu = () => {
                   </svg>
                 </div>
               </div>
-            </div>
+            </Link>
             ))}
           </div>
 

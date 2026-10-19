@@ -1,5 +1,6 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { MENU_CARD_FOCUS } from '@/components/layout/menu-card';
 import { Timer, Volume2, BarChart3, CheckSquare, Sparkles, Heart } from 'lucide-react';
 
 interface ToolCard {
@@ -67,19 +68,13 @@ interface ToolCardsGridProps {
 }
 
 export const ToolCardsGrid: React.FC<ToolCardsGridProps> = ({ filteredTools }) => {
-  const navigate = useNavigate();
-
-  const handleToolClick = (route: string) => {
-    navigate(route);
-  };
-
   return (
     <div className="grid grid-cols-2 gap-4 mb-6 md:grid-cols-3 lg:gap-6">
       {filteredTools.map((tool, index) => (
-        <div
+        <Link
           key={tool.id}
-          onClick={() => handleToolClick(tool.route)}
-          className="bg-[#1F1F1F] rounded-3xl p-4 sm:p-6 aspect-square md:aspect-auto md:min-h-[12rem] flex flex-col justify-start hover:scale-105 transition-transform duration-200 cursor-pointer"
+          to={tool.route}
+          className={`bg-[#1F1F1F] rounded-3xl p-4 sm:p-6 aspect-square md:aspect-auto md:min-h-[12rem] flex flex-col justify-start hover:scale-105 transition-transform duration-200 cursor-pointer ${MENU_CARD_FOCUS}`}
           style={{ animationDelay: `${index * 0.1}s` }}
         >
           <div className="flex items-center gap-2 sm:gap-3 mb-2">
@@ -93,7 +88,7 @@ export const ToolCardsGrid: React.FC<ToolCardsGridProps> = ({ filteredTools }) =
             </h3>
             <p className="text-white/70 responsive-body leading-relaxed">{tool.description}</p>
           </div>
-        </div>
+        </Link>
       ))}
     </div>
   );

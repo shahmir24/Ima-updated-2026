@@ -1,6 +1,7 @@
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { MENU_CARD_FOCUS } from '@/components/layout/menu-card';
 import { Brain, BookOpen, Heart, Target, Sparkles, Sun, History } from 'lucide-react';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
 import PageHeader from '@/components/layout/PageHeader';
@@ -69,13 +70,6 @@ const journalingOptions: JournalingOption[] = [
 const WORKSPACE = 'max-w-5xl';
 
 const JournalingMenu = () => {
-  const navigate = useNavigate();
-
-  const handleOptionClick = (route: string) => {
-    console.log(`Navigating to ${route}`);
-    navigate(route);
-  };
-
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
       <PageHeader title="Journaling" backPath="/wellness" width={WORKSPACE} />
@@ -85,10 +79,10 @@ const JournalingMenu = () => {
           {/* The six prompts: one per row on a phone, paired from tablet up. */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {journalingOptions.map((option, index) => (
-              <div
+              <Link
                 key={option.id}
-                onClick={() => handleOptionClick(option.route)}
-                className="bg-secondary/40 rounded-3xl p-6 hover:bg-secondary/60 transition-all duration-300 cursor-pointer card-hover animate-fade-in"
+                to={option.route}
+                className={`block bg-secondary/40 rounded-3xl p-6 hover:bg-secondary/60 transition-all duration-300 cursor-pointer card-hover animate-fade-in ${MENU_CARD_FOCUS}`}
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <div className="flex items-center space-x-4">
@@ -105,16 +99,15 @@ const JournalingMenu = () => {
                     </svg>
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
 
           {/* Not one of the six options: it opens what has already been written
               rather than starting something new, so it sits apart from them. */}
-          <button
-            type="button"
-            onClick={() => handleOptionClick('/journaling/history')}
-            className="w-full text-left bg-secondary/40 rounded-3xl p-6 hover:bg-secondary/60 transition-all duration-300 card-hover animate-fade-in"
+          <Link
+            to="/journaling/history"
+            className={`block w-full text-left bg-secondary/40 rounded-3xl p-6 hover:bg-secondary/60 transition-all duration-300 card-hover animate-fade-in ${MENU_CARD_FOCUS}`}
             style={{ animationDelay: '0.6s' }}
           >
             <div className="flex items-center space-x-4">
@@ -131,7 +124,7 @@ const JournalingMenu = () => {
                 </svg>
               </div>
             </div>
-          </button>
+          </Link>
 
           <div className="mt-8 lg:mx-auto lg:max-w-3xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-3xl p-6">
             <div className="text-center">

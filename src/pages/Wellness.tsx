@@ -1,6 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { MENU_CARD_FOCUS } from '@/components/layout/menu-card';
 import { Heart, CircleDot, BookOpen, Shield } from 'lucide-react';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
 import PageHeader from '@/components/layout/PageHeader';
@@ -63,12 +64,7 @@ const wellnessOptions: WellnessOption[] = [
 const WORKSPACE = 'max-w-6xl';
 
 const Wellness = () => {
-  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-
-  const handleOptionClick = (route: string) => {
-    navigate(route);
-  };
 
   const query = searchTerm.trim().toLowerCase();
 
@@ -104,12 +100,12 @@ const Wellness = () => {
               Productivity grid, then one row across the wide desktop workspace. */}
           <div className="mb-6 grid grid-cols-2 gap-4 lg:gap-6 xl:grid-cols-4">
             {wellnessOptions.map((option, index) => (
-              <div
+              <Link
                 key={option.id}
-                onClick={() => handleOptionClick(option.route)}
+                to={option.route}
                 className={`bg-[#1F1F1F] rounded-3xl p-4 sm:p-6 aspect-square md:aspect-auto md:min-h-[12rem] flex flex-col justify-start hover:scale-105 transition-transform duration-200 cursor-pointer ${
                   matchingIds.has(option.id) ? '' : 'max-lg:hidden'
-                }`}
+                } ${MENU_CARD_FOCUS}`}
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <div className="flex items-center gap-2 sm:gap-3 mb-2">
@@ -123,7 +119,7 @@ const Wellness = () => {
                   </h3>
                   <p className="text-white/70 responsive-body leading-relaxed">{option.description}</p>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
 

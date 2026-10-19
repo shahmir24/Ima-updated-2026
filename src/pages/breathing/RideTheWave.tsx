@@ -162,6 +162,7 @@ const RideTheWave = () => {
         <div className="flex items-center space-x-6">
           <Button
             onClick={toggleBreathing}
+            aria-label={isActive ? 'Pause the wave' : 'Start the wave'}
             className="w-16 h-16 rounded-full bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/50"
           >
             {isActive ? (
@@ -173,6 +174,7 @@ const RideTheWave = () => {
           
           <Button
             onClick={resetBreathing}
+            aria-label="Reset Ride the Wave"
             variant="ghost"
             className="w-12 h-12 rounded-full hover:bg-white/10"
           >

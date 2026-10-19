@@ -135,6 +135,7 @@ const BreathSyncWalk = () => {
               <div className="flex justify-center space-x-4">
                 <Button
                   onClick={togglePause}
+                  aria-label={isActive ? 'Pause walking' : 'Resume walking'}
                   variant="outline"
                   className="rounded-xl px-6"
                 >
@@ -182,6 +183,7 @@ const BreathSyncWalk = () => {
               <div className="flex justify-center space-x-4">
                 <Button
                   onClick={togglePause}
+                  aria-label={isActive ? 'Pause walking' : 'Resume walking'}
                   variant="outline"
                   className="rounded-xl px-6"
                 >
