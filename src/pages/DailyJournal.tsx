@@ -1,12 +1,8 @@
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Save } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import WellnessHeader from '@/components/wellness/WellnessHeader';
-import BottomNavigation from '@/components/productivity/BottomNavigation';
+import { BookOpen } from 'lucide-react';
+import JournalPageLayout, { JournalSaveButton } from '@/components/journal/JournalPageLayout';
+import { JournalPrompt, JournalPromptGroup } from '@/components/journal/JournalPrompt';
 import { useJournalEntryForm } from '@/hooks/use-journal';
 
 const DailyJournal = () => {
@@ -24,69 +20,51 @@ const DailyJournal = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
-      <WellnessHeader title="Where Am I, Really?" backPath="/wellness" />
-
-      <main className="flex-1 max-w-lg w-full mx-auto px-4 space-y-6">
-        <Card className="bg-secondary/40 border-0">
-          <CardHeader className="text-center">
-            <div className="w-16 h-16 rounded-2xl bg-blue-500/20 flex items-center justify-center mx-auto mb-4">
-              <BookOpen className="h-8 w-8 text-blue-300" />
-            </div>
-            <CardTitle className="text-white text-xl">Daily Check-In</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="text-white/80 space-y-3 text-center">
-              <p>"Hey. Let's check in — just you and you."</p>
-              <p className="text-sm">No pressure to be deep. No need to impress.</p>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="text-white/90 text-sm block mb-2">✍️ What's on your mind right now?</label>
-                <Textarea
-                  value={onMind}
-                  onChange={(e) => journal.setValue('onMind', e.target.value)}
-                  placeholder="Whatever's floating around in your head..."
-                  className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50 min-h-[120px]"
-                />
-              </div>
-
-              <div>
-                <label className="text-white/90 text-sm block mb-2">✍️ How's your energy — physically, emotionally, mentally?</label>
-                <Textarea
-                  value={energy}
-                  onChange={(e) => journal.setValue('energy', e.target.value)}
-                  placeholder="Check in with your energy levels..."
-                  className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50 min-h-[120px]"
-                />
-              </div>
-
-              <div>
-                <label className="text-white/90 text-sm block mb-2">✍️ Is there anything you want to let go of, or lean into?</label>
-                <Textarea
-                  value={letGoLeanIn}
-                  onChange={(e) => journal.setValue('letGoLeanIn', e.target.value)}
-                  placeholder="What needs releasing or embracing..."
-                  className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50 min-h-[120px]"
-                />
-              </div>
-            </div>
-
-            <Button
-              onClick={handleSave}
-              disabled={journal.isBusy}
-              className="w-full h-12 bg-blue-500 hover:bg-blue-600 text-white"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              {journal.isSaving ? 'Saving…' : 'Save Entry'}
-            </Button>
-          </CardContent>
-        </Card>
-      </main>
-
-      <BottomNavigation />
-    </div>
+    <JournalPageLayout
+      title="Where Am I, Really?"
+      backPath="/wellness"
+      backLabel="Back to Wellness"
+      icon={BookOpen}
+      iconTile="bg-blue-500/20"
+      iconColor="text-blue-300"
+      cardTitle="Daily Check-In"
+      intro={
+        <>
+          <p>"Hey. Let's check in — just you and you."</p>
+          <p className="text-sm">No pressure to be deep. No need to impress.</p>
+        </>
+      }
+      action={
+        <JournalSaveButton
+          tone="blue"
+          onClick={handleSave}
+          disabled={journal.isBusy}
+          saving={journal.isSaving}
+          label="Save Entry"
+        />
+      }
+    >
+      <JournalPromptGroup>
+        <JournalPrompt
+          label="What's on your mind right now?"
+          value={onMind}
+          onChange={(value) => journal.setValue('onMind', value)}
+          placeholder="Whatever's floating around in your head..."
+        />
+        <JournalPrompt
+          label="How's your energy — physically, emotionally, mentally?"
+          value={energy}
+          onChange={(value) => journal.setValue('energy', value)}
+          placeholder="Check in with your energy levels..."
+        />
+        <JournalPrompt
+          label="Is there anything you want to let go of, or lean into?"
+          value={letGoLeanIn}
+          onChange={(value) => journal.setValue('letGoLeanIn', value)}
+          placeholder="What needs releasing or embracing..."
+        />
+      </JournalPromptGroup>
+    </JournalPageLayout>
   );
 };
 
