@@ -4,6 +4,7 @@ import { ArrowLeft, Save, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
+import type { JournalNotice } from '@/hooks/use-journal';
 
 /**
  * The shared frame of the six journal screens.
@@ -47,6 +48,10 @@ interface JournalPageLayoutProps {
   width?: JournalWidth;
   /** Spacing between the card's sections, as each screen always had it. */
   contentSpacing?: 'space-y-4' | 'space-y-6';
+  /** Today's entry is still being looked up: says so above the questions. */
+  loading?: boolean;
+  /** What happened when loading or saving, shown above the questions. */
+  notice?: JournalNotice | null;
   /** The questions, then any closing line. */
   children: React.ReactNode;
   action: React.ReactNode;
@@ -63,6 +68,8 @@ const JournalPageLayout = ({
   intro,
   width = 'standard',
   contentSpacing = 'space-y-6',
+  loading = false,
+  notice = null,
   children,
   action
 }: JournalPageLayoutProps) => {
@@ -99,6 +106,24 @@ const JournalPageLayout = ({
           </CardHeader>
           <CardContent className={contentSpacing}>
             <div className="text-white/80 space-y-3 text-center lg:text-left">{intro}</div>
+            {/* Shown only while there is something to say, so a loaded screen
+                looks exactly as it always has. */}
+            {loading ? (
+              <p role="status" aria-live="polite" className="text-white/70 text-sm text-center lg:text-left">
+                Loading today’s entry…
+              </p>
+            ) : notice ? (
+              <p
+                role={notice.tone === 'error' ? 'alert' : 'status'}
+                className={`rounded-xl border px-4 py-3 text-sm ${
+                  notice.tone === 'error'
+                    ? 'border-red-400/40 bg-red-500/10 text-red-100'
+                    : 'border-sky-400/40 bg-sky-500/10 text-sky-100'
+                }`}
+              >
+                {notice.text}
+              </p>
+            ) : null}
             {children}
             {action}
           </CardContent>

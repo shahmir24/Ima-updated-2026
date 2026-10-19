@@ -29,6 +29,8 @@ const FocusResetJournal = () => {
       iconColor="text-green-300"
       cardTitle="Focus Reset"
       width="pair"
+      loading={journal.isLoading}
+      notice={journal.notice}
       intro={
         <>
           <p>"Feeling pulled in 10 directions? You're not alone."</p>
@@ -51,12 +53,14 @@ const FocusResetJournal = () => {
           value={whatMatters}
           onChange={(value) => journal.setValue('whatMatters', value)}
           placeholder="Focus on what truly matters..."
+          readOnly={journal.isLoading}
         />
         <JournalPrompt
           label="What's just noise?"
           value={justNoise}
           onChange={(value) => journal.setValue('justNoise', value)}
           placeholder="What can you let go of..."
+          readOnly={journal.isLoading}
         />
       </JournalPromptGroup>
 

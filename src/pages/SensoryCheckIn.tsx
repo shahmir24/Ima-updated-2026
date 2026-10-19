@@ -28,6 +28,8 @@ const SensoryCheckIn = () => {
       iconTile="bg-pink-500/20"
       iconColor="text-pink-300"
       cardTitle="Sensory Check-In"
+      loading={journal.isLoading}
+      notice={journal.notice}
       intro={
         <>
           <p>"Let's do a little body roll call."</p>
@@ -50,18 +52,21 @@ const SensoryCheckIn = () => {
           value={sensations}
           onChange={(value) => journal.setValue('sensations', value)}
           placeholder="Notice what you're feeling in your body..."
+          readOnly={journal.isLoading}
         />
         <JournalPrompt
           label="Where do you feel tight, light, heavy, warm, or buzzy?"
           value={bodyAwareness}
           onChange={(value) => journal.setValue('bodyAwareness', value)}
           placeholder="Map your body's sensations..."
+          readOnly={journal.isLoading}
         />
         <JournalPrompt
           label="Can you soften just one spot?"
           value={softenSpot}
           onChange={(value) => journal.setValue('softenSpot', value)}
           placeholder="What would it feel like to soften..."
+          readOnly={journal.isLoading}
         />
       </JournalPromptGroup>
 

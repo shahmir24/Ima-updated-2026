@@ -28,6 +28,8 @@ const DailyJournal = () => {
       iconTile="bg-blue-500/20"
       iconColor="text-blue-300"
       cardTitle="Daily Check-In"
+      loading={journal.isLoading}
+      notice={journal.notice}
       intro={
         <>
           <p>"Hey. Let's check in — just you and you."</p>
@@ -50,18 +52,21 @@ const DailyJournal = () => {
           value={onMind}
           onChange={(value) => journal.setValue('onMind', value)}
           placeholder="Whatever's floating around in your head..."
+          readOnly={journal.isLoading}
         />
         <JournalPrompt
           label="How's your energy — physically, emotionally, mentally?"
           value={energy}
           onChange={(value) => journal.setValue('energy', value)}
           placeholder="Check in with your energy levels..."
+          readOnly={journal.isLoading}
         />
         <JournalPrompt
           label="Is there anything you want to let go of, or lean into?"
           value={letGoLeanIn}
           onChange={(value) => journal.setValue('letGoLeanIn', value)}
           placeholder="What needs releasing or embracing..."
+          readOnly={journal.isLoading}
         />
       </JournalPromptGroup>
     </JournalPageLayout>

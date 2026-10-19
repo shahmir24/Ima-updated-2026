@@ -28,6 +28,8 @@ const PostPanicJournal = () => {
       iconTile="bg-blue-500/20"
       iconColor="text-blue-300"
       cardTitle="Post-Overwhelm Check-In"
+      loading={journal.isLoading}
+      notice={journal.notice}
       intro={
         <>
           <p>"Hey. That felt like a lot, huh?"</p>
@@ -50,18 +52,21 @@ const PostPanicJournal = () => {
           value={whatHappened}
           onChange={(value) => journal.setValue('whatHappened', value)}
           placeholder="Describe what happened..."
+          readOnly={journal.isLoading}
         />
         <JournalPrompt
           label="How did it make you feel — really?"
           value={howItFelt}
           onChange={(value) => journal.setValue('howItFelt', value)}
           placeholder="Name your feelings..."
+          readOnly={journal.isLoading}
         />
         <JournalPrompt
           label="What do you need right now?"
           value={whatNeeded}
           onChange={(value) => journal.setValue('whatNeeded', value)}
           placeholder="What would help you right now..."
+          readOnly={journal.isLoading}
         />
       </JournalPromptGroup>
 

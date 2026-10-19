@@ -116,3 +116,16 @@ describe('journal layout', () => {
     expect(header).toContain('<header className="w-full max-w-lg mx-auto p-4 flex items-center justify-between">');
   });
 });
+
+describe('journal loading state', () => {
+  it.each(SCREENS)('$file: while today’s entry loads, says so and keeps its fields read-only (Post-Panic never waits)', ({ type, Page }) => {
+    // Rendered on the server, the today query never runs, so a one-per-day
+    // journal is still loading here; Post-Panic has nothing to load.
+    const html = render(Page);
+    const textareas = html.match(/<textarea[^>]*>/g) ?? [];
+    const loads = type !== 'post-panic';
+    expect(text(html).includes('Loading today’s entry…'), 'loading line').toBe(loads);
+    for (const textarea of textareas) expect(textarea.includes('readOnly=""') || textarea.includes(' readonly'), 'read-only').toBe(loads);
+    if (loads) expect(html).toMatch(/role="status" aria-live="polite"[^>]*>Loading today’s entry…/);
+  });
+});

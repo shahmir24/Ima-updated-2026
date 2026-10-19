@@ -7,6 +7,8 @@ interface JournalPromptProps {
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
+  /** While today's entry loads: visible and focusable, not yet editable. */
+  readOnly?: boolean;
 }
 
 /**
@@ -17,7 +19,7 @@ interface JournalPromptProps {
  * an id. The ✍️ is decoration and is hidden from screen readers; on screen
  * the label reads exactly as before.
  */
-export const JournalPrompt = ({ label, value, onChange, placeholder }: JournalPromptProps) => {
+export const JournalPrompt = ({ label, value, onChange, placeholder, readOnly = false }: JournalPromptProps) => {
   const id = useId();
   return (
     <div>
@@ -30,6 +32,8 @@ export const JournalPrompt = ({ label, value, onChange, placeholder }: JournalPr
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
+        readOnly={readOnly}
+        aria-busy={readOnly || undefined}
         className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50 min-h-[120px] lg:min-h-[10rem] lg:text-base"
       />
     </div>

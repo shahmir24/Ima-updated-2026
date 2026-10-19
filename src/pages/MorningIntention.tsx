@@ -30,6 +30,8 @@ const MorningIntention = () => {
       cardTitle="Morning Intention"
       width="narrow"
       contentSpacing="space-y-4"
+      loading={journal.isLoading}
+      notice={journal.notice}
       intro={
         <>
           <p>"Hey, before the day takes over — how do you want to feel today?"</p>
@@ -61,6 +63,8 @@ const MorningIntention = () => {
         value={intention}
         onChange={(e) => journal.setValue('intention', e.target.value)}
         aria-label="How do you want to feel today?"
+        readOnly={journal.isLoading}
+        aria-busy={journal.isLoading || undefined}
         placeholder="Write your intention for today..."
         className="bg-secondary/60 border-white/20 text-white placeholder:text-white/50 min-h-[120px] lg:text-base"
       />

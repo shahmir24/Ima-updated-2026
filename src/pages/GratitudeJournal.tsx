@@ -29,6 +29,8 @@ const GratitudeJournal = () => {
       iconColor="text-yellow-300"
       cardTitle="Gratitude Check-In"
       width="pair"
+      loading={journal.isLoading}
+      notice={journal.notice}
       intro={
         <>
           <p>"Let's find one soft spot in today."</p>
@@ -51,12 +53,14 @@ const GratitudeJournal = () => {
           value={smile}
           onChange={(value) => journal.setValue('smile', value)}
           placeholder="A moment that brought a smile..."
+          readOnly={journal.isLoading}
         />
         <JournalPrompt
           label="What felt safe, sweet, or warm today?"
           value={warmth}
           onChange={(value) => journal.setValue('warmth', value)}
           placeholder="Something that felt good..."
+          readOnly={journal.isLoading}
         />
       </JournalPromptGroup>
 

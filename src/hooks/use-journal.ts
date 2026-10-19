@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
+import { friendlyJournalError, SIGNED_OUT_MESSAGE } from '@/lib/journal-errors';
+import { conflictingFields, mergeIntoUntouched, runJournalSave } from '@/lib/journal-save-flow';
 
 export type JournalEntryRow = Database['public']['Tables']['journal_entries']['Row'];
 
@@ -95,6 +97,36 @@ function readResponses<T extends Record<string, string>>(
 }
 
 /**
+ * Today's newest entry of one type, read straight from the database. Used by
+ * the query below and, uncached, by the check made before writing a new entry.
+ */
+async function fetchTodayEntry(userId: string, entryType: JournalType): Promise<JournalEntryRow | null> {
+  const { data, error } = await supabase
+    .from('journal_entries')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('entry_type', entryType)
+    .gte('created_at', startOfLocalDay())
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (error) throw error;
+
+  const rows = Array.isArray(data) ? data : data ? [data] : [];
+  return rows[0] ?? null;
+}
+
+/**
+ * Loading today's entry tries twice, a second apart, then gives up and lets
+ * the user write. The library default (three retries, backing off to four
+ * seconds) kept the form locked for about eight seconds with no explanation.
+ * Writing is not at risk from giving up early: before anything new is saved,
+ * the entry is looked for again.
+ */
+export const TODAY_ENTRY_RETRIES = 1;
+export const TODAY_ENTRY_RETRY_DELAY_MS = 1000;
+
+/**
  * Today's entry of one type for the signed-in user, or null if they have not
  * written one yet today. This is what refills the form after a refresh.
  */
@@ -107,21 +139,9 @@ export function useTodayJournalEntry(entryType: JournalType) {
     // An episodic journal has no "today's entry" to load: every visit is a new
     // episode, so the query is never run for one.
     enabled: !!userId && !isEpisodicJournal(entryType),
-    queryFn: async (): Promise<JournalEntryRow | null> => {
-      const { data, error } = await supabase
-        .from('journal_entries')
-        .select('*')
-        .eq('user_id', userId as string)
-        .eq('entry_type', entryType)
-        .gte('created_at', startOfLocalDay())
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (error) throw error;
-
-      const rows = Array.isArray(data) ? data : data ? [data] : [];
-      return rows[0] ?? null;
-    }
+    retry: TODAY_ENTRY_RETRIES,
+    retryDelay: TODAY_ENTRY_RETRY_DELAY_MS,
+    queryFn: (): Promise<JournalEntryRow | null> => fetchTodayEntry(userId as string, entryType)
   });
 }
 
@@ -175,7 +195,7 @@ export function useSaveJournalEntry(entryType: JournalType) {
 
   return useMutation({
     mutationFn: async (responses: Record<string, string>): Promise<JournalEntryRow> => {
-      if (!user) throw new Error('You must be signed in to save a journal entry.');
+      if (!user) throw new Error(SIGNED_OUT_MESSAGE);
 
       // Read from the cache rather than a captured value, so a save always
       // sees the entry the form is actually showing. An episodic type never
@@ -226,16 +246,29 @@ export function useSaveJournalEntry(entryType: JournalType) {
   });
 }
 
-export type JournalSaveOutcome = 'saved' | 'empty' | 'failed' | 'busy';
+/**
+ * `review`: an entry for today already existed that this form had not shown.
+ * Nothing was written; the form now holds it (with the user's own edits kept)
+ * and asks for a look before saving again.
+ */
+export type JournalSaveOutcome = 'saved' | 'empty' | 'review' | 'failed' | 'busy';
+
+/** A message shown on the journal screen itself, beside the questions. */
+export interface JournalNotice {
+  tone: 'info' | 'error';
+  text: string;
+}
 
 export interface JournalEntryForm<T extends Record<string, string>> {
   values: T;
   setValue: (key: keyof T, value: string) => void;
-  /** True until today's entry has been looked up. */
+  /** True until today's entry has been looked up. The fields are read-only meanwhile. */
   isLoading: boolean;
   isSaving: boolean;
   /** Disable the save control while either is true. */
   isBusy: boolean;
+  /** Anything the screen should say about loading or saving, or null. */
+  notice: JournalNotice | null;
   save: () => Promise<JournalSaveOutcome>;
 }
 
@@ -243,12 +276,20 @@ export interface JournalEntryForm<T extends Record<string, string>> {
  * Everything the six journal screens need, so each page keeps its own copy and
  * its own words. A page supplies its field names once; this owns loading
  * today's entry, refilling the form, and writing it back.
+ *
+ * Writing is never overwritten: fields the user has edited are tracked, and
+ * saved answers only ever fill the others. A one-per-day journal that does not
+ * hold today's entry looks for it again before creating one, so a failed load,
+ * or a save from another tab, cannot quietly add a second entry for the day.
  */
 export function useJournalEntryForm<T extends Record<string, string>>(
   entryType: JournalType,
   emptyValues: T
 ): JournalEntryForm<T> {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+  const queryClient = useQueryClient();
   const episodic = isEpisodicJournal(entryType);
   const todayQuery = useTodayJournalEntry(entryType);
   const saveEntry = useSaveJournalEntry(entryType);
@@ -266,35 +307,45 @@ export function useJournalEntryForm<T extends Record<string, string>>(
   // it can be used inside effects without re-running them.
   const emptyRef = useRef(emptyValues);
   const [values, setValues] = useState<T>(emptyValues);
+  const [notice, setNotice] = useState<JournalNotice | null>(null);
+
+  /** Fields the user has typed in. Saved answers never replace these. */
+  const editedRef = useRef<Set<keyof T>>(new Set());
+  /**
+   * The saved entry this form is editing, or null when it holds none. Only an
+   * entry the user has been shown counts: a newer one that appears in the
+   * cache later (a refetch, another tab) is checked for and shown first.
+   */
+  const baseRef = useRef<JournalEntryRow | null>(null);
 
   const hydratedRef = useRef(false);
   const savingRef = useRef(false);
   const loadErrorShownRef = useRef(false);
 
-  // Refill the form once, when today's entry has landed. Once only: reapplying
-  // it on a later render would overwrite whatever the user has typed since.
+  // Refill the form once, when today's entry has landed — into the fields the
+  // user has not touched. Once only, so a later render never reapplies it.
   useEffect(() => {
     if (hydratedRef.current || !isFetched) return;
     hydratedRef.current = true;
     // `todayEntry` is already null for an episodic type, so this opens blank
     // every visit and an earlier episode is never presented as a draft.
-    if (todayEntry) setValues(readResponses(todayEntry.responses, emptyRef.current));
+    if (todayEntry) {
+      baseRef.current = todayEntry;
+      const saved = readResponses(todayEntry.responses, emptyRef.current);
+      setValues((current) => mergeIntoUntouched(current, editedRef.current, saved));
+    }
   }, [todayEntry, isFetched]);
 
   useEffect(() => {
     if (!isError || loadErrorShownRef.current) return;
     loadErrorShownRef.current = true;
-    toast({
-      title: 'Could not load today’s entry',
-      description:
-        error instanceof Error
-          ? error.message
-          : 'Starting with a blank page — anything you write can still be saved.',
-      variant: 'destructive'
-    });
+    const text = friendlyJournalError(error, 'load');
+    setNotice({ tone: 'error', text });
+    toast({ title: 'Could not load today’s entry', description: text, variant: 'destructive' });
   }, [isError, error, toast]);
 
   const setValue = useCallback((key: keyof T, value: string) => {
+    editedRef.current.add(key);
     setValues((prev) => ({ ...prev, [key]: value }));
   }, []);
 
@@ -309,7 +360,7 @@ export function useJournalEntryForm<T extends Record<string, string>>(
 
     // An untouched form should not leave an empty row behind. Clearing an
     // entry that already exists is a deliberate edit, so that still saves.
-    if (Object.values(trimmed).every((value) => value === '') && !todayEntry) {
+    if (Object.values(trimmed).every((value) => value === '') && !baseRef.current) {
       toast({
         title: 'Nothing to save yet',
         description: 'Write something first, then save.'
@@ -319,22 +370,70 @@ export function useJournalEntryForm<T extends Record<string, string>>(
 
     savingRef.current = true;
     try {
-      await saveEntry.mutateAsync(trimmed);
-      toast({ title: 'Saved', description: 'Your entry has been saved.' });
-      return 'saved';
-    } catch (saveError) {
-      // Deliberately no navigation on failure: the page keeps what was written
-      // so it can be saved again rather than being lost on the way out.
-      toast({
-        title: 'Could not save your entry',
-        description: saveError instanceof Error ? saveError.message : 'Please try again.',
-        variant: 'destructive'
+      const key = todayEntryKey(userId, entryType);
+      const result = await runJournalSave<JournalEntryRow>({
+        episodic,
+        base: baseRef.current,
+        recheck: () => {
+          if (!userId) throw new Error(SIGNED_OUT_MESSAGE);
+          return fetchTodayEntry(userId, entryType);
+        },
+        // The mutation updates the entry in the cache, or inserts when there
+        // is none, so the cache is set to exactly what this form is editing:
+        // its own entry, or — just confirmed — none.
+        write: () => {
+          if (!episodic) queryClient.setQueryData(key, baseRef.current);
+          return saveEntry.mutateAsync(trimmed);
+        }
       });
-      return 'failed';
+
+      switch (result.kind) {
+        case 'written':
+          if (!episodic) baseRef.current = result.row;
+          editedRef.current = new Set();
+          setNotice(null);
+          toast({ title: 'Saved', description: 'Your entry has been saved.' });
+          return 'saved';
+
+        case 'found-existing': {
+          // Today's entry exists after all. Show it — in the fields not yet
+          // written in — and ask for a look before saving over it.
+          queryClient.setQueryData(key, result.row);
+          baseRef.current = result.row;
+          const saved = readResponses(result.row.responses, emptyRef.current);
+          const conflicts = conflictingFields(values, editedRef.current, saved);
+          setValues((current) => mergeIntoUntouched(current, editedRef.current, saved));
+          const text =
+            conflicts.length > 0
+              ? 'You already saved this journal today, so nothing new was saved. We’ve filled in the answers you hadn’t changed. Where you wrote something new, your new writing is kept — saving will replace what you wrote there earlier. Review it, then save again.'
+              : 'You already saved this journal today, so nothing new was saved. We’ve filled in what you wrote earlier, alongside your new writing. Review it, then save again.';
+          setNotice({ tone: 'info', text });
+          toast({ title: 'Today’s entry is already saved', description: 'Review it, then save again.' });
+          return 'review';
+        }
+
+        case 'check-failed': {
+          // Not knowing whether today's entry exists, write nothing rather
+          // than risk a second entry for the day.
+          const text = friendlyJournalError(result.error, 'check');
+          setNotice({ tone: 'error', text });
+          toast({ title: 'Nothing was saved', description: text, variant: 'destructive' });
+          return 'failed';
+        }
+
+        case 'write-failed': {
+          // Deliberately no navigation on failure: the page keeps what was
+          // written so it can be saved again rather than being lost on the way out.
+          const text = friendlyJournalError(result.error, 'save');
+          setNotice({ tone: 'error', text });
+          toast({ title: 'Could not save your entry', description: text, variant: 'destructive' });
+          return 'failed';
+        }
+      }
     } finally {
       savingRef.current = false;
     }
-  }, [values, todayEntry, saveEntry, toast]);
+  }, [values, userId, entryType, episodic, queryClient, saveEntry, toast]);
 
   const isLoading = !isFetched;
 
@@ -344,6 +443,7 @@ export function useJournalEntryForm<T extends Record<string, string>>(
     isLoading,
     isSaving: saveEntry.isPending,
     isBusy: isLoading || saveEntry.isPending,
+    notice,
     save
   };
 }
