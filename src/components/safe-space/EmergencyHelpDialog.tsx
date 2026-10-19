@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,6 +31,10 @@ interface EmergencyHelpDialogProps {
  */
 const EmergencyHelpDialog = ({ open, onOpenChange }: EmergencyHelpDialogProps) => {
   const [pending, setPending] = useState<EmergencyNumber | null>(null);
+  // The dialog is opened from state, not from a Radix trigger, so Radix has
+  // nothing to hand focus back to on close and drops it on <body>. Remember
+  // what had focus when it opened — the card or Call button — and return there.
+  const openerRef = useRef<HTMLElement | null>(null);
 
   const close = (next: boolean) => {
     if (!next) setPending(null);
@@ -47,7 +51,20 @@ const EmergencyHelpDialog = ({ open, onOpenChange }: EmergencyHelpDialogProps) =
 
   return (
     <AlertDialog open={open} onOpenChange={close}>
-      <AlertDialogContent>
+      <AlertDialogContent
+        onOpenAutoFocus={() => {
+          // Runs before focus moves into the dialog, so this is still the opener.
+          openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        }}
+        onCloseAutoFocus={(event) => {
+          const opener = openerRef.current;
+          openerRef.current = null;
+          if (opener?.isConnected) {
+            event.preventDefault();
+            opener.focus();
+          }
+        }}
+      >
         {pending ? (
           <>
             <AlertDialogHeader>

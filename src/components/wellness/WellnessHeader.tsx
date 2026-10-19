@@ -21,9 +21,10 @@ const WellnessHeader = ({ title, backPath = '/wellness' }: WellnessHeaderProps) 
           variant="ghost" 
           size="icon" 
           onClick={() => navigate(backPath)}
+          aria-label="Back"
           className="h-11 w-11 rounded-full p-0 hover:bg-white/10"
         >
-          <ArrowLeft className="h-6 w-6 text-white" />
+          <ArrowLeft className="h-6 w-6 text-white" aria-hidden="true" />
         </Button>
         
         <h1 className="text-2xl font-bold text-white lg:text-3xl">{title}</h1>

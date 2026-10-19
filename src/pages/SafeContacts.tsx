@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import { Plus, Heart, Phone, MessageCircle, Mail, Instagram, Trash2, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,14 +18,23 @@ import {
 import WellnessHeader from '@/components/wellness/WellnessHeader';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
 import EmergencyHelpDialog from '@/components/safe-space/EmergencyHelpDialog';
+import { SAFE_SPACE_HEADER_ALIGN } from '@/components/safe-space/layout';
 import { EMERGENCY_NUMBERS } from '@/lib/emergency-contacts';
 import {
   useSafeContacts,
   useCreateSafeContact,
   useDeleteSafeContact,
-  hasContactMethod,
-  type SafeContactRow
+  contactInputProblem,
+  SAFE_CONTACT_MESSAGE_LIST
 } from '@/hooks/use-safe-contacts';
+import { friendlySafeContactsError } from '@/lib/safe-contacts-errors';
+import { instagramProfileUrl, mailtoHref, supportMessageHref, telHref } from '@/lib/safe-contact-links';
+
+/**
+ * Desktop only: on a wide card the text actions stop stretching to fill the
+ * row and keep a comfortable fixed width instead. Phones keep flex-1.
+ */
+const DESKTOP_ACTION = 'lg:flex-none lg:min-w-[10rem]';
 
 const SafeContacts = () => {
   const [showAddForm, setShowAddForm] = useState(false);
@@ -44,7 +53,7 @@ const SafeContacts = () => {
   // The emergency numbers above are static app data and are deliberately NOT
   // written to that table: they are not this user's people, they are the same
   // for everyone, and they must never be deletable.
-  const { data: contacts = [], isPending, isError, error, refetch } = useSafeContacts();
+  const { data: contacts = [], isPending, isError, isSuccess, isFetching, error, refetch } = useSafeContacts();
   const createContact = useCreateSafeContact();
   const deleteContact = useDeleteSafeContact();
 
@@ -58,18 +67,30 @@ const SafeContacts = () => {
     'Accountability Buddy'
   ];
 
+  const fieldId = useId();
+  const ids = {
+    name: `${fieldId}-name`,
+    label: `${fieldId}-label`,
+    phone: `${fieldId}-phone`,
+    email: `${fieldId}-email`,
+    instagram: `${fieldId}-instagram`,
+    note: `${fieldId}-note`,
+    hint: `${fieldId}-hint`,
+    error: `${fieldId}-error`
+  };
+
   const handleAddContact = async () => {
     setFormError(null);
 
-    if (!newContact.name.trim()) {
-      setFormError('Give this person a name first.');
-      return;
-    }
+    // Adding is only offered once the list has loaded, so a person is never
+    // added on top of a circle the screen could not show.
+    if (!isSuccess) return;
 
-    // Mirrors the safe_contacts_reachable CHECK. Caught here so the user gets
-    // a sentence rather than a constraint violation.
-    if (!hasContactMethod(newContact)) {
-      setFormError('Add a phone number, email or Instagram handle so you can actually reach them.');
+    // Mirrors the safe_contacts_reachable CHECK, and also turns away a phone,
+    // email or handle that could not make a working link.
+    const problem = contactInputProblem(newContact);
+    if (problem) {
+      setFormError(problem);
       return;
     }
 
@@ -79,31 +100,25 @@ const SafeContacts = () => {
       setNewContact({ name: '', label: '', phone: '', email: '', instagram: '', note: '' });
       setShowAddForm(false);
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Could not save this contact.');
+      setFormError(friendlySafeContactsError(err, 'add', SAFE_CONTACT_MESSAGE_LIST));
     }
   };
 
-  const handleCall = (phone: string) => {
-    if (phone) {
-      window.location.href = `tel:${phone}`;
-    }
+  // Every link below is built from the stored text by safe-contact-links, and
+  // a button is shown only when its link would actually work.
+  const openLink = (href: string) => {
+    window.location.href = href;
   };
 
-  const handleSendSupportMessage = (contact: SafeContactRow) => {
-    const message = "Hey, I could use some support right now. Are you available to chat?";
-
-    if (contact.phone) {
-      window.location.href = `sms:${contact.phone}?body=${encodeURIComponent(message)}`;
-    } else if (contact.email) {
-      window.location.href = `mailto:${contact.email}?subject=Need Support&body=${encodeURIComponent(message)}`;
-    }
+  const openInstagram = (url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
-
-  const mutationError = createContact.error || deleteContact.error;
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
-      <WellnessHeader title="Safe Contacts" backPath="/safe-space" />
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-8">
+      <div className={SAFE_SPACE_HEADER_ALIGN}>
+        <WellnessHeader title="Safe Contacts" backPath="/safe-space" />
+      </div>
 
       <main className="flex-1 responsive-container space-y-6">
         {/* ---------------------------------------------------------------
@@ -156,32 +171,35 @@ const SafeContacts = () => {
             <h2 className="text-white responsive-subtitle font-semibold">My Safe Contacts</h2>
           </div>
 
-          {mutationError && (
-            <p className="text-red-300 text-sm text-center">
-              {(mutationError as Error).message}
+          {/* A failed removal. Adding reports inside the form instead, next to
+              what was typed. Never the database's own text. */}
+          {deleteContact.isError && (
+            <p role="alert" className="text-red-300 text-sm text-center">
+              {friendlySafeContactsError(deleteContact.error, 'remove', SAFE_CONTACT_MESSAGE_LIST)}
             </p>
           )}
 
           {isPending && (
-            <p className="text-white/60 text-sm text-center py-6">Loading your circle…</p>
+            <p role="status" className="text-white/60 text-sm text-center py-6">Loading your circle…</p>
           )}
 
           {isError && (
             <div className="text-center py-6 space-y-3">
-              <p className="text-red-300 text-sm">
-                {(error as Error)?.message || 'Could not load your safe contacts.'}
+              <p role="alert" className="text-red-300 text-sm">
+                {friendlySafeContactsError(error, 'load', SAFE_CONTACT_MESSAGE_LIST)}
               </p>
               <Button
                 onClick={() => refetch()}
-                className="bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-300 rounded-2xl"
+                disabled={isFetching}
+                className="bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-300 rounded-2xl disabled:opacity-60"
               >
-                Try again
+                {isFetching ? 'Trying again…' : 'Try again'}
               </Button>
             </div>
           )}
 
           {/* Welcome Message */}
-          {!isPending && !isError && contacts.length === 0 && !showAddForm && (
+          {isSuccess && contacts.length === 0 && !showAddForm && (
             <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-3xl p-6 text-center">
               <Heart className="h-12 w-12 text-purple-300 mx-auto mb-4" />
               <h3 className="text-white responsive-subtitle font-semibold mb-2">
@@ -193,10 +211,15 @@ const SafeContacts = () => {
             </div>
           )}
 
-          {/* Add Contact Button */}
-          {!showAddForm && (
+          {/* Add Contact Button — only once the list has loaded */}
+          {isSuccess && !showAddForm && (
             <Button
-              onClick={() => setShowAddForm(true)}
+              onClick={() => {
+                // A new add starts clean: an old "nobody was removed" message
+                // no longer describes what the user is doing.
+                deleteContact.reset();
+                setShowAddForm(true);
+              }}
               className="w-full bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-300 p-4 rounded-2xl"
             >
               <Plus className="h-5 w-5 mr-2" />
@@ -205,22 +228,26 @@ const SafeContacts = () => {
           )}
 
           {/* Add Contact Form */}
-          {showAddForm && (
+          {isSuccess && showAddForm && (
             <div className="bg-secondary/40 rounded-3xl p-6 space-y-4 animate-fade-in">
               <h3 className="text-white responsive-subtitle font-semibold mb-4">Add a Safe Contact</h3>
 
               <div className="space-y-4">
+                <label htmlFor={ids.name} className="sr-only">Name</label>
                 <Input
+                  id={ids.name}
                   placeholder="Their name"
                   value={newContact.name}
                   onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
                   className="bg-secondary/20 border-secondary/40 text-white placeholder:text-white/50"
                 />
 
-                <div className="grid grid-cols-2 gap-2">
+                <div role="group" aria-label="Suggested labels" className="grid grid-cols-2 gap-2">
                   {predefinedLabels.map((label) => (
                     <Button
                       key={label}
+                      type="button"
+                      aria-pressed={newContact.label === label}
                       onClick={() => setNewContact({ ...newContact, label })}
                       variant={newContact.label === label ? "default" : "outline"}
                       size="sm"
@@ -235,39 +262,55 @@ const SafeContacts = () => {
                   ))}
                 </div>
 
+                <label htmlFor={ids.label} className="sr-only">Label (optional)</label>
                 <Input
+                  id={ids.label}
                   placeholder="Custom label (optional)"
                   value={newContact.label}
                   onChange={(e) => setNewContact({ ...newContact, label: e.target.value })}
                   className="bg-secondary/20 border-secondary/40 text-white placeholder:text-white/50"
                 />
 
+                <label htmlFor={ids.phone} className="sr-only">Phone number</label>
                 <Input
+                  id={ids.phone}
+                  type="tel"
+                  inputMode="tel"
+                  aria-describedby={ids.hint}
                   placeholder="Phone number"
                   value={newContact.phone}
                   onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
                   className="bg-secondary/20 border-secondary/40 text-white placeholder:text-white/50"
                 />
 
+                <label htmlFor={ids.email} className="sr-only">Email</label>
                 <Input
+                  id={ids.email}
+                  type="email"
+                  aria-describedby={ids.hint}
                   placeholder="Email"
                   value={newContact.email}
                   onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
                   className="bg-secondary/20 border-secondary/40 text-white placeholder:text-white/50"
                 />
 
+                <label htmlFor={ids.instagram} className="sr-only">Instagram handle</label>
                 <Input
+                  id={ids.instagram}
+                  aria-describedby={ids.hint}
                   placeholder="Instagram handle"
                   value={newContact.instagram}
                   onChange={(e) => setNewContact({ ...newContact, instagram: e.target.value })}
                   className="bg-secondary/20 border-secondary/40 text-white placeholder:text-white/50"
                 />
 
-                <p className="text-white/50 text-xs">
+                <p id={ids.hint} className="text-white/50 text-xs">
                   Add at least one of phone, email or Instagram so you can reach them.
                 </p>
 
+                <label htmlFor={ids.note} className="sr-only">Personal note (optional)</label>
                 <Textarea
+                  id={ids.note}
                   placeholder="Personal note about this person (e.g., 'This is who I go to when I feel overwhelmed')"
                   value={newContact.note}
                   onChange={(e) => setNewContact({ ...newContact, note: e.target.value })}
@@ -276,7 +319,11 @@ const SafeContacts = () => {
                 />
               </div>
 
-              {formError && <p className="text-red-300 text-sm">{formError}</p>}
+              {formError && (
+                <p id={ids.error} role="alert" className="text-red-300 text-sm">
+                  {formError}
+                </p>
+              )}
 
               <div className="flex space-x-3">
                 <Button
@@ -290,6 +337,7 @@ const SafeContacts = () => {
                   onClick={() => {
                     setShowAddForm(false);
                     setFormError(null);
+                    createContact.reset();
                   }}
                   variant="outline"
                   className="bg-secondary/20 border-secondary/40 text-white/70 hover:bg-secondary/40"
@@ -302,105 +350,135 @@ const SafeContacts = () => {
 
           {/* Contacts List */}
           <div className="space-y-4">
-            {contacts.map((contact, index) => (
-              <div
-                key={contact.id}
-                className="bg-secondary/40 rounded-3xl p-6 animate-fade-in"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <div className="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center">
-                        <Heart className="h-5 w-5 text-purple-300" />
+            {contacts.map((contact, index) => {
+              const callHref = telHref(contact.phone);
+              const supportHref = supportMessageHref(contact);
+              const emailHref = mailtoHref(contact.email);
+              const instagramUrl = instagramProfileUrl(contact.instagram);
+              // Instagram on its own gets a full-width labelled button, so the
+              // card never ends with a lone icon and no obvious action.
+              const instagramOnly = !callHref && !supportHref && !emailHref;
+              const hasAction = Boolean(callHref || supportHref || emailHref || instagramUrl);
+              return (
+                <div
+                  key={contact.id}
+                  className="bg-secondary/40 rounded-3xl p-6 animate-fade-in"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center">
+                          <Heart className="h-5 w-5 text-purple-300" />
+                        </div>
+                        <div>
+                          <h3 className="text-white responsive-subtitle font-semibold">{contact.name}</h3>
+                          <p className="text-purple-300 text-sm">{contact.label}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="text-white responsive-subtitle font-semibold">{contact.name}</h3>
-                        <p className="text-purple-300 text-sm">{contact.label}</p>
-                      </div>
+
+                      {contact.note && (
+                        <p className="text-white/70 text-sm italic mb-3 pl-13">
+                          "{contact.note}"
+                        </p>
+                      )}
                     </div>
 
-                    {contact.note && (
-                      <p className="text-white/70 text-sm italic mb-3 pl-13">
-                        "{contact.note}"
-                      </p>
-                    )}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={deleteContact.isPending}
+                          aria-label={`Remove ${contact.name} from your circle`}
+                          className="h-10 w-10 rounded-full text-white/60 hover:text-white hover:bg-white/10"
+                        >
+                          <Trash2 className="h-5 w-5" aria-hidden="true" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Remove {contact.name}?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            They will be taken out of your support circle. You can add them
+                            again at any time.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => deleteContact.mutate(contact.id)}>
+                            Remove
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
 
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        disabled={deleteContact.isPending}
-                        aria-label={`Remove ${contact.name} from your circle`}
-                        className="h-10 w-10 rounded-full text-white/60 hover:text-white hover:bg-white/10"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Remove {contact.name}?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          They will be taken out of your support circle. You can add them
-                          again at any time.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => deleteContact.mutate(contact.id)}>
-                          Remove
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
+                  {/* Quick Actions */}
+                  {hasAction ? (
+                    <div className="flex flex-wrap gap-2">
+                      {/* Wraps instead of overflowing: four actions do not fit
+                          one row on a phone. gap-2 keeps the old 8px spacing
+                          between buttons, and between rows when they wrap. */}
+                      {callHref && (
+                        <Button
+                          onClick={() => openLink(callHref)}
+                          size="sm"
+                          aria-label={`Call ${contact.name}`}
+                          className={`bg-green-500/20 hover:bg-green-500/30 border border-green-500/50 text-green-300 flex-1 ${DESKTOP_ACTION}`}
+                        >
+                          <Phone className="h-4 w-4 mr-1" aria-hidden="true" />
+                          Call
+                        </Button>
+                      )}
 
-                {/* Quick Actions */}
-                <div className="flex space-x-2">
-                  {contact.phone && (
-                    <Button
-                      onClick={() => handleCall(contact.phone!)}
-                      size="sm"
-                      className="bg-green-500/20 hover:bg-green-500/30 border border-green-500/50 text-green-300 flex-1"
-                    >
-                      <Phone className="h-4 w-4 mr-1" />
-                      Call
-                    </Button>
-                  )}
+                      {supportHref && (
+                        <Button
+                          onClick={() => openLink(supportHref)}
+                          size="sm"
+                          aria-label={`Send ${contact.name} a support message`}
+                          className={`bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-300 flex-1 ${DESKTOP_ACTION}`}
+                        >
+                          <MessageCircle className="h-4 w-4 mr-1" aria-hidden="true" />
+                          Support Message
+                        </Button>
+                      )}
 
-                  <Button
-                    onClick={() => handleSendSupportMessage(contact)}
-                    size="sm"
-                    className="bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-300 flex-1"
-                  >
-                    <MessageCircle className="h-4 w-4 mr-1" />
-                    Support Message
-                  </Button>
+                      {emailHref && (
+                        <Button
+                          onClick={() => openLink(emailHref)}
+                          size="sm"
+                          aria-label={`Email ${contact.name}`}
+                          className="bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/50 text-orange-300"
+                        >
+                          <Mail className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                      )}
 
-                  {contact.email && (
-                    <Button
-                      onClick={() => window.location.href = `mailto:${contact.email}`}
-                      size="sm"
-                      className="bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/50 text-orange-300"
-                    >
-                      <Mail className="h-4 w-4" />
-                    </Button>
-                  )}
-
-                  {contact.instagram && (
-                    <Button
-                      onClick={() => window.open(`https://instagram.com/${contact.instagram}`, '_blank')}
-                      size="sm"
-                      className="bg-pink-500/20 hover:bg-pink-500/30 border border-pink-500/50 text-pink-300"
-                    >
-                      <Instagram className="h-4 w-4" />
-                    </Button>
+                      {instagramUrl && (
+                        <Button
+                          onClick={() => openInstagram(instagramUrl)}
+                          size="sm"
+                          aria-label={`Open ${contact.name}’s Instagram (opens in a new tab)`}
+                          className={`bg-pink-500/20 hover:bg-pink-500/30 border border-pink-500/50 text-pink-300 ${
+                            instagramOnly ? `flex-1 ${DESKTOP_ACTION}` : ''
+                          }`}
+                        >
+                          <Instagram className={`h-4 w-4 ${instagramOnly ? 'mr-1' : ''}`} aria-hidden="true" />
+                          {instagramOnly && 'Instagram'}
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    // Only possible for a contact saved before these checks
+                    // existed, with details that cannot make a working link.
+                    <p className="text-white/50 text-sm">
+                      No working phone number, email or Instagram handle is saved for {contact.name}.
+                    </p>
                   )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Encouragement */}

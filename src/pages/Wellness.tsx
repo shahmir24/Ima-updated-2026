@@ -47,7 +47,7 @@ const wellnessOptions: WellnessOption[] = [
     description: 'Crisis support, grounding, and emergency tools',
     color: 'bg-green-500/20 text-green-300',
     route: '/safe-space',
-    keywords: ['panic', 'grounding', 'ground', 'contacts', 'help', 'crisis', 'emergency', 'support', 'chat', 'talk', 'anxiety', 'calm', 'safe']
+    keywords: ['panic', 'grounding', 'ground', 'contacts', 'help', 'crisis', 'emergency', 'support', 'talk', 'anxiety', 'calm', 'safe']
   },
   {
     id: 'journaling',

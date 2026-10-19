@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthProvider";
 import { ProtectedRoute, OnboardingRoute, PublicOnlyRoute, GuestAllowedRoute } from "./components/auth/RouteGuards";
 import Index from "./pages/Index";
@@ -29,7 +29,6 @@ import JournalingMenu from "./pages/JournalingMenu";
 import JournalHistory from "./pages/JournalHistory";
 import AppShell from "@/components/layout/AppShell";
 import SafeSpaceMenu from "./pages/SafeSpaceMenu";
-import SafeSpaceChat from "./pages/SafeSpaceChat";
 import SafeContacts from "./pages/SafeContacts";
 import BodyScanIntro from "./pages/BodyScanIntro";
 import BodyScanSession from "./pages/BodyScanSession";
@@ -127,7 +126,10 @@ const App = () => (
                 <Route path="/journaling/sensory-checkin" element={<SensoryCheckIn />} />
                 <Route path="/journaling/history" element={<JournalHistory />} />
                 <Route path="/safe-space" element={<SafeSpaceMenu />} />
-                <Route path="/safe-space/chat" element={<SafeSpaceChat />} />
+                {/* AI chat is deferred to post-MVP. The page is kept in
+                    src/pages/SafeSpaceChat.tsx; old links and bookmarks land
+                    on the Safe Space menu instead. */}
+                <Route path="/safe-space/chat" element={<Navigate to="/safe-space" replace />} />
                 <Route path="/safe-space/contacts" element={<SafeContacts />} />
               </Route>
 

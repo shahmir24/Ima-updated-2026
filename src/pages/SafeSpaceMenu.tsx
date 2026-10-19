@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Phone, MessageCircle, Heart, Wind, Users, Bot } from 'lucide-react';
+import { Shield, Phone, MessageCircle, Heart, Wind, Users } from 'lucide-react';
 import WellnessHeader from '@/components/wellness/WellnessHeader';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
 import EmergencyHelpDialog from '@/components/safe-space/EmergencyHelpDialog';
+import { SAFE_SPACE_HEADER_ALIGN } from '@/components/safe-space/layout';
 
 interface SafeSpaceOption {
   id: string;
@@ -19,21 +20,16 @@ interface SafeSpaceOption {
   action?: 'emergency-help';
 }
 
+// The "Talk to Your AI Friend" card is gone for the MVP. Its chat was not AI:
+// it answered from a fixed list of keyword-matched and random lines, including
+// to messages about self-harm. AI chat is deferred to post-MVP; the page
+// (SafeSpaceChat.tsx) is kept but /safe-space/chat now redirects here.
 const safeSpaceOptions: SafeSpaceOption[] = [
-  {
-    id: 'safe-chat',
-    title: 'Talk to Your AI Friend',
-    icon: <Bot className="h-6 w-6 sm:h-8 sm:w-8" />,
-    description: 'Gentle, supportive AI chat that feels like a caring friend',
-    color: 'bg-blue-500/20 text-blue-300',
-    priority: true,
-    route: '/safe-space/chat'
-  },
   {
     id: 'immediate-help',
     title: 'I Need Help Now',
     icon: <Phone className="h-6 w-6 sm:h-8 sm:w-8" />,
-    description: 'Crisis hotlines and emergency contacts',
+    description: 'Emergency services and safe contacts',
     color: 'bg-red-500/20 text-red-300',
     priority: true,
     // No route: this opens the emergency help dialog in place. It previously
@@ -86,8 +82,10 @@ const SafeSpaceMenu = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
-      <WellnessHeader title="Safe Space" backPath="/wellness" />
+    <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-8">
+      <div className={SAFE_SPACE_HEADER_ALIGN}>
+        <WellnessHeader title="Safe Space" backPath="/wellness" />
+      </div>
 
       <main className="flex-1 responsive-container space-y-4">
         {/* Emergency Notice */}
@@ -98,29 +96,38 @@ const SafeSpaceMenu = () => {
         </div>
 
         {safeSpaceOptions.map((option, index) => (
-          <div
+          // A real button, so every card — "I Need Help Now" above all — can
+          // be reached with Tab and opened with Enter or Space. The classes
+          // are the old card's, plus w-full/text-left to undo button defaults
+          // and a focus ring that sits outside the card's own ring.
+          <button
             key={option.id}
+            type="button"
             onClick={() => handleOptionClick(option)}
-            className={`bg-secondary/40 rounded-3xl p-4 sm:p-6 hover:bg-secondary/60 transition-all duration-300 cursor-pointer card-hover animate-fade-in ${
+            aria-haspopup={option.action === 'emergency-help' ? 'dialog' : undefined}
+            className={`block w-full text-left bg-secondary/40 rounded-3xl p-4 sm:p-6 hover:bg-secondary/60 transition-all duration-300 cursor-pointer card-hover animate-fade-in focus-visible:outline-none focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
               option.priority ? 'ring-2 ring-blue-500/50' : ''
-            }`}
+            } ${option.action === 'emergency-help' ? 'focus-visible:ring-2 focus-visible:ring-red-300' : 'focus-visible:ring-2 focus-visible:ring-blue-300'}`}
             style={{ animationDelay: `${index * 0.1}s` }}
           >
-            <div className="flex items-center space-x-3 sm:space-x-4">
-              <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl ${option.color} flex items-center justify-center`}>
+            <span className="flex items-center space-x-3 sm:space-x-4">
+              <span
+                aria-hidden="true"
+                className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl ${option.color} flex items-center justify-center`}
+              >
                 {option.icon}
-              </div>
-              <div className="flex-1">
-                <h3 className="responsive-subtitle font-semibold text-white mb-1">{option.title}</h3>
-                <p className="text-white/70 responsive-body leading-relaxed">{option.description}</p>
-              </div>
-              <div className="text-white/40">
+              </span>
+              <span className="flex-1">
+                <span className="block responsive-subtitle font-semibold text-white mb-1">{option.title}</span>
+                <span className="block text-white/70 responsive-body leading-relaxed">{option.description}</span>
+              </span>
+              <span className="text-white/40" aria-hidden="true">
                 <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
-              </div>
-            </div>
-          </div>
+              </span>
+            </span>
+          </button>
         ))}
 
         <div className="mt-6 sm:mt-8 bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-3xl p-4 sm:p-6">
