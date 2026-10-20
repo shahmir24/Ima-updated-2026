@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { suspensionChange, SYSTEM_PAUSED_MESSAGE, type ObservedContextState } from '@/lib/soundscape/audio-suspension';
+import { preferPlaybackAudioSession } from '@/lib/soundscape/audio-session';
 
 /**
  * Looping playback for the Soundscaping screen.
@@ -149,6 +150,11 @@ export function useSoundscapePlayer(initialVolume = 1): SoundscapePlayer {
 
   const play = useCallback(
     (soundId: string, url: string) => {
+      // First, and synchronously inside the user's tap: on iOS this keeps the
+      // silent switch from muting Web Audio (see audio-session.ts). A no-op
+      // where the API does not exist.
+      preferPlaybackAudioSession();
+
       const context = ensureGraph();
       if (!context) {
         setStatus('error');
