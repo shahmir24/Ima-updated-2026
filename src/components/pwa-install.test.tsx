@@ -67,7 +67,25 @@ describe('Home — install hint', () => {
     expect(html).not.toMatch(/>Install<\/button>/);
   });
 
-  it.each(['installed', 'unsupported', 'android-manual'] as const)('%s: no hint', (platform) => {
+  it('Android without a browser prompt: the hint shows the menu route — no Install button, no promised prompt', () => {
+    const html = renderToString(<InstallHint app={app({ platform: 'android-manual' })} storage={memory()} />);
+    expect(html).toMatch(/<aside aria-label="Install iMA"/);
+    expect(text(html)).toContain('Open your browser’s menu, then choose Install app or Add to Home screen.');
+    expect(html).not.toMatch(/>Install<\/button>/);
+    expect(html).toContain('aria-label="Dismiss install suggestion"');
+  });
+
+  it('Android: the hint and the Settings card give the same instruction', () => {
+    const instruction = 'Open your browser’s menu, then choose Install app or Add to Home screen.';
+    expect(text(renderToString(<InstallHint app={app({ platform: 'android-manual' })} storage={memory()} />))).toContain(instruction);
+    expect(text(renderToString(<InstallAppCard app={app({ platform: 'android-manual' })} />))).toContain(instruction);
+  });
+
+  it('Android, dismissed: stays gone', () => {
+    expect(renderToString(<InstallHint app={app({ platform: 'android-manual' })} storage={memory({ [INSTALL_HINT_DISMISSED_KEY]: '1' })} />)).toBe('');
+  });
+
+  it.each(['installed', 'unsupported'] as const)('%s: no hint', (platform) => {
     expect(renderToString(<InstallHint app={app({ platform, standalone: platform === 'installed' })} storage={memory()} />)).toBe('');
   });
 

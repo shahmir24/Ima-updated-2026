@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { Download, Share, X } from 'lucide-react';
+import { Download, MoreVertical, Share, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useInstallApp, type InstallApp } from '@/hooks/use-install-app';
 import { INSTALL_INSTRUCTIONS } from '@/lib/pwa/install-platform';
@@ -47,12 +47,16 @@ export function InstallHint({ app, storage }: InstallHintProps) {
     >
       {platform === 'prompt' ? (
         <Download className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+      ) : platform === 'android-manual' ? (
+        <MoreVertical className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
       ) : (
         <Share className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
       )}
       <p className="min-w-0 flex-1 text-muted-foreground">
         <span className="text-foreground">Install iMA</span> for quicker access.{' '}
-        {platform !== 'prompt' && INSTALL_INSTRUCTIONS[platform as 'ios-safari' | 'ios-other']}
+        {/* No native prompt was offered, so only the manual route — never a
+            promise of one. Same wording as the Settings card. */}
+        {platform !== 'prompt' && INSTALL_INSTRUCTIONS[platform as 'ios-safari' | 'ios-other' | 'android-manual']}
       </p>
       {platform === 'prompt' && (
         <Button size="sm" variant="secondary" className="shrink-0 rounded-xl" onClick={handleInstall}>

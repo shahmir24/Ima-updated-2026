@@ -1,9 +1,11 @@
 /**
  * Whether Home suggests installing iMA, and remembering "not now".
  *
- * Only where installing is genuinely possible from here — a captured browser
- * prompt, or iPhone/iPad (Share → Add to Home Screen). Android without a
- * prompt usually means it is already installed, so it is not nagged. The
+ * Only where installing is genuinely possible from here: a captured browser
+ * prompt, iPhone/iPad (Share → Add to Home Screen), or Android without a
+ * prompt — Chrome often withholds beforeinstallprompt even though "Install
+ * app" in its menu works, so Android gets those menu instructions rather than
+ * nothing. Running installed never reaches here (platform is 'installed'). The
  * dismissal is one flag in localStorage: no user data, and if storage is
  * blocked the hint simply counts as dismissed rather than coming back.
  */
@@ -47,5 +49,5 @@ export function hintDismissed(storage: StorageLike | undefined): boolean {
 
 export function showsInstallHint(platform: InstallPlatform, dismissed: boolean): boolean {
   if (dismissed) return false;
-  return platform === 'prompt' || platform === 'ios-safari' || platform === 'ios-other';
+  return platform === 'prompt' || platform === 'ios-safari' || platform === 'ios-other' || platform === 'android-manual';
 }

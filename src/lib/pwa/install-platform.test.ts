@@ -34,6 +34,13 @@ describe('which install route this browser has', () => {
     expect(env(UA.iphoneInstagram, { maxTouchPoints: 5 })).toBe('ios-other');
   });
 
+  it('Android Chrome before (or without) beforeinstallprompt is the manual menu route; once the prompt arrives it is the native one', () => {
+    expect(env(UA.androidChrome, { maxTouchPoints: 5 })).toBe('android-manual');
+    expect(env(UA.androidChrome, { maxTouchPoints: 5, promptAvailable: true })).toBe('prompt');
+    // Installed Android app: no offer at all.
+    expect(env(UA.androidChrome, { maxTouchPoints: 5, standalone: true })).toBe('installed');
+  });
+
   it('running installed, or installed from this tab, wins over everything — no redundant offers', () => {
     expect(env(UA.iphoneSafari, { standalone: true })).toBe('installed');
     expect(env(UA.androidChrome, { promptAvailable: true, standalone: true })).toBe('installed');
