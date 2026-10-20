@@ -56,13 +56,23 @@ describe('public/sw.js', () => {
   const source = readFileSync(join(__dirname, '../../public/sw.js'), 'utf8');
   const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 
-  it('handles only install, activate, push and notificationclick', () => {
+  it('handles only install, activate, fetch (for the offline page), push and notificationclick', () => {
     const events = [...code.matchAll(/addEventListener\(\s*['"](\w+)['"]/g)].map((m) => m[1]);
-    expect(events).toEqual(['install', 'activate', 'push', 'notificationclick']);
+    expect(events).toEqual(['install', 'activate', 'fetch', 'push', 'notificationclick']);
   });
 
-  it('has no fetch handler, no caching and no network calls', () => {
-    for (const forbidden of ['fetch', 'caches', 'Cache', 'importScripts', 'subscribe']) {
+  // The worker used to have no fetch handler at all. It now has one, for the
+  // offline page only; these pin how narrow it is. Behaviour is covered in
+  // service-worker.test.ts.
+  it('its fetch handler leaves everything but same-origin page navigations to the browser', () => {
+    expect(code).toMatch(/if \(request\.mode !== 'navigate' \|\| request\.method !== 'GET'\) return;/);
+    expect(code).toMatch(/if \(new URL\(request\.url\)\.origin !== self\.location\.origin\) return;/);
+  });
+
+  it('caches only the offline page — no other cache writes, no imported scripts, no push subscribing', () => {
+    expect(code.match(/\.(add|addAll|put)\(/g)).toEqual(['.add(']);
+    expect(code).toContain("const OFFLINE_URL = '/offline.html';");
+    for (const forbidden of ['importScripts', 'subscribe(', 'cache.put', 'addAll']) {
       expect(code).not.toContain(forbidden);
     }
   });

@@ -1,29 +1,84 @@
 /*
- * iMA service worker — installability, plus displaying push messages.
+ * iMA service worker — installability, an offline page, and displaying push
+ * messages.
  *
  * What this worker deliberately does NOT do:
- *   - no fetch handler: every request goes straight to the network exactly as
- *     it did before this file existed, so the worker can never serve a stale
- *     app, break sign-in, or stand between the app and Supabase;
- *   - no Cache API and no offline page;
+ *   - it never serves the app from a cache: page navigations go to the network
+ *     first, every time, and only a navigation that FAILS (no connection) gets
+ *     the static offline page instead. Every other request — the app's
+ *     JavaScript and CSS, audio, Supabase, the AI functions — is not touched
+ *     at all, so the worker can never serve a stale app, break sign-in, or
+ *     stand between the app and Supabase;
+ *   - it caches exactly one file, /offline.html, which holds no user data;
  *   - no nudge logic: the push handler below only displays what it is sent,
  *     and the click handler only takes the user to that notification's page.
  *
- * Because it holds no cache, a new version can take over at once: skipWaiting
- * on install and clients.claim on activate carry no risk of mixing an old
- * cache with a new build.
+ * Because the only cached file is that static page, a new version can still
+ * take over at once: skipWaiting on install and clients.claim on activate
+ * carry no risk of mixing an old cache with a new build.
  *
  * Emergency off switch: replacing this file with one that calls
  * self.registration.unregister() in its activate handler removes the worker
  * from every browser on its next update check.
  */
 
-self.addEventListener('install', () => {
+/*
+ * The offline page. The cache name is versioned and owned by this worker
+ * alone: activation deletes older `ima-offline-` caches and nothing else.
+ */
+const OFFLINE_CACHE = 'ima-offline-v1';
+const OFFLINE_CACHE_PREFIX = 'ima-offline-';
+const OFFLINE_URL = '/offline.html';
+
+self.addEventListener('install', (event) => {
   self.skipWaiting();
+  // Fetched past the HTTP cache so the stored copy is this deployment's. A
+  // failure (e.g. installing while offline) must not stop the worker from
+  // installing — push would break with it — so it is swallowed; the page is
+  // fetched again on the next install.
+  event.waitUntil(
+    caches
+      .open(OFFLINE_CACHE)
+      .then((cache) => cache.add(new Request(OFFLINE_URL, { cache: 'reload' })))
+      .catch(() => undefined)
+  );
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches
+      .keys()
+      .then((names) =>
+        Promise.all(
+          names
+            .filter((name) => name.startsWith(OFFLINE_CACHE_PREFIX) && name !== OFFLINE_CACHE)
+            .map((name) => caches.delete(name))
+        )
+      )
+      .catch(() => undefined)
+      .then(() => self.clients.claim())
+  );
+});
+
+/*
+ * Navigations only: network first, offline page on failure.
+ *
+ * Returning without calling respondWith leaves a request to the browser
+ * exactly as if this handler did not exist — which is what happens to every
+ * non-navigation request, every non-GET, and anything on another origin.
+ * Network responses are passed straight through and never stored.
+ */
+self.addEventListener('fetch', (event) => {
+  const request = event.request;
+  if (request.mode !== 'navigate' || request.method !== 'GET') return;
+  if (new URL(request.url).origin !== self.location.origin) return;
+
+  event.respondWith(
+    fetch(request).catch(async () => {
+      const offline = await caches.match(OFFLINE_URL, { cacheName: OFFLINE_CACHE });
+      return offline || Response.error();
+    })
+  );
 });
 
 /*

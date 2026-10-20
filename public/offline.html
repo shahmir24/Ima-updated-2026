@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#080b12" />
+    <meta name="robots" content="noindex" />
+    <title>iMA — You're offline</title>
+    <!--
+      Shown by /sw.js when the app is opened with no connection. It must work
+      with nothing else available, so everything is inline: no scripts, styles,
+      fonts or images are fetched, and it holds no user data of any kind.
+    -->
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: #080b12;
+        color: #f8fafc;
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      }
+      main {
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        padding: max(1.5rem, env(safe-area-inset-top)) 1.5rem max(1.5rem, env(safe-area-inset-bottom));
+        text-align: center;
+      }
+      .mark {
+        font-size: 1.75rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: #94a3b8;
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.75rem;
+        font-weight: 700;
+      }
+      p {
+        margin: 0;
+        max-width: 22rem;
+        font-size: 1.0625rem;
+        line-height: 1.5;
+        color: #cbd5e1;
+      }
+      button {
+        margin-top: 0.75rem;
+        min-height: 3rem;
+        min-width: 10rem;
+        padding: 0.75rem 1.5rem;
+        border: 0;
+        border-radius: 1rem;
+        background: linear-gradient(to right, #3b82f6, #2dd4bf);
+        color: #ffffff;
+        font: inherit;
+        font-size: 1.0625rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:hover {
+        background: linear-gradient(to right, #2563eb, #14b8a6);
+      }
+      button:focus-visible {
+        outline: 3px solid #93c5fd;
+        outline-offset: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="mark" aria-hidden="true">iMA</div>
+      <h1>You're offline</h1>
+      <p>Connect to the internet to open iMA.</p>
+      <button type="button" id="retry">Retry</button>
+    </main>
+    <script>
+      // Retry the page the user was opening. The service worker serves this
+      // file in place of that page, so the address bar still holds it; if this
+      // file was opened directly, go to the home page instead.
+      (function () {
+        function retry() {
+          var target = location.pathname === '/offline.html' ? '/' : location.href;
+          location.replace(target);
+        }
+        document.getElementById('retry').addEventListener('click', retry);
+        // Coming back online retries by itself.
+        window.addEventListener('online', retry);
+      })();
+    </script>
+  </body>
+</html>
