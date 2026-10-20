@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { suspensionChange, SYSTEM_PAUSED_MESSAGE, type ObservedContextState } from '@/lib/soundscape/audio-suspension';
 
 /**
  * Looping playback for the Soundscaping screen.
@@ -61,7 +62,16 @@ const BLOCKED = 'Your browser blocked playback. Tap play again to start.';
 const UNSUPPORTED = "This browser can't play audio.";
 
 export function useSoundscapePlayer(initialVolume = 1): SoundscapePlayer {
-  const [status, setStatus] = useState<SoundscapePlayerStatus>('idle');
+  const [status, setStatusState] = useState<SoundscapePlayerStatus>('idle');
+  // The same status, readable from the AudioContext's statechange listener,
+  // which outlives any one render.
+  const statusRef = useRef<SoundscapePlayerStatus>('idle');
+  const setStatus = useCallback((next: SoundscapePlayerStatus) => {
+    statusRef.current = next;
+    setStatusState(next);
+  }, []);
+  /** The browser or OS suspended the sound, not the user (see audio-suspension.ts). */
+  const pausedBySystemRef = useRef(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const contextRef = useRef<AudioContext | null>(null);
@@ -90,8 +100,36 @@ export function useSoundscapePlayer(initialVolume = 1): SoundscapePlayer {
 
     contextRef.current = context;
     gainRef.current = gain;
+
+    // The browser or OS can suspend the context on its own — iOS does when
+    // the app is backgrounded or the phone locks. Follow it so the UI never
+    // says "Playing" over silence. Nothing here resumes: that takes a tap.
+    context.addEventListener('statechange', () => syncWithContextRef.current());
     return context;
   }, []);
+
+  /** Brings the status in line with what the context is really doing. */
+  const syncWithContext = useCallback(() => {
+    const context = contextRef.current;
+    if (!context || !liveRef.current) return;
+    const change = suspensionChange({
+      status: statusRef.current,
+      hasSource: sourceRef.current !== null,
+      pausedBySystem: pausedBySystemRef.current,
+      state: context.state as ObservedContextState
+    });
+    if (change === 'paused-by-system') {
+      pausedBySystemRef.current = true;
+      setStatus('paused');
+      setErrorMessage(SYSTEM_PAUSED_MESSAGE);
+    } else if (change === 'running-again') {
+      pausedBySystemRef.current = false;
+      setStatus('playing');
+      setErrorMessage(null);
+    }
+  }, [setStatus]);
+  const syncWithContextRef = useRef(syncWithContext);
+  syncWithContextRef.current = syncWithContext;
 
   const stopSource = useCallback(() => {
     const source = sourceRef.current;
@@ -120,6 +158,7 @@ export function useSoundscapePlayer(initialVolume = 1): SoundscapePlayer {
 
       const request = ++requestRef.current;
       const stale = () => !liveRef.current || request !== requestRef.current;
+      pausedBySystemRef.current = false;
 
       // Spend the user gesture on resume() straight away. Awaiting the fetch
       // first would put the resume outside the gesture, where some browsers
@@ -201,13 +240,14 @@ export function useSoundscapePlayer(initialVolume = 1): SoundscapePlayer {
         });
       }
     },
-    [ensureGraph, stopSource]
+    [ensureGraph, stopSource, setStatus]
   );
 
   const pause = useCallback(() => {
     // Cancels any load still in flight, so a sound the user has already paused
     // cannot start itself a moment later.
     requestRef.current++;
+    pausedBySystemRef.current = false;
 
     setStatus(loadedIdRef.current ? 'paused' : 'idle');
     setErrorMessage(null);
@@ -215,11 +255,12 @@ export function useSoundscapePlayer(initialVolume = 1): SoundscapePlayer {
     const context = contextRef.current;
     if (!context) return;
     void context.suspend().catch(() => undefined);
-  }, []);
+  }, [setStatus]);
 
   const stop = useCallback(() => {
     // Cancels any load in flight, exactly as pause does.
     requestRef.current++;
+    pausedBySystemRef.current = false;
     stopSource();
     loadedIdRef.current = null;
     setStatus('idle');
@@ -227,7 +268,7 @@ export function useSoundscapePlayer(initialVolume = 1): SoundscapePlayer {
 
     const context = contextRef.current;
     if (context) void context.suspend().catch(() => undefined);
-  }, [stopSource]);
+  }, [stopSource, setStatus]);
 
   const setVolume = useCallback((value: number) => {
     const volume = clampVolume(value);
@@ -264,6 +305,17 @@ export function useSoundscapePlayer(initialVolume = 1): SoundscapePlayer {
     liveRef.current = true;
     return teardown;
   }, [teardown]);
+
+  // Coming back to the app: a statechange can be missed while the page was
+  // frozen in the background, so check the context directly.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') syncWithContextRef.current();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
 
   return {
     status,

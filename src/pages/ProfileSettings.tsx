@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card } from '@/components/ui/card';
 import PageWorkspace from '@/components/layout/PageWorkspace';
 import GentleNudgesCard from '@/components/settings/GentleNudgesCard';
+import InstallAppCard from '@/components/settings/InstallAppCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { useAutoSave } from '@/hooks/use-autosave';
@@ -683,6 +684,10 @@ const ProfileSettings = () => {
 
             {/* Gentle nudges — off until the user turns them on here */}
             <GentleNudgesCard settings={settings} save={settingsSave} />
+
+            {/* Install iMA — only what this browser can really do; nothing
+                inside the installed app or where no accurate offer exists. */}
+            <InstallAppCard />
 
             {/* Account & Privacy */}
             <Card className="p-6 rounded-3xl border-0 bg-secondary/30">

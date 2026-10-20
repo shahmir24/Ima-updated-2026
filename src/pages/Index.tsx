@@ -26,6 +26,7 @@ import UpNextRow from '@/components/home/UpNextRow';
 import DesktopHome from '@/components/home/DesktopHome';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
 import FounderWelcome from '@/components/home/FounderWelcome';
+import InstallHint from '@/components/home/InstallHint';
 import GuestIntroCard from '@/components/home/GuestIntroCard';
 import GuestBodyDoublePreview from '@/components/home/GuestBodyDoublePreview';
 import GuestImportPrompt from '@/components/home/GuestImportPrompt';
@@ -439,6 +440,9 @@ const Index = () => {
             </div>
           </Link>
         </div>
+
+        {/* Below everything else, so nothing above it moves. */}
+        <InstallHint />
       </main>
 
       {/* Bottom navigation: the same shared bar every other mobile screen
@@ -467,6 +471,7 @@ const Index = () => {
         emptyState={emptyState}
         onEmptyStateAction={handleEmptyStateAction}
         notice={isGuest ? guestIntro : null}
+        installHint={<InstallHint />}
       />
 
       {/* Beta: a founder note over Home, shared by both layouts. It decides for

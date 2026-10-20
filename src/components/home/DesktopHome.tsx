@@ -43,6 +43,8 @@ interface DesktopHomeProps {
   onEmptyStateAction: () => void;
   /** Shown above the mood strip when given. Guest Mode's Try iMA card. */
   notice?: React.ReactNode;
+  /** The install suggestion, at the foot of the main column. */
+  installHint?: React.ReactNode;
 }
 
 /**
@@ -61,7 +63,7 @@ interface DesktopHomeProps {
 const DesktopHome = ({
   greeting, dateLabel, moods, selectedMood, onSelectMood, queue, todaysTasks,
   tasksLoading, tasksFailed, taskErrorMessage, isCompleting,
-  onToggleTask, onStart, onStuck, emptyState, onEmptyStateAction, notice
+  onToggleTask, onStart, onStuck, emptyState, onEmptyStateAction, notice, installHint
 }: DesktopHomeProps) => (
   <div data-testid="desktop-home" className="hidden min-h-screen bg-background text-foreground lg:block">
     <div className="mx-auto max-w-[1400px] px-8 py-8">
@@ -187,6 +189,8 @@ const DesktopHome = ({
               </div>
             </Link>
           </div>
+
+          {installHint}
         </div>
 
         {/* ------------------------------------------------------ right rail */}
