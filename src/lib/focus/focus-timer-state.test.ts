@@ -110,7 +110,28 @@ describe('phase boundaries — exactly the old behaviour', () => {
     expect(state.remainingMs).toBe(5 * MIN);
     expect(state.flowsCompleted).toBe(1);
     expect(state.focusMs).toBe(25 * MIN);
-    expect(events).toEqual([{ type: 'progress', snapshot: expect.objectContaining({ flowsCompleted: 1, focusSeconds: 1500 }) }]);
+    expect(events).toEqual([
+      {
+        type: 'progress',
+        snapshot: expect.objectContaining({ flowsCompleted: 1, focusSeconds: 1500 }),
+        boundary: { ended: 'focus', at: T0 + 25 * MIN }
+      }
+    ]);
+  });
+
+  it('a break ending is marked as a break boundary, at the moment it ran out', () => {
+    let s = reconcileFocusTimer(started().state, T0 + 25 * MIN).state;
+    s = playFocusTimer(s, T0 + 30 * MIN, opts()).state;
+    const { events } = reconcileFocusTimer(s, T0 + 50 * MIN);
+    expect(events).toEqual([
+      { type: 'progress', snapshot: expect.objectContaining({ breaksTaken: 1 }), boundary: { ended: 'break', at: T0 + 35 * MIN } }
+    ]);
+  });
+
+  it('a pause checkpoint carries no boundary', () => {
+    const { events } = pauseFocusTimer(started().state, T0 + 5 * MIN);
+    expect(events).toHaveLength(1);
+    expect(events[0]).not.toHaveProperty('boundary');
   });
 
   it('a break reaching zero becomes a STOPPED focus block, and counts the break', () => {

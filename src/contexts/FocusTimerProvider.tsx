@@ -4,6 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './auth-context';
 import { FocusSessionActiveContext, FocusTimerContext, type FocusTimerValue } from './focus-timer-context';
 import { focusStatsKey } from '@/hooks/use-focus-stats';
+import { toast } from '@/hooks/use-toast';
+import { createChimePlayer } from '@/lib/focus/completion-chime';
+import { createCompletionFeedback } from '@/lib/focus/completion-feedback';
 import { browserStorage, resilientStorage } from '@/lib/focus/browser-storage';
 import { createSupabaseFocusSessionApi } from '@/lib/focus/focus-session-api';
 import { createFocusOutbox } from '@/lib/focus/focus-session-outbox';
@@ -22,6 +25,15 @@ import { createFocusTimerStore, focusTimerStorageKey, GUEST_FOCUS_OWNER } from '
 const TICK_MS = 250;
 /** While stopped mid-session, how often to check the idle timeout and retry recording. */
 const IDLE_CHECK_MS = 60_000;
+/**
+ * A hidden tab waits this long past a boundary before reconciling it, so a
+ * visible tab — where the message can be seen and the chime was unlocked by a
+ * tap — is the one that announces it. Only when no tab is visible does a
+ * hidden one take it. The boundary's own timestamp is recorded either way.
+ */
+const HIDDEN_RECONCILE_LAG_MS = 1500;
+/** How long a completion message stays up. */
+const COMPLETION_TOAST_MS = 6000;
 
 const PLACEHOLDER_STATE = createFocusTimerState(FALLBACK_FOCUS_CONFIG, 0);
 const noSubscription = () => () => {};
@@ -46,6 +58,19 @@ export const FocusTimerProvider = ({ children }: { children: React.ReactNode }) 
   const queryClient = useQueryClient();
   const owner = loading ? null : (user?.id ?? GUEST_FOCUS_OWNER);
 
+  // One chime player for the app's lifetime: its AudioContext is unlocked by a
+  // Play tap and reused for every boundary after that.
+  const chime = useMemo(() => createChimePlayer(), []);
+  useEffect(() => () => chime.dispose(), [chime]);
+  const feedback = useMemo(
+    () =>
+      createCompletionFeedback({
+        notify: (message) => void toast({ title: message, duration: COMPLETION_TOAST_MS }),
+        chime: (cue) => chime.play(cue)
+      }),
+    [chime]
+  );
+
   const engine = useMemo<FocusTimerEngine | null>(() => {
     if (!owner) return null;
     const guest = owner === GUEST_FOCUS_OWNER;
@@ -60,9 +85,10 @@ export const FocusTimerProvider = ({ children }: { children: React.ReactNode }) 
       outbox,
       onRecorded: (ops) => {
         if (ops.some((op) => op.kind === 'finish')) void queryClient.invalidateQueries({ queryKey: focusStatsKey(owner) });
-      }
+      },
+      onEvents: (events) => void feedback.handle(events)
     });
-  }, [owner, queryClient]);
+  }, [owner, queryClient, feedback]);
 
   const subscribe = useMemo(() => (engine ? engine.store.subscribe : noSubscription), [engine]);
   const getSnapshot = useMemo(() => (engine ? engine.store.get : noState), [engine]);
@@ -90,7 +116,9 @@ export const FocusTimerProvider = ({ children }: { children: React.ReactNode }) 
 
   // A boundary or idle timeout that time has reached.
   useEffect(() => {
-    if (engine && stored && needsReconcile(stored, now)) void engine.reconcile();
+    if (!engine || !stored) return;
+    const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+    if (needsReconcile(stored, hidden ? now - HIDDEN_RECONCILE_LAG_MS : now)) void engine.reconcile();
   }, [engine, stored, now]);
 
   // Coming back: from another app, another tab, a locked screen, the
@@ -124,7 +152,15 @@ export const FocusTimerProvider = ({ children }: { children: React.ReactNode }) 
     };
   }, [engine]);
 
-  const play = useCallback((taskId?: string | null) => void engine?.play(taskId), [engine]);
+  const play = useCallback(
+    (taskId?: string | null) => {
+      // Synchronously, while still inside the user's tap: browsers only let
+      // audio start from a gesture, and the chime has to be ready for later.
+      chime.unlock();
+      void engine?.play(taskId);
+    },
+    [engine, chime]
+  );
   const pause = useCallback(() => void engine?.pause(), [engine]);
   const reset = useCallback(() => void engine?.reset(), [engine]);
   const changeSetting = useCallback<FocusTimerValue['changeSetting']>(

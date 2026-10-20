@@ -91,9 +91,18 @@ export interface FocusSessionSnapshot {
   focusSeconds: number;
 }
 
+/** The phase boundary a 'progress' event was recorded at, when it was one. */
+export interface FocusBoundary {
+  /** The phase that just ran out. */
+  ended: FocusPhase;
+  /** When it ran out — the boundary itself, not when it was noticed. */
+  at: number;
+}
+
 export type FocusTimerEvent =
   | { type: 'started'; snapshot: FocusSessionSnapshot }
-  | { type: 'progress'; snapshot: FocusSessionSnapshot }
+  /** A checkpoint: a pause, or (with `boundary`) a focus block or break that ran out. */
+  | { type: 'progress'; snapshot: FocusSessionSnapshot; boundary?: FocusBoundary }
   | { type: 'completed'; snapshot: FocusSessionSnapshot; endedAt: number }
   | { type: 'abandoned'; snapshot: FocusSessionSnapshot; endedAt: number }
   /** Reset: the session is thrown away and must not count anywhere. */
@@ -215,7 +224,7 @@ export function reconcileFocusTimer(state: FocusTimerState, now: number): FocusT
           lastActionAt: boundary
         };
         const snapshot = snapshotOf(next);
-        if (snapshot) events.push({ type: 'progress', snapshot });
+        if (snapshot) events.push({ type: 'progress', snapshot, boundary: { ended: 'focus', at: boundary } });
       }
     } else {
       next = {
@@ -226,7 +235,7 @@ export function reconcileFocusTimer(state: FocusTimerState, now: number): FocusT
         lastActionAt: boundary
       };
       const snapshot = snapshotOf(next);
-      if (snapshot) events.push({ type: 'progress', snapshot });
+      if (snapshot) events.push({ type: 'progress', snapshot, boundary: { ended: 'break', at: boundary } });
     }
   }
 

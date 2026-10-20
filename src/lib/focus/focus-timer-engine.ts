@@ -50,6 +50,12 @@ export interface FocusTimerEngineOptions {
   newSessionId?: () => string;
   /** Called after a session's ending has been accepted by Supabase. */
   onRecorded?: (ops: FocusSessionOp[]) => void;
+  /**
+   * Every transition's events, in the tab that made it. The store's lock means
+   * exactly one tab makes each transition, so each boundary arrives once —
+   * this is what completion chimes listen to.
+   */
+  onEvents?: (events: FocusTimerEvent[]) => void;
 }
 
 /** A v4 UUID — focus_sessions.id is a uuid. randomUUID needs a secure context, so fall back to getRandomValues. */
@@ -65,7 +71,7 @@ export function newUuid(): string {
 const randomId = newUuid;
 
 export function createFocusTimerEngine(options: FocusTimerEngineOptions): FocusTimerEngine {
-  const { store, outbox, onRecorded } = options;
+  const { store, outbox, onRecorded, onEvents } = options;
   const now = options.now ?? Date.now;
   const newSessionId = options.newSessionId ?? randomId;
 
@@ -84,9 +90,16 @@ export function createFocusTimerEngine(options: FocusTimerEngineOptions): FocusT
   };
 
   const record = (events: FocusTimerEvent[]) => {
-    if (!outbox || events.length === 0) return;
-    outbox.enqueue(events);
-    void flush();
+    if (events.length === 0) return;
+    if (outbox) {
+      outbox.enqueue(events);
+      void flush();
+    }
+    try {
+      onEvents?.(events);
+    } catch {
+      // Feedback is a nicety: it must never break the timer or its recording.
+    }
   };
 
   const apply = async (fn: (state: FocusTimerState, at: number) => FocusTimerTransition) => {
