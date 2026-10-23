@@ -97,7 +97,7 @@ describe('the Focus Timer survives everything that is not the user ending it', (
     expect([...env.table.rows.values()].map((r) => r.status)).toEqual(['active']);
   });
 
-  it('a block that finished while the app was closed stops at the break — one boundary only — when reopened', async () => {
+  it('a block that finished while the app was closed ran its break on schedule; reopened, the next block waits paused', async () => {
     const env = setup();
     await openTab(env).engine.play();
     env.clock.now = T0 + 5 * 60 * MIN;
@@ -105,11 +105,24 @@ describe('the Focus Timer survives everything that is not the user ending it', (
     await tab.engine.reconcile();
     await settle(tab.engine);
     const state = tab.engine.state();
-    expect(state.phase).toBe('break');
+    expect(state.phase).toBe('focus');
     expect(isRunning(state)).toBe(false);
     expect(state.flowsCompleted).toBe(1);
+    expect(state.breaksTaken).toBe(1);
     const [row] = env.table.rows.values();
-    expect(row).toMatchObject({ status: 'active', focus_seconds: 1500, flows_completed: 1 });
+    expect(row).toMatchObject({ status: 'active', focus_seconds: 1500, flows_completed: 1, breaks_taken: 1 });
+  });
+
+  it('reopened during the break: the same break, with the right time left', async () => {
+    const env = setup();
+    await openTab(env).engine.play();
+    env.clock.now = T0 + 28 * MIN;
+    const tab = openTab(env);
+    await tab.engine.reconcile();
+    const state = tab.engine.state();
+    expect(state.phase).toBe('break');
+    expect(isRunning(state)).toBe(true);
+    expect(timeLeftSeconds(state, env.clock.now)).toBe(2 * 60);
   });
 });
 
@@ -122,7 +135,7 @@ describe('recording', () => {
     env.clock.now = T0 + 25 * MIN;
     await engine.reconcile();
     env.clock.now = T0 + 26 * MIN;
-    await engine.play(); // break
+    await engine.play(); // already in its automatic break: changes nothing
     env.clock.now = T0 + 31 * MIN;
     await engine.reconcile();
     env.clock.now = T0 + 40 * MIN;

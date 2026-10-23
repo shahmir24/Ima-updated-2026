@@ -3,15 +3,14 @@
  * out: one short message and, when it can play, one chime.
  *
  * It listens to the Focus Timer's own events (FocusTimerEngine's onEvents)
- * rather than watching the clock, so it adds no second timer. The engine
- * crosses at most one boundary per transition and only the tab that made the
- * transition receives its events, so each boundary is announced once, in one
- * tab. Coming back long after a boundary (an app suspended in the background,
- * a reopened browser) still shows the message, but silently: a chime minutes
- * late would only confuse, and several boundaries never queue up as a burst.
- *
- * Kept apart from how a phase starts, so automatic breaks can later change
- * the wording without changing how a boundary is detected or announced.
+ * rather than watching the clock, so it adds no second timer. Only the tab
+ * that made a transition receives its events, so each boundary is announced
+ * once, in one tab. A transition crosses at most a focus block and the
+ * automatic break after it (when the user was away for both); only the later
+ * one is announced. Coming back long after a boundary (an app suspended in
+ * the background, a reopened browser) still shows the message, but silently:
+ * a chime minutes late would only confuse, and boundaries never queue up as a
+ * burst.
  */
 import type { FocusTimerEvent } from './focus-timer-state';
 import type { CompletionCue } from './completion-chime';
@@ -33,7 +32,9 @@ export interface CompletionAnnouncement {
 }
 
 /**
- * The one thing worth announcing in a transition's events, or null.
+ * The one thing worth announcing in a transition's events, or null: the
+ * latest boundary, so a block and its break both missed while away read as
+ * "Break complete", which is where the user now is.
  *
  * Nothing is announced when the same transition also abandoned or discarded
  * the session (an idle timeout reached on return, a Reset): the session is

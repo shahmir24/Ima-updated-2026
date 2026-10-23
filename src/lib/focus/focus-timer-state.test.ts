@@ -102,12 +102,13 @@ describe('play / pause / resume', () => {
   });
 });
 
-describe('phase boundaries — exactly the old behaviour', () => {
-  it('a focus block reaching zero becomes a STOPPED break', () => {
+describe('phase boundaries — automatic breaks, manual focus', () => {
+  it('a focus block reaching zero STARTS its break, timed from the moment the block ended', () => {
     const { state, events } = reconcileFocusTimer(started().state, T0 + 25 * MIN);
     expect(state.phase).toBe('break');
-    expect(isRunning(state)).toBe(false);
-    expect(state.remainingMs).toBe(5 * MIN);
+    expect(isRunning(state)).toBe(true);
+    expect(state.runningSince).toBe(T0 + 25 * MIN);
+    expect(state.phaseEndsAt).toBe(T0 + 30 * MIN);
     expect(state.flowsCompleted).toBe(1);
     expect(state.focusMs).toBe(25 * MIN);
     expect(events).toEqual([
@@ -119,13 +120,46 @@ describe('phase boundaries — exactly the old behaviour', () => {
     ]);
   });
 
-  it('a break ending is marked as a break boundary, at the moment it ran out', () => {
-    let s = reconcileFocusTimer(started().state, T0 + 25 * MIN).state;
-    s = playFocusTimer(s, T0 + 30 * MIN, opts()).state;
-    const { events } = reconcileFocusTimer(s, T0 + 50 * MIN);
+  it('noticed late (10:28 for a block that ended at 10:25), the break still ends at 10:30', () => {
+    const { state } = reconcileFocusTimer(started().state, T0 + 28 * MIN);
+    expect(state.phaseEndsAt).toBe(T0 + 30 * MIN);
+    expect(timeLeftMs(state, T0 + 28 * MIN)).toBe(2 * MIN);
+  });
+
+  it('a break reaching zero becomes a PAUSED focus block, and counts the break', () => {
+    const inBreak = reconcileFocusTimer(started().state, T0 + 25 * MIN).state;
+    const { state, events } = reconcileFocusTimer(inBreak, T0 + 30 * MIN);
+    expect(state.phase).toBe('focus');
+    expect(isRunning(state)).toBe(false);
+    expect(state.remainingMs).toBe(25 * MIN);
+    expect(state.breaksTaken).toBe(1);
+    expect(state.lastActionAt).toBe(T0 + 30 * MIN);
+    expect(state.focusMs).toBe(25 * MIN); // break time is not focus time
     expect(events).toEqual([
-      { type: 'progress', snapshot: expect.objectContaining({ breaksTaken: 1 }), boundary: { ended: 'break', at: T0 + 35 * MIN } }
+      { type: 'progress', snapshot: expect.objectContaining({ breaksTaken: 1 }), boundary: { ended: 'break', at: T0 + 30 * MIN } }
     ]);
+  });
+
+  it('away through the block AND its break: both boundaries, at their own moments, then the next block waits paused', () => {
+    const { state, events } = reconcileFocusTimer(started().state, T0 + 3 * HOUR);
+    expect(state.phase).toBe('focus');
+    expect(isRunning(state)).toBe(false);
+    expect(state.flowsCompleted).toBe(1);
+    expect(state.breaksTaken).toBe(1);
+    expect(state.remainingMs).toBe(25 * MIN);
+    // Focus credit ends where the block ended, not at "now"; the break earns none.
+    expect(state.focusMs).toBe(25 * MIN);
+    expect(state.lastActionAt).toBe(T0 + 30 * MIN);
+    expect(events.map((e) => e.type === 'progress' && e.boundary)).toEqual([
+      { ended: 'focus', at: T0 + 25 * MIN },
+      { ended: 'break', at: T0 + 30 * MIN }
+    ]);
+  });
+
+  it('never runs on into the next block, however long the user is away', () => {
+    const { state } = reconcileFocusTimer(started().state, T0 + 11 * HOUR);
+    expect(state.flowsCompleted).toBe(1);
+    expect(isRunning(state)).toBe(false);
   });
 
   it('a pause checkpoint carries no boundary', () => {
@@ -134,26 +168,25 @@ describe('phase boundaries — exactly the old behaviour', () => {
     expect(events[0]).not.toHaveProperty('boundary');
   });
 
-  it('a break reaching zero becomes a STOPPED focus block, and counts the break', () => {
+  it('pausing and resuming the break keeps its remaining time; it then ends with the next block paused', () => {
     let s = reconcileFocusTimer(started().state, T0 + 25 * MIN).state;
-    s = playFocusTimer(s, T0 + 30 * MIN, opts()).state;
-    const { state } = reconcileFocusTimer(s, T0 + 35 * MIN);
+    s = pauseFocusTimer(s, T0 + 27 * MIN).state;
+    expect(isRunning(s)).toBe(false);
+    expect(s.phase).toBe('break');
+    expect(timeLeftMs(s, T0 + 40 * MIN)).toBe(3 * MIN);
+    s = playFocusTimer(s, T0 + 40 * MIN, opts()).state;
+    expect(s.phaseEndsAt).toBe(T0 + 43 * MIN);
+    const { state } = reconcileFocusTimer(s, T0 + 43 * MIN);
     expect(state.phase).toBe('focus');
     expect(isRunning(state)).toBe(false);
-    expect(state.remainingMs).toBe(25 * MIN);
     expect(state.breaksTaken).toBe(1);
-    expect(state.focusMs).toBe(25 * MIN); // break time is not focus time
   });
 
-  it('after hours away it crosses ONE boundary only — never runs through breaks and blocks', () => {
-    const { state } = reconcileFocusTimer(started().state, T0 + 3 * HOUR);
-    expect(state.phase).toBe('break');
-    expect(state.flowsCompleted).toBe(1);
-    expect(state.breaksTaken).toBe(0);
-    expect(isRunning(state)).toBe(false);
-    // Focus credit ends where the block ended, not at "now".
-    expect(state.focusMs).toBe(25 * MIN);
-    expect(state.lastActionAt).toBe(T0 + 25 * MIN);
+  it('Play during the automatic break does nothing (it is already running)', () => {
+    const inBreak = reconcileFocusTimer(started().state, T0 + 25 * MIN).state;
+    const { state, events } = playFocusTimer(inBreak, T0 + 26 * MIN, opts());
+    expect(state).toBe(inBreak);
+    expect(events).toEqual([]);
   });
 
   it('reconciling again later changes nothing (idempotent) until the idle timeout', () => {
@@ -170,11 +203,20 @@ describe('phase boundaries — exactly the old behaviour', () => {
     expect(reconcileFocusTimer(s, T0 + 25 * MIN - 1).state).toBe(s);
   });
 
-  it('a zero-minute break ends as soon as it is played', () => {
-    let s = reconcileFocusTimer(started({ ...CONFIG, breakMinutes: 0 }).state, T0 + 25 * MIN).state;
-    expect(s.phase).toBe('break');
-    s = playFocusTimer(s, T0 + 26 * MIN, opts()).state;
-    expect(reconcileFocusTimer(s, T0 + 26 * MIN).state.phase).toBe('focus');
+  it('a zero-minute break ends at once: the next block waits paused, and the break counts', () => {
+    const { state, events } = reconcileFocusTimer(started({ ...CONFIG, breakMinutes: 0 }).state, T0 + 25 * MIN);
+    expect(state.phase).toBe('focus');
+    expect(isRunning(state)).toBe(false);
+    expect(state.breaksTaken).toBe(1);
+    expect(events).toHaveLength(2);
+  });
+
+  it('the durations the user chose are never changed', () => {
+    const config = { blockMinutes: 40, breakMinutes: 7, flows: 3 };
+    const s = reconcileFocusTimer(started(config).state, T0 + 40 * MIN).state;
+    expect(s.config).toEqual(config);
+    expect(s.phaseEndsAt! - s.runningSince!).toBe(7 * MIN);
+    expect(reconcileFocusTimer(s, T0 + 47 * MIN).state.remainingMs).toBe(40 * MIN);
   });
 });
 
@@ -298,17 +340,26 @@ describe('12-hour idle recovery', () => {
     expect(state.sessionId).toBeNull();
   });
 
-  it('a session waiting at a boundary is abandoned 12 hours after the boundary', () => {
-    const atBreak = reconcileFocusTimer(started().state, T0 + 25 * MIN).state;
-    expect(reconcileFocusTimer(atBreak, T0 + 25 * MIN + IDLE_ABANDON_MS - 1).events).toEqual([]);
-    const { events } = reconcileFocusTimer(atBreak, T0 + 25 * MIN + IDLE_ABANDON_MS);
-    expect(events).toEqual([{ type: 'abandoned', snapshot: expect.objectContaining({ flowsCompleted: 1, focusSeconds: 1500 }), endedAt: T0 + 25 * MIN }]);
+  it('a session waiting for Play after its break is abandoned 12 hours after the break ended', () => {
+    const waiting = reconcileFocusTimer(started().state, T0 + 30 * MIN).state;
+    expect(reconcileFocusTimer(waiting, T0 + 30 * MIN + IDLE_ABANDON_MS - 1).events).toEqual([]);
+    const { events } = reconcileFocusTimer(waiting, T0 + 30 * MIN + IDLE_ABANDON_MS);
+    expect(events).toEqual([
+      { type: 'abandoned', snapshot: expect.objectContaining({ flowsCompleted: 1, breaksTaken: 1, focusSeconds: 1500 }), endedAt: T0 + 30 * MIN }
+    ]);
   });
 
-  it('away for days mid-block: one boundary (progress), then abandoned from that boundary', () => {
+  it('a RUNNING break is never timed out', () => {
+    const inBreak = reconcileFocusTimer(started({ ...CONFIG, breakMinutes: 60 }).state, T0 + 25 * MIN).state;
+    const { events, state } = reconcileFocusTimer({ ...inBreak, lastActionAt: T0 - 2 * IDLE_ABANDON_MS }, T0 + 80 * MIN);
+    expect(events).toEqual([]);
+    expect(isRunning(state)).toBe(true);
+  });
+
+  it('away for days mid-block: the block and the break end (progress ×2), then abandoned from the break\'s end', () => {
     const { events } = reconcileFocusTimer(started().state, T0 + 3 * 24 * HOUR);
-    expect(events.map((e) => e.type)).toEqual(['progress', 'abandoned']);
-    expect(events[1]).toMatchObject({ endedAt: T0 + 25 * MIN });
+    expect(events.map((e) => e.type)).toEqual(['progress', 'progress', 'abandoned']);
+    expect(events[2]).toMatchObject({ endedAt: T0 + 30 * MIN });
   });
 
   it('a RUNNING block is never timed out, however long it is', () => {
@@ -355,9 +406,13 @@ describe('settings panel and seeding — unchanged rules', () => {
     expect(timeLeftMs(state, T0 + MIN)).toBe(24 * MIN);
   });
 
-  it('a break change re-times only a stopped break', () => {
-    const atBreak = reconcileFocusTimer(started().state, T0 + 25 * MIN).state;
-    expect(changeFocusTimerSetting(atBreak, T0 + 26 * MIN, 'interval', 10).state.remainingMs).toBe(10 * MIN);
+  it('a break change re-times only a stopped break, never the running one', () => {
+    const inBreak = reconcileFocusTimer(started().state, T0 + 25 * MIN).state;
+    const changed = changeFocusTimerSetting(inBreak, T0 + 26 * MIN, 'interval', 10).state;
+    expect(changed.config.breakMinutes).toBe(10);
+    expect(changed.phaseEndsAt).toBe(T0 + 30 * MIN);
+    const paused = pauseFocusTimer(inBreak, T0 + 26 * MIN).state;
+    expect(changeFocusTimerSetting(paused, T0 + 27 * MIN, 'interval', 10).state.remainingMs).toBe(10 * MIN);
     expect(changeFocusTimerSetting(fresh(), T0, 'interval', 10).state.remainingMs).toBe(25 * MIN);
   });
 

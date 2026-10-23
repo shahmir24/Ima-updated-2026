@@ -166,33 +166,31 @@ describe('focus progress ring (display only)', () => {
   });
 
   describe('breaks', () => {
-    it('waiting is Break at 0%; half way is 50%; a change during it does not move the ring', () => {
+    it('the automatic break shows as Break from 0%; half way is 50%; a change during it does not move the ring', () => {
       let s = play(createFocusTimerState(CONFIG, T0), T0);
       s = reconcileFocusTimer(s, T0 + 2 * MIN).state;
       let memo = observe(s, null);
       expect(focusDisplayPhase(s)).toBe('break');
       expect(currentRound(s)).toBe(1);
       expect(progressAt(s, T0 + 2 * MIN, memo)).toBe(0);
-      s = play(s, T0 + 3 * MIN);
       memo = observe(s, memo);
-      s = setBreak(s, T0 + 3 * MIN + 10_000, 10);
-      expect(progressAt(s, T0 + 4 * MIN, observe(s, memo))).toBe(0.5);
+      s = setBreak(s, T0 + 2 * MIN + 10_000, 10);
+      expect(progressAt(s, T0 + 3 * MIN, observe(s, memo))).toBe(0.5);
     });
 
     it('refreshed while a break runs unpaused and unchanged → exact; paused and refreshed → unknown', () => {
       let s = play(createFocusTimerState(CONFIG, T0), T0);
-      s = reconcileFocusTimer(s, T0 + 2 * MIN).state;
-      s = play(s, T0 + 3 * MIN);
-      expect(progressAt(s, T0 + 4 * MIN, null)).toBe(0.5);
-      s = pause(s, T0 + 4 * MIN);
+      s = reconcileFocusTimer(s, T0 + 3 * MIN).state; // noticed a minute late: still half way
+      expect(progressAt(s, T0 + 3 * MIN, null)).toBe(0.5);
+      s = pause(s, T0 + 3 * MIN);
       expect(focusDisplayPhase(s)).toBe('paused');
-      expect(progressAt(s, T0 + 4 * MIN, null)).toBeNull();
+      expect(progressAt(s, T0 + 3 * MIN, null)).toBeNull();
     });
 
     it('the transition back to focus starts the next round at 0%', () => {
       let s = play(createFocusTimerState(CONFIG, T0), T0);
       s = reconcileFocusTimer(s, T0 + 2 * MIN).state;
-      s = reconcileFocusTimer(play(s, T0 + 2 * MIN), T0 + 4 * MIN).state;
+      s = reconcileFocusTimer(s, T0 + 4 * MIN).state;
       expect(focusDisplayPhase(s)).toBe('ready');
       expect(currentRound(s)).toBe(2);
       expect(progressAt(s, T0 + 4 * MIN, null)).toBe(0);

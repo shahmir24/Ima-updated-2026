@@ -3,7 +3,7 @@ import { AUDIBLE_WINDOW_MS, COMPLETION_MESSAGES, completionAnnouncementFor, crea
 import type { CompletionCue } from './completion-chime';
 import { createFocusOutbox, type FocusSessionApi } from './focus-session-outbox';
 import { createFocusTimerEngine } from './focus-timer-engine';
-import { IDLE_ABANDON_MS, isRunning } from './focus-timer-state';
+import { IDLE_ABANDON_MS, isRunning, timeLeftSeconds } from './focus-timer-state';
 import { createFocusTimerStore, focusTimerStorageKey } from './focus-timer-store';
 import { memoryStorage, noLock } from './test-helpers';
 
@@ -60,7 +60,7 @@ function openTab(env: ReturnType<typeof setup>, options: { recorded?: boolean } 
 }
 
 describe('the three completion events', () => {
-  it('a focus block ending: "Focus complete. Time for a break.", the focus chime, and the break waits for Play', async () => {
+  it('a focus block ending: "Focus complete. Time for a break.", the focus chime, and the break starts by itself', async () => {
     const env = setup();
     const tab = openTab(env);
     await tab.engine.play();
@@ -70,7 +70,8 @@ describe('the three completion events', () => {
     expect(tab.chimed).toEqual(['focus-complete']);
     const state = tab.engine.state();
     expect(state.phase).toBe('break');
-    expect(isRunning(state)).toBe(false);
+    expect(isRunning(state)).toBe(true);
+    expect(state.phaseEndsAt).toBe(T0 + 30 * MIN);
   });
 
   it('a break ending: "Break complete. Ready to focus?", the break chime, and the next block waits for Play', async () => {
@@ -78,11 +79,10 @@ describe('the three completion events', () => {
     const tab = openTab(env);
     await tab.engine.play();
     env.clock.now = T0 + 25 * MIN;
-    await tab.engine.reconcile();
-    await tab.engine.play();
+    await tab.engine.reconcile(); // no tap: the break is already running
     env.clock.now = T0 + 30 * MIN;
     await tab.engine.reconcile();
-    expect(tab.shown.at(-1)).toBe('Break complete. Ready to focus?');
+    expect(tab.shown).toEqual(['Focus complete. Time for a break.', 'Break complete. Ready to focus?']);
     expect(tab.chimed).toEqual(['focus-complete', 'break-complete']);
     const state = tab.engine.state();
     expect(state.phase).toBe('focus');
@@ -99,9 +99,38 @@ describe('the three completion events', () => {
     await tab.engine.flush();
     expect(tab.shown).toEqual(['Session complete.']);
     expect(tab.chimed).toEqual(['session-complete']);
-    expect(tab.engine.state().finished).toBe(true);
+    const state = tab.engine.state();
+    expect(state.finished).toBe(true);
+    expect(isRunning(state)).toBe(false);
+    expect(state.phase).toBe('focus');
     const [row] = env.table.rows.values();
     expect(row).toMatchObject({ status: 'completed', focus_seconds: 1500, flows_completed: 1 });
+    // Nothing more happens: no break, no new session.
+    env.clock.now = T0 + 60 * MIN;
+    await tab.engine.reconcile();
+    expect(tab.shown).toEqual(['Session complete.']);
+    expect(isRunning(tab.engine.state())).toBe(false);
+  });
+
+  it('a whole two-flow session: focus → automatic break → Play → final focus, with one message per boundary and one completed row', async () => {
+    const env = setup();
+    const tab = openTab(env);
+    await tab.engine.changeSetting('flows', 2);
+    await tab.engine.play();
+    for (const at of [25, 26, 29, 30, 31]) {
+      env.clock.now = T0 + at * MIN;
+      await tab.engine.reconcile();
+    }
+    env.clock.now = T0 + 32 * MIN;
+    await tab.engine.play();
+    env.clock.now = T0 + 57 * MIN;
+    await tab.engine.reconcile();
+    await tab.engine.reconcile();
+    await tab.engine.flush();
+    expect(tab.shown).toEqual(['Focus complete. Time for a break.', 'Break complete. Ready to focus?', 'Session complete.']);
+    expect(tab.chimed).toEqual(['focus-complete', 'break-complete', 'session-complete']);
+    expect(env.table.rows.size).toBe(1);
+    expect([...env.table.rows.values()][0]).toMatchObject({ status: 'completed', focus_seconds: 3000, flows_completed: 2 });
   });
 
   it('the messages are exactly the agreed wording', () => {
@@ -136,6 +165,38 @@ describe('exactly once', () => {
     feedback.handle(events);
     feedback.handle(events);
     expect(notify).toHaveBeenCalledTimes(1);
+  });
+
+  it('two tabs through a whole automatic break: each boundary announced once, in one tab, recorded once', async () => {
+    const env = setup();
+    const a = openTab(env);
+    const b = openTab(env);
+    await a.engine.play();
+    for (const at of [25, 25.5, 30, 30.5]) {
+      env.clock.now = T0 + at * MIN;
+      await Promise.all([a.engine.reconcile(), b.engine.reconcile()]);
+    }
+    await Promise.all([a.engine.flush(), b.engine.flush()]);
+    expect([...a.shown, ...b.shown].sort()).toEqual(['Break complete. Ready to focus?', 'Focus complete. Time for a break.']);
+    expect([...a.chimed, ...b.chimed]).toHaveLength(2);
+    expect([...env.table.rows.values()]).toEqual([expect.objectContaining({ status: 'active', flows_completed: 1, focus_seconds: 1500 })]);
+  });
+
+  it('a refresh during the automatic break keeps the same break and never repeats its message', async () => {
+    const env = setup();
+    const first = openTab(env);
+    await first.engine.play();
+    env.clock.now = T0 + 25 * MIN;
+    await first.engine.reconcile();
+    env.clock.now = T0 + 27 * MIN;
+    const refreshed = openTab(env); // a refresh, or a route change that remounts nothing but reconciles again
+    await refreshed.engine.reconcile();
+    expect(refreshed.shown).toEqual([]);
+    expect(refreshed.engine.state().phaseEndsAt).toBe(T0 + 30 * MIN);
+    env.clock.now = T0 + 30 * MIN;
+    await refreshed.engine.reconcile();
+    expect(refreshed.shown).toEqual(['Break complete. Ready to focus?']);
+    expect(first.shown).toEqual(['Focus complete. Time for a break.']);
   });
 
   it('two tabs: only the tab that crossed the boundary announces it', async () => {
@@ -175,14 +236,49 @@ describe('exactly once', () => {
 });
 
 describe('coming back from the background', () => {
-  it('a boundary that passed while suspended is shown on return, silently once it is old', async () => {
+  it('back midway through the break: the break is running with the right time left; the old focus boundary is shown silently', async () => {
     const env = setup();
     const tab = openTab(env);
     await tab.engine.play();
-    env.clock.now = T0 + 40 * MIN; // phone locked through the end of the block
+    env.clock.now = T0 + 28 * MIN; // phone locked from 10:20 to 10:28; the block ended at 10:25
     await tab.engine.reconcile();
     expect(tab.shown).toEqual(['Focus complete. Time for a break.']);
     expect(tab.chimed).toEqual([]);
+    const state = tab.engine.state();
+    expect(isRunning(state)).toBe(true);
+    expect(timeLeftSeconds(state, env.clock.now)).toBe(2 * 60);
+  });
+
+  it('back after the break ended: the next block is waiting paused, with ONE message (the latest) and no backlog', async () => {
+    const env = setup();
+    const tab = openTab(env);
+    await tab.engine.play();
+    env.clock.now = T0 + 40 * MIN;
+    await tab.engine.reconcile();
+    expect(tab.shown).toEqual(['Break complete. Ready to focus?']);
+    expect(tab.chimed).toEqual([]);
+    const state = tab.engine.state();
+    expect(state.phase).toBe('focus');
+    expect(isRunning(state)).toBe(false);
+  });
+
+  it('back within a minute of the break ending: the break chime only, never the focus one as well', async () => {
+    const env = setup();
+    const tab = openTab(env);
+    await tab.engine.play();
+    env.clock.now = T0 + 30 * MIN + 20_000;
+    await tab.engine.reconcile();
+    expect(tab.shown).toEqual(['Break complete. Ready to focus?']);
+    expect(tab.chimed).toEqual(['break-complete']);
+  });
+
+  it('the focus chime for the automatic break needs no new tap', async () => {
+    const env = setup();
+    const tab = openTab(env);
+    await tab.engine.play(); // the only tap
+    env.clock.now = T0 + 25 * MIN + 500;
+    await tab.engine.reconcile();
+    expect(tab.chimed).toEqual(['focus-complete']);
   });
 
   it('a boundary noticed within the audible window still chimes', async () => {
@@ -194,19 +290,54 @@ describe('coming back from the background', () => {
     expect(tab.chimed).toEqual(['focus-complete']);
   });
 
-  it('hours away cross ONE boundary, so there is one message and never a backlog of chimes', async () => {
+  it('hours away never run on into the next block, so there is one message and never a backlog of chimes', async () => {
     const env = setup();
     const tab = openTab(env);
     await tab.engine.play();
     env.clock.now = T0 + 3 * 60 * MIN;
     await tab.engine.reconcile();
     await tab.engine.reconcile();
-    expect(tab.shown).toEqual(['Focus complete. Time for a break.']);
+    expect(tab.shown).toEqual(['Break complete. Ready to focus?']);
     expect(tab.chimed).toEqual([]);
+    expect(tab.engine.state().flowsCompleted).toBe(1);
   });
 });
 
 describe('sessions that end without completing', () => {
+  it('Reset during the automatic break discards the session and announces nothing more', async () => {
+    const env = setup();
+    const tab = openTab(env);
+    await tab.engine.play();
+    env.clock.now = T0 + 25 * MIN;
+    await tab.engine.reconcile();
+    env.clock.now = T0 + 27 * MIN;
+    await tab.engine.reset();
+    env.clock.now = T0 + 40 * MIN;
+    await tab.engine.reconcile();
+    await tab.engine.flush();
+    expect(tab.shown).toEqual(['Focus complete. Time for a break.']);
+    expect(env.table.rows.size).toBe(0);
+    expect(isRunning(tab.engine.state())).toBe(false);
+  });
+
+  it('pausing the break holds it; resuming finishes it on the new schedule, with one break message', async () => {
+    const env = setup();
+    const tab = openTab(env);
+    await tab.engine.play();
+    env.clock.now = T0 + 25 * MIN;
+    await tab.engine.reconcile();
+    env.clock.now = T0 + 27 * MIN;
+    await tab.engine.pause();
+    env.clock.now = T0 + 35 * MIN;
+    await tab.engine.reconcile();
+    expect(tab.shown).toEqual(['Focus complete. Time for a break.']);
+    await tab.engine.play();
+    env.clock.now = T0 + 38 * MIN;
+    await tab.engine.reconcile();
+    expect(tab.shown).toEqual(['Focus complete. Time for a break.', 'Break complete. Ready to focus?']);
+    expect(isRunning(tab.engine.state())).toBe(false);
+  });
+
   it('Reset announces nothing, even when a boundary had just passed', async () => {
     const env = setup();
     const tab = openTab(env);

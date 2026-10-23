@@ -7,13 +7,15 @@
  * background, a locked phone, another app in front, or iMA closed altogether
  * all reconcile to the right answer the next time any of this runs.
  *
- * Behaviour carried over from the original page-local timer, unchanged:
+ * Phase rules:
  *
- *   * The timer STOPS at every phase boundary. A focus block reaching zero
- *     becomes a paused break (or, after the final flow, a finished session);
- *     a break reaching zero becomes a paused focus block. Play is needed to go
- *     on. Reconciling therefore applies at most ONE boundary, however long the
- *     user was away — it never runs through several breaks and blocks.
+ *   * A focus block reaching zero starts its break automatically (or, after
+ *     the final flow, finishes the session). The break's end is the block's
+ *     end plus the break length, so it runs on schedule while the user is
+ *     away. A break reaching zero becomes a PAUSED focus block: Play is
+ *     always needed to start focusing. Reconciling therefore applies at most
+ *     one block and one break, however long the user was away — it never runs
+ *     on into the next block.
  *   * Reset returns to flow 0 with a fresh focus block.
  *   * A settings change while stopped re-times the current phase.
  *
@@ -194,8 +196,11 @@ export function needsReconcile(state: FocusTimerState, now: number): boolean {
 /**
  * Brings a stored state up to `now`:
  *
- *   1. A running phase that has reached zero crosses exactly one boundary, at
- *      the moment it reached zero, and stops there.
+ *   1. A focus block that has reached zero completes the session (the final
+ *      flow) or starts its break at once, timed from the moment the block
+ *      ended. A break that has reached zero becomes a paused focus block.
+ *      So a reconcile crosses at most two boundaries — block, then break —
+ *      and always stops before the next block.
  *   2. A stopped session idle for IDLE_ABANDON_MS since its last action (or
  *      the boundary it stopped at) is abandoned with what it actually earned.
  *      A finished session idle that long is cleared locally — it was already
@@ -205,38 +210,46 @@ export function reconcileFocusTimer(state: FocusTimerState, now: number): FocusT
   const events: FocusTimerEvent[] = [];
   let next = state;
 
-  if (next.phaseEndsAt !== null && now >= next.phaseEndsAt) {
+  // 1. A focus block that ran out: the session completes, or its break starts
+  //    by itself — timed from the moment the block ended, not from now.
+  if (next.phase === 'focus' && next.phaseEndsAt !== null && now >= next.phaseEndsAt) {
     const boundary = next.phaseEndsAt;
     next = stopRunning(next, boundary);
-
-    if (next.phase === 'focus') {
-      const flowsCompleted = next.flowsCompleted + 1;
-      if (flowsCompleted >= next.config.flows) {
-        next = { ...next, flowsCompleted, remainingMs: 0, finished: true, lastActionAt: boundary };
-        const snapshot = snapshotOf(next);
-        if (snapshot) events.push({ type: 'completed', snapshot, endedAt: boundary });
-      } else {
-        next = {
-          ...next,
-          flowsCompleted,
-          phase: 'break',
-          remainingMs: phaseDurationMs(next.config, 'break'),
-          lastActionAt: boundary
-        };
-        const snapshot = snapshotOf(next);
-        if (snapshot) events.push({ type: 'progress', snapshot, boundary: { ended: 'focus', at: boundary } });
-      }
+    const flowsCompleted = next.flowsCompleted + 1;
+    if (flowsCompleted >= next.config.flows) {
+      next = { ...next, flowsCompleted, remainingMs: 0, finished: true, lastActionAt: boundary };
+      const snapshot = snapshotOf(next);
+      if (snapshot) events.push({ type: 'completed', snapshot, endedAt: boundary });
     } else {
+      const breakMs = phaseDurationMs(next.config, 'break');
       next = {
         ...next,
-        breaksTaken: next.breaksTaken + 1,
-        phase: 'focus',
-        remainingMs: phaseDurationMs(next.config, 'focus'),
+        flowsCompleted,
+        phase: 'break',
+        remainingMs: breakMs,
+        phaseEndsAt: boundary + breakMs,
+        runningSince: boundary,
         lastActionAt: boundary
       };
       const snapshot = snapshotOf(next);
-      if (snapshot) events.push({ type: 'progress', snapshot, boundary: { ended: 'break', at: boundary } });
+      if (snapshot) events.push({ type: 'progress', snapshot, boundary: { ended: 'focus', at: boundary } });
     }
+  }
+
+  // 2. A break that ran out — perhaps the one step 1 just started, when the
+  //    user was away for all of it: the next block waits, paused, for Play.
+  if (next.phase === 'break' && next.phaseEndsAt !== null && now >= next.phaseEndsAt) {
+    const boundary = next.phaseEndsAt;
+    next = stopRunning(next, boundary);
+    next = {
+      ...next,
+      breaksTaken: next.breaksTaken + 1,
+      phase: 'focus',
+      remainingMs: phaseDurationMs(next.config, 'focus'),
+      lastActionAt: boundary
+    };
+    const snapshot = snapshotOf(next);
+    if (snapshot) events.push({ type: 'progress', snapshot, boundary: { ended: 'break', at: boundary } });
   }
 
   if (next.phaseEndsAt === null && next.sessionId !== null && now - next.lastActionAt >= IDLE_ABANDON_MS) {
