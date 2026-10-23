@@ -14,6 +14,7 @@ import {
   phaseLengthMs,
   phaseLengthToRemember,
   phaseProgress,
+  roundDots,
   type RememberedPhase
 } from './focus-progress';
 
@@ -213,5 +214,25 @@ describe('focus progress ring (display only)', () => {
     expect(phaseProgress(s, -5, 60_000)).toBe(1);
     expect(phaseProgress(s, 10, 0)).toBe(0);
     expect(phaseProgress(s, 10, null)).toBeNull();
+  });
+});
+
+describe('roundDots (phone round indicator)', () => {
+  it('follows a whole session through focus, automatic break and the final block', () => {
+    const config = { blockMinutes: 2, breakMinutes: 2, flows: 2 };
+    let s = createFocusTimerState(config, T0);
+    expect(roundDots(s)).toEqual(['current', 'upcoming']);
+    s = play(s, T0);
+    expect(roundDots(s)).toEqual(['current', 'upcoming']);
+    s = reconcileFocusTimer(s, T0 + 2 * MIN).state; // automatic break
+    expect(roundDots(s)).toEqual(['done', 'upcoming']);
+    expect(currentRound(s)).toBe(1);
+    s = reconcileFocusTimer(s, T0 + 4 * MIN).state; // next block waits paused
+    expect(roundDots(s)).toEqual(['done', 'current']);
+    expect(currentRound(s)).toBe(2);
+    s = reconcileFocusTimer(play(s, T0 + 5 * MIN), T0 + 7 * MIN).state; // final block done
+    expect(s.finished).toBe(true);
+    expect(roundDots(s)).toEqual(['done', 'done']);
+    expect(currentRound(s)).toBe(2);
   });
 });

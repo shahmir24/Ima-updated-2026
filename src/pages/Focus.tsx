@@ -5,6 +5,7 @@ import { ArrowLeft, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import TimerBox from '@/components/focus/TimerBox';
 import ControlButtons from '@/components/focus/ControlButtons';
+import RoundIndicator from '@/components/focus/RoundIndicator';
 import FloatingSettings, { FocusSettingsList } from '@/components/focus/FloatingSettings';
 import FocusRing from '@/components/focus/FocusRing';
 import FocusSessionPanel from '@/components/focus/FocusSessionPanel';
@@ -19,6 +20,7 @@ import {
   phaseLengthMs,
   phaseLengthToRemember,
   phaseProgress,
+  roundDots,
   type FocusDisplayPhase,
   type RememberedPhase
 } from '@/lib/focus/focus-progress';
@@ -223,9 +225,7 @@ const Focus = () => {
           the ring, above it and in the session panel instead. */}
       <PageWorkspace width={WORKSPACE} className="mb-4 lg:hidden">
         <div className="text-center">
-          <div className="text-white/60 text-sm mb-1">
-            {flowsCompleted}/{numberOfFlows}
-          </div>
+          <RoundIndicator round={round} flows={numberOfFlows} dots={roundDots(timer.state)} className="mb-1" />
           {/* "Send me a little boost before I begin" in App Settings. The two
               branches this replaces rendered exactly the same thing for
               flowsCompleted === 0 and > 0. */}

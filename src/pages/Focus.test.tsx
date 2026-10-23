@@ -72,14 +72,16 @@ describe('Focus page — a view of the app-wide timer', () => {
     const html = text(render('/focus', timerValue()));
     expect(html).toContain('Focus Timer');
     expect(html).toContain('25:00');
-    expect(html).toContain('0/4');
+    expect(html).toContain('Round 1 of 4');
     expect(html).toContain("Ready to flow? Let's get started ✨");
   });
 
   it('coming back mid-break shows the remaining break time and progress, not a reset timer', () => {
-    const html = text(render('/focus', timerValue({ timeLeft: 4 * 60 + 2, phase: 'break', flowsCompleted: 1, inProgress: true })));
+    const base = createFocusTimerState({ blockMinutes: 25, breakMinutes: 5, flows: 4 }, 0);
+    const state = { ...base, sessionId: 's', sessionStartedAt: 0, phase: 'break' as const, flowsCompleted: 1, remainingMs: 4 * 60_000 + 2000 };
+    const html = text(render('/focus', timerValue({ state, timeLeft: 4 * 60 + 2, phase: 'break', flowsCompleted: 1, inProgress: true })));
     expect(html).toContain('04:02');
-    expect(html).toContain('1/4');
+    expect(html).toContain('Round 1 of 4');
     expect(html).toContain('Break time - recharge for your next flow');
   });
 
@@ -106,7 +108,61 @@ describe('Focus page — a view of the app-wide timer', () => {
       )
     );
     expect(html).toContain('25:00');
-    expect(html).toContain('0/4');
+    expect(html).toContain('Round 1 of 4');
+  });
+});
+
+describe('phone round indicator', () => {
+  const at = (over: Partial<ReturnType<typeof createFocusTimerState>>, flows = 4) => {
+    const base = createFocusTimerState({ blockMinutes: 25, breakMinutes: 5, flows }, 0);
+    const state = { ...base, sessionId: 's', sessionStartedAt: 0, ...over };
+    return render('/focus', timerValue({ state, config: state.config, phase: state.phase, flowsCompleted: state.flowsCompleted }));
+  };
+  /** The phone indicator: its text and its dots, from the lg:hidden block only. */
+  const indicator = (html: string) => {
+    const block = html.slice(html.indexOf('mb-4 lg:hidden'), html.indexOf('<main'));
+    const label = text(block).match(/Round \d+ of \d+/)?.[0];
+    const dots = [...block.matchAll(/data-dot="(\w+)"/g)].map((m) => m[1]);
+    return { label, dots, hidden: /aria-hidden="true" data-round-dots=""/.test(block) };
+  };
+
+  it('before starting: Round 1 of 4, the first round outlined as current', () => {
+    expect(indicator(render('/focus', timerValue()))).toEqual({ label: 'Round 1 of 4', dots: ['current', 'upcoming', 'upcoming', 'upcoming'], hidden: true });
+  });
+
+  it('round 2 under way: one done, the second current', () => {
+    expect(indicator(at({ flowsCompleted: 1, phase: 'focus', phaseEndsAt: 1_500_000, runningSince: 0 }))).toMatchObject({
+      label: 'Round 2 of 4',
+      dots: ['done', 'current', 'upcoming', 'upcoming']
+    });
+  });
+
+  it('the break after round 2: two done, none current, still Round 2 of 4 as on desktop', () => {
+    const html = at({ flowsCompleted: 2, phase: 'break', remainingMs: 300_000 });
+    expect(indicator(html)).toMatchObject({ label: 'Round 2 of 4', dots: ['done', 'done', 'upcoming', 'upcoming'] });
+    expect(text(html)).toContain('Round 2 of 4'); // the desktop panel agrees
+  });
+
+  it('the final round: Round 4 of 4, three done and the last current', () => {
+    expect(indicator(at({ flowsCompleted: 3, phase: 'focus' }))).toMatchObject({ label: 'Round 4 of 4', dots: ['done', 'done', 'done', 'current'] });
+  });
+
+  it('session complete: every round done, never "Round 5 of 4"', () => {
+    const html = at({ flowsCompleted: 4, finished: true, remainingMs: 0 });
+    expect(indicator(html)).toMatchObject({ label: 'Round 4 of 4', dots: ['done', 'done', 'done', 'done'] });
+    expect(text(html)).not.toContain('Round 5 of 4');
+  });
+
+  it('any number of rounds: one dot each', () => {
+    expect(indicator(at({ flowsCompleted: 0 }, 1))).toMatchObject({ label: 'Round 1 of 1', dots: ['current'] });
+    expect(indicator(at({ flowsCompleted: 5 }, 12)).dots).toHaveLength(12);
+  });
+
+  it('desktop keeps its own panel dots exactly as they were', () => {
+    const html = at({ flowsCompleted: 1, phase: 'focus' });
+    const panel = html.slice(html.indexOf('aria-label="This session"'));
+    expect(panel).not.toContain('data-round-dots');
+    expect(panel).toMatch(/<span class="h-2 w-2 rounded-full bg-blue-300"><\/span><span class="h-2 w-2 rounded-full bg-white\/15">/);
   });
 });
 

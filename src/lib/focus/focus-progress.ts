@@ -123,3 +123,18 @@ export function currentRound(state: FocusTimerState): number {
   const round = state.phase === 'focus' ? state.flowsCompleted + 1 : state.flowsCompleted;
   return Math.min(Math.max(round, 1), flows);
 }
+
+export type RoundDot = 'done' | 'current' | 'upcoming';
+
+/**
+ * One dot per round, for the phone's round indicator. A round is done once its
+ * focus block is; the round whose focus block is running or waiting to start
+ * is current. During a break no round is current: the one just finished is
+ * done and the next is still to come. A finished session is all done.
+ */
+export function roundDots(state: FocusTimerState): RoundDot[] {
+  const flows = Math.max(1, state.config.flows);
+  const done = Math.min(Math.max(state.flowsCompleted, 0), flows);
+  const current = !state.finished && state.phase === 'focus' && done < flows ? done : -1;
+  return Array.from({ length: flows }, (_, index): RoundDot => (index < done ? 'done' : index === current ? 'current' : 'upcoming'));
+}
