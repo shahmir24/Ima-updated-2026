@@ -8,6 +8,9 @@ import BottomNavigation from '@/components/productivity/BottomNavigation';
 import VoiceToggle from '@/components/wellness/VoiceToggle';
 import { useUserSettings } from '@/hooks/use-user-settings';
 import { useSpokenGuidance } from '@/hooks/use-spoken-guidance';
+import BreathingProgress from '@/components/wellness/BreathingProgress';
+import BreathingComplete from '@/components/wellness/BreathingComplete';
+import { isBreathingComplete, nextCycleCount } from '@/lib/breathing/breathing-session';
 
 const phases = ['Inhale', 'Hold', 'Exhale', 'Hold'];
 /** Counts per phase: the advertised Inhale 4 -> Hold 4 -> Exhale 8 -> Hold 4. */
@@ -20,13 +23,15 @@ const DeepReset = () => {
   const [phase, setPhase] = useState(0); // 0: inhale, 1: hold, 2: exhale, 3: hold
   const [count, setCount] = useState(4);
   const [cycles, setCycles] = useState(0);
+  // Five full cycles, then the exercise is over (see breathing-session.ts).
+  const complete = isBreathingComplete(cycles);
   const [ripple, setRipple] = useState(false);
 
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
-    if (isActive) {
+    if (isActive && !complete) {
       const currentDuration = phaseDurations[phase];
       const countsInPhase = phaseCounts[phase];
       
@@ -36,7 +41,7 @@ const DeepReset = () => {
             setPhase((prevPhase) => {
               const nextPhase = (prevPhase + 1) % 4;
               if (nextPhase === 0) {
-                setCycles(c => c + 1);
+                setCycles((c) => nextCycleCount(c));
                 setRipple(true);
                 setTimeout(() => setRipple(false), 2000);
               }
@@ -53,7 +58,7 @@ const DeepReset = () => {
     }
 
     return () => clearInterval(interval);
-  }, [isActive, phase]);
+  }, [isActive, phase, complete]);
 
 
   const { data: settings } = useUserSettings();
@@ -65,9 +70,18 @@ const DeepReset = () => {
   // and phase, so each phase says its cue exactly once no matter how many
   // times this re-renders, and silent until the user starts the exercise.
   useEffect(() => {
-    if (!isActive) return;
+    // Once the fifth cycle is done the next Inhale is never announced.
+    if (!isActive || complete) return;
     speak(`${cycles}:${phase}`, phases[phase]);
-  }, [isActive, phase, cycles, speak]);
+  }, [isActive, complete, phase, cycles, speak]);
+
+  // The fifth cycle is complete: stop the exercise, silence the voice and let
+  // the shape come to rest. The interval above has already stopped itself.
+  useEffect(() => {
+    if (!complete) return;
+    cancelVoice();
+    setIsActive(false);
+  }, [complete, cancelVoice]);
 
   const toggleBreathing = () => {
     // Pausing stops a cue mid-word; resuming does not repeat it, because the
@@ -83,6 +97,12 @@ const DeepReset = () => {
     setCount(phaseCounts[0]);
     setCycles(0);
     setRipple(false);
+  };
+
+  // Start Again: a fresh five-cycle session, started by this same tap.
+  const startAgain = () => {
+    resetBreathing();
+    setIsActive(true);
   };
 
   // Read-only, for the play button's name: nothing moves before the first
@@ -138,36 +158,38 @@ const DeepReset = () => {
           <p className="text-white/60 text-sm">
             You're steadying, not rushing.
           </p>
-          <div className="text-white/60 text-sm">
-            Cycles completed: {cycles}
-          </div>
+          <BreathingProgress completed={cycles} />
         </div>
 
         {/* Controls */}
-        <div className="flex items-center space-x-6">
-          <Button
-            onClick={toggleBreathing}
-            aria-label={isActive ? 'Pause Deep Reset' : hasStarted ? 'Resume Deep Reset' : 'Start Deep Reset'}
-            className="w-16 h-16 rounded-full bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-400/50"
-          >
-            {isActive ? (
-              <Pause className="h-8 w-8 text-yellow-400" />
-            ) : (
-              <Play className="h-8 w-8 text-yellow-400" />
-            )}
-          </Button>
+        {complete ? (
+          <BreathingComplete name="Deep Reset" onStartAgain={startAgain} onDone={() => navigate('/breathing')} />
+        ) : (
+          <div className="flex items-center space-x-6">
+            <Button
+              onClick={toggleBreathing}
+              aria-label={isActive ? 'Pause Deep Reset' : hasStarted ? 'Resume Deep Reset' : 'Start Deep Reset'}
+              className="w-16 h-16 rounded-full bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-400/50"
+            >
+              {isActive ? (
+                <Pause className="h-8 w-8 text-yellow-400" />
+              ) : (
+                <Play className="h-8 w-8 text-yellow-400" />
+              )}
+            </Button>
           
-          <Button
-            onClick={resetBreathing}
-            aria-label="Reset Deep Reset"
-            variant="ghost"
-            className="w-12 h-12 rounded-full hover:bg-white/10"
-          >
-            <RotateCcw className="h-6 w-6 text-white/60" />
-          </Button>
+            <Button
+              onClick={resetBreathing}
+              aria-label="Reset Deep Reset"
+              variant="ghost"
+              className="w-12 h-12 rounded-full hover:bg-white/10"
+            >
+              <RotateCcw className="h-6 w-6 text-white/60" />
+            </Button>
 
-          <VoiceToggle supported={voice.supported} muted={voice.muted} onToggle={voice.toggleMuted} />
-        </div>
+            <VoiceToggle supported={voice.supported} muted={voice.muted} onToggle={voice.toggleMuted} />
+          </div>
+        )}
 
         {/* Guidance */}
         <div className="bg-secondary/40 rounded-3xl p-6 text-center">

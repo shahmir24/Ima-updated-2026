@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button';
 import WellnessHeader from '@/components/wellness/WellnessHeader';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
 import { waveStep, WAVE_START_HEIGHT, type WaveDirection } from '@/lib/ride-the-wave';
+import BreathingProgress from '@/components/wellness/BreathingProgress';
+import BreathingComplete from '@/components/wellness/BreathingComplete';
+import { isBreathingComplete, nextCycleCount } from '@/lib/breathing/breathing-session';
 
 /**
  * One half of the wave. Same look as before — full width, a pointer and a
@@ -20,6 +23,8 @@ const RideTheWave = () => {
   const [waveHeight, setWaveHeight] = useState(WAVE_START_HEIGHT);
   const [breathPhase, setBreathPhase] = useState('neutral'); // 'inhale', 'exhale', 'neutral'
   const [cycles, setCycles] = useState(0);
+  // Five complete cycles, then the exercise is over (see breathing-session.ts).
+  const complete = isBreathingComplete(cycles);
   const [waveOffset, setWaveOffset] = useState(0);
 
   useEffect(() => {
@@ -40,18 +45,23 @@ const RideTheWave = () => {
     };
   }, [isActive]);
 
+  // The fifth cycle is complete: the wave stops and taps are no longer taken.
+  useEffect(() => {
+    if (complete) setIsActive(false);
+  }, [complete]);
+
   // One breath input. Called only from the zones' onClick, which a mouse
   // click, a touch tap and Enter/Space each fire exactly once. The zones used
   // to listen to touchstart AND mousedown, and a tap fires both, so one touch
   // moved the wave twice and could count a cycle twice.
   const handleWaveInteraction = (direction: WaveDirection) => {
-    // Nothing responds until the exercise is started.
-    if (!isActive) return;
+    // Nothing responds until the exercise is started, or once it is complete.
+    if (!isActive || complete) return;
     const step = waveStep(waveHeight, direction);
     setBreathPhase(direction === 'up' ? 'inhale' : 'exhale');
     setWaveHeight(step.height);
     if (step.completesCycle) {
-      setCycles(prev => prev + 1);
+      setCycles((prev) => nextCycleCount(prev));
     }
 
     setTimeout(() => setBreathPhase('neutral'), 500);
@@ -70,6 +80,12 @@ const RideTheWave = () => {
     setBreathPhase('neutral');
     setCycles(0);
     setWaveOffset(0);
+  };
+
+  // Start Again: a fresh five-cycle session, started by this same tap.
+  const startAgain = () => {
+    resetBreathing();
+    setIsActive(true);
   };
 
   const generateWavePath = () => {
@@ -135,7 +151,7 @@ const RideTheWave = () => {
             <button
               type="button"
               onClick={() => handleWaveInteraction('up')}
-              disabled={!isActive}
+              disabled={!isActive || complete}
               aria-label="Breathe in: raise the wave"
               aria-describedby="ride-the-wave-how"
               className={`${ZONE} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-200`}
@@ -149,7 +165,7 @@ const RideTheWave = () => {
             <button
               type="button"
               onClick={() => handleWaveInteraction('down')}
-              disabled={!isActive}
+              disabled={!isActive || complete}
               aria-label="Breathe out: lower the wave"
               aria-describedby="ride-the-wave-how"
               className={`${ZONE} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-200`}
@@ -171,34 +187,36 @@ const RideTheWave = () => {
           <p className="text-white/60 text-sm">
             Just let the wave move through you.
           </p>
-          <div className="text-white/60 text-sm" aria-live="polite" aria-atomic="true">
-            Breath cycles: {cycles}
-          </div>
+          <BreathingProgress completed={cycles} />
         </div>
 
         {/* Controls */}
-        <div className="flex items-center space-x-6">
-          <Button
-            onClick={toggleBreathing}
-            aria-label={isActive ? 'Pause the wave' : 'Start the wave'}
-            className="w-16 h-16 rounded-full bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/50"
-          >
-            {isActive ? (
-              <Pause className="h-8 w-8 text-purple-300" />
-            ) : (
-              <Play className="h-8 w-8 text-purple-300" />
-            )}
-          </Button>
+        {complete ? (
+          <BreathingComplete name="Ride the Wave" onStartAgain={startAgain} onDone={() => navigate('/breathing')} />
+        ) : (
+          <div className="flex items-center space-x-6">
+            <Button
+              onClick={toggleBreathing}
+              aria-label={isActive ? 'Pause the wave' : 'Start the wave'}
+              className="w-16 h-16 rounded-full bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/50"
+            >
+              {isActive ? (
+                <Pause className="h-8 w-8 text-purple-300" />
+              ) : (
+                <Play className="h-8 w-8 text-purple-300" />
+              )}
+            </Button>
           
-          <Button
-            onClick={resetBreathing}
-            aria-label="Reset Ride the Wave"
-            variant="ghost"
-            className="w-12 h-12 rounded-full hover:bg-white/10"
-          >
-            <RotateCcw className="h-6 w-6 text-white/60" />
-          </Button>
-        </div>
+            <Button
+              onClick={resetBreathing}
+              aria-label="Reset Ride the Wave"
+              variant="ghost"
+              className="w-12 h-12 rounded-full hover:bg-white/10"
+            >
+              <RotateCcw className="h-6 w-6 text-white/60" />
+            </Button>
+          </div>
+        )}
 
         {/* Guidance */}
         <div className="bg-purple-800/40 rounded-3xl p-6 text-center">

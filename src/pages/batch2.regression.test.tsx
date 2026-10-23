@@ -130,14 +130,15 @@ describe('4. Ride the Wave — one input, one step; nothing before Start; keyboa
       expect(button, label).toContain('focus-visible:ring-2');
     }
     expect(html).toMatch(/<p id="ride-the-wave-how" class="sr-only">Start the wave first\./);
-    expect(html).toMatch(/aria-live="polite"[^>]*>Breath cycles: <!-- -->0/);
+    // Cycle progress is announced politely (BreathingProgress): "Cycle 1 of 5" before the first cycle.
+    expect(html).toMatch(/aria-live="polite"[^>]*>Cycle 1 of 5</);
   });
 
   it('listens to click only — never touchstart and mousedown together', () => {
     const page = source('./breathing/RideTheWave.tsx');
     expect(page).not.toMatch(/onTouchStart|onMouseDown|onPointerDown/);
     expect(page.match(/onClick=\{\(\) => handleWaveInteraction\('(up|down)'\)\}/g)).toHaveLength(2);
-    expect(page).toMatch(/const handleWaveInteraction = [\s\S]*?if \(!isActive\) return;[\s\S]*?waveStep\(waveHeight, direction\)/);
+    expect(page).toMatch(/const handleWaveInteraction = [\s\S]*?if \(!isActive \|\| complete\) return;[\s\S]*?waveStep\(waveHeight, direction\)/);
   });
 });
 

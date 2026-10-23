@@ -8,6 +8,9 @@ import BottomNavigation from '@/components/productivity/BottomNavigation';
 import VoiceToggle from '@/components/wellness/VoiceToggle';
 import { useUserSettings } from '@/hooks/use-user-settings';
 import { useSpokenGuidance } from '@/hooks/use-spoken-guidance';
+import BreathingProgress from '@/components/wellness/BreathingProgress';
+import BreathingComplete from '@/components/wellness/BreathingComplete';
+import { isBreathingComplete, nextCycleCount } from '@/lib/breathing/breathing-session';
 
 const phases = ['Inhale', 'Hold', 'Exhale', 'Hold'];
 const phaseDuration = 4000; // 4 seconds per phase
@@ -18,19 +21,21 @@ const SteadySquare = () => {
   const [phase, setPhase] = useState(0); // 0: inhale, 1: hold, 2: exhale, 3: hold
   const [count, setCount] = useState(4);
   const [cycles, setCycles] = useState(0);
+  // Five full cycles, then the exercise is over (see breathing-session.ts).
+  const complete = isBreathingComplete(cycles);
 
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
-    if (isActive) {
+    if (isActive && !complete) {
       interval = setInterval(() => {
         setCount((prev) => {
           if (prev === 1) {
             setPhase((prevPhase) => {
               const nextPhase = (prevPhase + 1) % 4;
               if (nextPhase === 0) {
-                setCycles(c => c + 1);
+                setCycles((c) => nextCycleCount(c));
               }
               return nextPhase;
             });
@@ -42,7 +47,7 @@ const SteadySquare = () => {
     }
 
     return () => clearInterval(interval);
-  }, [isActive]);
+  }, [isActive, complete]);
 
 
   const { data: settings } = useUserSettings();
@@ -54,9 +59,18 @@ const SteadySquare = () => {
   // and phase, so each phase says its cue exactly once no matter how many
   // times this re-renders, and silent until the user starts the exercise.
   useEffect(() => {
-    if (!isActive) return;
+    // Once the fifth cycle is done the next Inhale is never announced.
+    if (!isActive || complete) return;
     speak(`${cycles}:${phase}`, phases[phase]);
-  }, [isActive, phase, cycles, speak]);
+  }, [isActive, complete, phase, cycles, speak]);
+
+  // The fifth cycle is complete: stop the exercise, silence the voice and let
+  // the shape come to rest. The interval above has already stopped itself.
+  useEffect(() => {
+    if (!complete) return;
+    cancelVoice();
+    setIsActive(false);
+  }, [complete, cancelVoice]);
 
   const toggleBreathing = () => {
     // Pausing stops a cue mid-word; resuming does not repeat it, because the
@@ -71,6 +85,12 @@ const SteadySquare = () => {
     setPhase(0);
     setCount(4);
     setCycles(0);
+  };
+
+  // Start Again: a fresh five-cycle session, started by this same tap.
+  const startAgain = () => {
+    resetBreathing();
+    setIsActive(true);
   };
 
   // Read-only, for the play button's name: nothing moves before the first
@@ -118,36 +138,38 @@ const SteadySquare = () => {
           <p className="text-white/60 responsive-body">
             Let your mind find structure.
           </p>
-          <div className="text-white/60 responsive-body">
-            Cycles completed: {cycles}
-          </div>
+          <BreathingProgress completed={cycles} />
         </div>
 
         {/* Controls */}
-        <div className="flex items-center space-x-6">
-          <Button
-            onClick={toggleBreathing}
-            aria-label={isActive ? 'Pause Steady Square' : hasStarted ? 'Resume Steady Square' : 'Start Steady Square'}
-            className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/50"
-          >
-            {isActive ? (
-              <Pause className="h-6 w-6 sm:h-8 sm:w-8 text-cyan-400" />
-            ) : (
-              <Play className="h-6 w-6 sm:h-8 sm:w-8 text-cyan-400" />
-            )}
-          </Button>
+        {complete ? (
+          <BreathingComplete name="Steady Square" onStartAgain={startAgain} onDone={() => navigate('/breathing')} />
+        ) : (
+          <div className="flex items-center space-x-6">
+            <Button
+              onClick={toggleBreathing}
+              aria-label={isActive ? 'Pause Steady Square' : hasStarted ? 'Resume Steady Square' : 'Start Steady Square'}
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/50"
+            >
+              {isActive ? (
+                <Pause className="h-6 w-6 sm:h-8 sm:w-8 text-cyan-400" />
+              ) : (
+                <Play className="h-6 w-6 sm:h-8 sm:w-8 text-cyan-400" />
+              )}
+            </Button>
           
-          <Button
-            onClick={resetBreathing}
-            aria-label="Reset Steady Square"
-            variant="ghost"
-            className="w-12 h-12 rounded-full hover:bg-white/10"
-          >
-            <RotateCcw className="h-5 w-5 sm:h-6 sm:w-6 text-white/60" />
-          </Button>
+            <Button
+              onClick={resetBreathing}
+              aria-label="Reset Steady Square"
+              variant="ghost"
+              className="w-12 h-12 rounded-full hover:bg-white/10"
+            >
+              <RotateCcw className="h-5 w-5 sm:h-6 sm:w-6 text-white/60" />
+            </Button>
 
-          <VoiceToggle supported={voice.supported} muted={voice.muted} onToggle={voice.toggleMuted} />
-        </div>
+            <VoiceToggle supported={voice.supported} muted={voice.muted} onToggle={voice.toggleMuted} />
+          </div>
+        )}
 
         {/* Guidance */}
         <div className="bg-secondary/40 rounded-3xl p-4 sm:p-6 text-center">
