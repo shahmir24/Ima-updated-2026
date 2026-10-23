@@ -9,9 +9,11 @@ import RoundIndicator from '@/components/focus/RoundIndicator';
 import FloatingSettings, { FocusSettingsList } from '@/components/focus/FloatingSettings';
 import FocusRing from '@/components/focus/FocusRing';
 import FocusSessionPanel from '@/components/focus/FocusSessionPanel';
+import FocusSetup from '@/components/focus/FocusSetup';
 import BottomNavigation from '@/components/productivity/BottomNavigation';
 import PageWorkspace from '@/components/layout/PageWorkspace';
-import { useUserSettings } from '@/hooks/use-user-settings';
+import { useUpdateUserSettings, useUserSettings } from '@/hooks/use-user-settings';
+import { useAuth } from '@/contexts/auth-context';
 import { useTaskSource } from '@/hooks/use-task-source';
 import { useFocusTimer } from '@/contexts/focus-timer-context';
 import {
@@ -24,6 +26,7 @@ import {
   type FocusDisplayPhase,
   type RememberedPhase
 } from '@/lib/focus/focus-progress';
+import { applyFocusSetup, choiceFor, initialRounds, needsFocusSetup, type FocusSetupResult } from '@/lib/focus/focus-setup';
 
 /**
  * Deliberately narrower than the card hubs. This is a concentration screen, so
@@ -112,7 +115,7 @@ const Focus = () => {
 
   // The timer used to hardcode 25 / 5 / 4 and ignore what the user had saved
   // in App Settings entirely.
-  const { data: settings, isFetched: settingsLoaded } = useUserSettings();
+  const { data: settings, isFetched: settingsLoaded, isError: settingsFailed } = useUserSettings();
 
   // Seeding happens once per visit, and only before the user has touched
   // anything. Two refs rather than reading state in the effect:
@@ -139,6 +142,46 @@ const Focus = () => {
       flows: settings.default_flows
     });
   }, [settingsLoaded, settings, seed]);
+
+  // First-time setup (lib/focus/focus-setup.ts): shown once to a signed-in
+  // user who has never chosen focus preferences, and reopenable from here.
+  // Never over a running or paused session; saving it never starts the timer.
+  const { user } = useAuth();
+  const updateSettings = useUpdateUserSettings();
+  const [setupReopened, setSetupReopened] = useState(false);
+  const [setupSaved, setSetupSaved] = useState(false);
+  // The latest timer, for the moment a save completes: a session may have
+  // started meanwhile (another tab), and it must not be touched.
+  const timerRef = useRef(timer);
+  timerRef.current = timer;
+  const sessionInProgress = timer.inProgress;
+  const firstTimeSetup =
+    !setupSaved &&
+    needsFocusSetup({ signedIn: !!user, settingsLoaded, settingsFailed, settings, sessionInProgress });
+  const showSetup = !sessionInProgress && (firstTimeSetup || setupReopened);
+  const canReopenSetup = !!user && settingsLoaded && !settingsFailed && !sessionInProgress && !showSetup;
+
+  const saveSetup = async (result: Extract<FocusSetupResult, { ok: true }>): Promise<string | null> => {
+    try {
+      await updateSettings.mutateAsync(result.patch);
+    } catch {
+      return 'We couldn’t save that. Check your connection and try again.';
+    }
+    // The saved values now belong to this visit; the one-time seeding above must never re-apply older ones.
+    interactedRef.current = true;
+    seededRef.current = true;
+    applyFocusSetup(timerRef.current, result.config);
+    setSetupSaved(true);
+    setSetupReopened(false);
+    return null;
+  };
+
+  const setupInitial = {
+    choice: choiceFor(settings),
+    customBlock: String(settings?.focus_block_minutes ?? timeBoxDuration),
+    customBreak: String(settings?.buffer_minutes || intervalDuration || 5),
+    rounds: initialRounds(settings)
+  };
 
   /** Whether to show the pre-session encouragement line. */
   const showEncouragement = settings?.encouragement ?? true;
@@ -264,43 +307,62 @@ const Focus = () => {
                 <p className="mt-1 text-white text-xl font-medium break-words">{focusTask.title}</p>
               </div>
             )}
-            <FocusRing
-              timeLeft={timeLeft}
-              progress={ringProgress}
-              label={PHASE_LABEL[displayPhase]}
-              hint={ringHint}
-              isBreak={currentPhase === 'break' && !isFinished}
-              className="hidden lg:flex mb-10"
-            />
-            <TimerBox timeLeft={timeLeft} isBreak={currentPhase === 'break'} className="lg:hidden" />
-            <ControlButtons
-              isPlaying={isPlaying}
-              onPlayPause={handlePlayPause}
-              onReset={handleReset}
-              disabled={isLocked}
-              playLabel={playLabel}
-            />
-            {!isPlaying && !isFinished && showEncouragement && (
-              <p className="hidden lg:block text-white/60 text-sm">{getAffirmationMessage()}</p>
-            )}
-            {/* Completion, from the timer's own state. Nothing here says the
-                session was saved: the timer does not report that. */}
-            {isFinished && (
-              <div className="hidden lg:block w-full max-w-md rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-center">
-                <p className="text-white font-medium">Session complete</p>
-                <p className="mt-1 text-white/60 text-sm">
-                  {flowsCompleted} of {numberOfFlows} {numberOfFlows === 1 ? 'round' : 'rounds'} ·{' '}
-                  {Math.round(timer.state.focusMs / 60000)} min of focus
-                </p>
-                {mode === 'guest' ? (
-                  <p className="mt-3 text-white/40 text-xs">Guest sessions aren’t recorded.</p>
-                ) : (
-                  <Button variant="secondary" className="mt-4" onClick={() => navigate('/stats')}>
-                    View stats
-                  </Button>
+            {showSetup ? (
+              <FocusSetup
+                initial={setupInitial}
+                onConfirm={saveSetup}
+                onCancel={firstTimeSetup ? undefined : () => setSetupReopened(false)}
+              />
+            ) : (
+              <>
+              <FocusRing
+                timeLeft={timeLeft}
+                progress={ringProgress}
+                label={PHASE_LABEL[displayPhase]}
+                hint={ringHint}
+                isBreak={currentPhase === 'break' && !isFinished}
+                className="hidden lg:flex mb-10"
+              />
+              <TimerBox timeLeft={timeLeft} isBreak={currentPhase === 'break'} className="lg:hidden" />
+              <ControlButtons
+                isPlaying={isPlaying}
+                onPlayPause={handlePlayPause}
+                onReset={handleReset}
+                disabled={isLocked}
+                playLabel={playLabel}
+              />
+              {!isPlaying && !isFinished && showEncouragement && (
+                <p className="hidden lg:block text-white/60 text-sm">{getAffirmationMessage()}</p>
+              )}
+              {/* Completion, from the timer's own state. Nothing here says the
+                  session was saved: the timer does not report that. */}
+              {isFinished && (
+                <div className="hidden lg:block w-full max-w-md rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-center">
+                  <p className="text-white font-medium">Session complete</p>
+                  <p className="mt-1 text-white/60 text-sm">
+                    {flowsCompleted} of {numberOfFlows} {numberOfFlows === 1 ? 'round' : 'rounds'} ·{' '}
+                    {Math.round(timer.state.focusMs / 60000)} min of focus
+                  </p>
+                  {mode === 'guest' ? (
+                    <p className="mt-3 text-white/40 text-xs">Guest sessions aren’t recorded.</p>
+                  ) : (
+                    <Button variant="secondary" className="mt-4" onClick={() => navigate('/stats')}>
+                      View stats
+                    </Button>
+                  )}
+                  <p className="mt-3 text-white/40 text-xs">Press play to start a new session.</p>
+                </div>
+              )}
+                {canReopenSetup && (
+                  <button
+                    type="button"
+                    onClick={() => setSetupReopened(true)}
+                    className="mt-2 mb-4 text-white/50 text-sm underline-offset-4 hover:text-white/80 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 rounded"
+                  >
+                    Change focus setup
+                  </button>
                 )}
-                <p className="mt-3 text-white/40 text-xs">Press play to start a new session.</p>
-              </div>
+              </>
             )}
           </div>
 
@@ -314,6 +376,9 @@ const Focus = () => {
             >
               {isLocked ? (
                 <p className="text-white/50 text-sm">Settings are locked while Focus Mode is on.</p>
+              ) : showSetup ? (
+                // While the setup card is open it is the only place to configure Focus.
+                <p className="text-white/50 text-sm">Choose your focus setup to begin.</p>
               ) : (
                 <FocusSettingsList
                   className="space-y-2"
@@ -328,8 +393,8 @@ const Focus = () => {
         </PageWorkspace>
       </main>
 
-      {/* Floating Settings */}
-      {!isLocked && (
+      {/* Floating Settings. Hidden while setup is open, so only one place edits the lengths at a time. */}
+      {!isLocked && !showSetup && (
         <FloatingSettings 
           isOpen={isSettingsOpen}
           onToggle={() => setIsSettingsOpen(!isSettingsOpen)}

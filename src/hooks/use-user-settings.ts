@@ -8,9 +8,10 @@ export type UserSettingsRow = Database['public']['Tables']['user_settings']['Row
 /**
  * The columns the App Settings tab may write.
  *
- * `default_flows` and `timezone` are deliberately absent: neither has a
- * control on this screen, and timezone is load-bearing for day-bucketing
- * elsewhere, so it should not be guessed from a settings edit.
+ * `timezone` is deliberately absent: it has no control on this screen, and
+ * it is load-bearing for day-bucketing elsewhere, so it should not be guessed
+ * from a settings edit. `default_flows` (the round count) is written by the
+ * Focus setup (lib/focus/focus-setup.ts).
  *
  * `nudges_enabled` is absent too: only the Gentle Nudges enable/disable flow
  * may write it, so the account is never "on" without a stored device. The
@@ -27,6 +28,7 @@ export type UserSettingsPatch = Partial<
     | 'ai_companion_name'
     | 'focus_block_minutes'
     | 'buffer_minutes'
+    | 'default_flows'
     | 'timeboxing_style'
     | 'daily_focus_goal'
     | 'nudge_time'

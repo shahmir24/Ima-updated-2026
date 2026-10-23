@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import React from 'react';
 import { renderToString } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
@@ -75,5 +76,25 @@ describe('Profile & Settings — Gentle nudges card', () => {
 
   it('is not on the Profile Info tab', () => {
     expect(renderSettings(true, 'profile')).not.toContain('Daily nudge time');
+  });
+});
+
+// The selects render no options without a DOM, so the wiring is pinned in the
+// source; the rules themselves are tested in lib/focus/focus-setup.test.ts and
+// the browser run changes them.
+describe('Time Boxing settings stay consistent with Focus setup', () => {
+  const source = readFileSync(new URL('./ProfileSettings.tsx', import.meta.url), 'utf8');
+
+  it('offers a 15-minute break, and shows a saved custom length instead of a blank box', () => {
+    expect(source).toContain('const BREAK_CHOICES = [5, 10, 15];');
+    expect(source).toContain('withSaved(BREAK_CHOICES, bufferTime)');
+    expect(source).toContain('withSaved(BLOCK_CHOICES, focusBlockLength)');
+  });
+
+  it('style buttons set their preset lengths; length edits keep the style honest', () => {
+    expect(source).toContain('onClick={() => chooseStyle(style.id)}');
+    expect(source).toContain('saveLength({ focus_block_minutes: Number(value) });');
+    expect(source).toContain('saveLength({ buffer_minutes: Number(value) });');
+    expect(source).toContain('styleAfterLengthEdit(timeboxingStyle, block, rest)');
   });
 });

@@ -20,6 +20,7 @@ import { useAutoSave } from '@/hooks/use-autosave';
 import { useAuth } from '@/contexts/auth-context';
 import { useProfile, useUpdateProfile, type ProfilePatch } from '@/hooks/use-profile';
 import { useUserSettings, useUpdateUserSettings, type UserSettingsPatch } from '@/hooks/use-user-settings';
+import { lengthsForStyle, styleAfterLengthEdit, type TimeboxingStyle } from '@/lib/focus/focus-setup';
 
 /** Local YYYY-MM-DD, so "today" is the user's calendar day. */
 const toLocalISODate = (date: Date) =>
@@ -121,6 +122,33 @@ const ProfileSettings = () => {
   const [bufferTime, setBufferTime] = useState('5');
   const [timeboxingStyle, setTimeboxingStyle] = useState('');
   const [dailyFocusGoal, setDailyFocusGoal] = useState('');
+
+  // The Focus setup's presets and these controls stay consistent: a preset
+  // style sets its lengths, and a length that no longer matches the chosen
+  // preset makes the style Custom (lib/focus/focus-setup.ts).
+  const BLOCK_CHOICES = [25, 45, 90];
+  const BREAK_CHOICES = [5, 10, 15];
+  /** A saved value outside the list (a custom length) is still shown, never a blank box. */
+  const withSaved = (choices: number[], saved: string) => {
+    const value = Number(saved);
+    return Number.isInteger(value) && value > 0 && !choices.includes(value) ? [...choices, value].sort((a, b) => a - b) : choices;
+  };
+  const saveLength = (patch: { focus_block_minutes?: number; buffer_minutes?: number }) => {
+    const block = patch.focus_block_minutes ?? Number(focusBlockLength);
+    const rest = patch.buffer_minutes ?? Number(bufferTime);
+    const style = styleAfterLengthEdit(timeboxingStyle, block, rest);
+    if (style) setTimeboxingStyle(style);
+    settingsSave.saveNow(style ? { ...patch, timeboxing_style: style } : patch);
+  };
+  const chooseStyle = (style: TimeboxingStyle) => {
+    const lengths = lengthsForStyle(style);
+    setTimeboxingStyle(style);
+    if (lengths) {
+      setFocusBlockLength(String(lengths.focus_block_minutes));
+      setBufferTime(String(lengths.buffer_minutes));
+    }
+    settingsSave.saveNow({ timeboxing_style: style, ...(lengths ?? {}) });
+  };
 
   const moodEmojis = ['😊', '🥰', '😌', '🤗', '✨', '🌈', '🦋', '🌸'];
   const preferredModes = [
@@ -596,16 +624,16 @@ const ProfileSettings = () => {
                     value={focusBlockLength}
                     onValueChange={(value) => {
                       setFocusBlockLength(value);
-                      settingsSave.saveNow({ focus_block_minutes: Number(value) });
+                      saveLength({ focus_block_minutes: Number(value) });
                     }}
                   >
                     <SelectTrigger className="mt-1 rounded-2xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="25">25 minutes</SelectItem>
-                      <SelectItem value="45">45 minutes</SelectItem>
-                      <SelectItem value="90">90 minutes</SelectItem>
+                      {withSaved(BLOCK_CHOICES, focusBlockLength).map((minutes) => (
+                        <SelectItem key={minutes} value={String(minutes)}>{minutes} minutes</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -616,15 +644,16 @@ const ProfileSettings = () => {
                     value={bufferTime}
                     onValueChange={(value) => {
                       setBufferTime(value);
-                      settingsSave.saveNow({ buffer_minutes: Number(value) });
+                      saveLength({ buffer_minutes: Number(value) });
                     }}
                   >
                     <SelectTrigger className="mt-1 rounded-2xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="5">5 minutes</SelectItem>
-                      <SelectItem value="10">10 minutes</SelectItem>
+                      {withSaved(BREAK_CHOICES, bufferTime).map((minutes) => (
+                        <SelectItem key={minutes} value={String(minutes)}>{minutes} minutes</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -632,19 +661,16 @@ const ProfileSettings = () => {
                 <div>
                   <Label>Timeboxing Style</Label>
                   <div className="grid grid-cols-3 gap-2 mt-2">
-                    {[
+                    {([
                       { id: 'pomodoro', label: '🍅 Pomodoro' },
                       { id: 'deep-dive', label: '🌊 Deep Dive' },
                       { id: 'custom', label: '🧠 Custom' }
-                    ].map((style) => (
+                    ] as const).map((style) => (
                       <Button
                         key={style.id}
                         variant={timeboxingStyle === style.id ? 'default' : 'outline'}
                         className="h-11 rounded-2xl text-xs"
-                        onClick={() => {
-                          setTimeboxingStyle(style.id);
-                          settingsSave.saveNow({ timeboxing_style: style.id });
-                        }}
+                        onClick={() => chooseStyle(style.id)}
                       >
                         {style.label}
                       </Button>
