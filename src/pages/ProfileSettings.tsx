@@ -252,7 +252,7 @@ const ProfileSettings = () => {
           <Button
             variant="ghost"
             size="icon"
-            className="h-11 w-11 rounded-full"
+            className="h-11 w-11 rounded-full lg:hidden"
             aria-label="Go back"
             onClick={handleBackClick}
           >

@@ -10,6 +10,12 @@ interface PageHeaderProps {
   backPath: string;
   /** Must match the page's content width so the title lines up with it. */
   width?: string;
+  /**
+   * Hide the back arrow from lg, where the desktop sidebar already offers the
+   * same destination. Phones keep it. Only for top-level pages: a subpage's
+   * arrow to its parent menu is real navigation and stays.
+   */
+  hideBackOnDesktop?: boolean;
 }
 
 /**
@@ -20,7 +26,7 @@ interface PageHeaderProps {
  * on the content's left edge instead of floating in the middle of a wide
  * column, and the spacer that centred it is no longer needed.
  */
-const PageHeader = ({ title, backPath, width }: PageHeaderProps) => {
+const PageHeader = ({ title, backPath, width, hideBackOnDesktop = false }: PageHeaderProps) => {
   const navigate = useNavigate();
 
   return (
@@ -30,7 +36,7 @@ const PageHeader = ({ title, backPath, width }: PageHeaderProps) => {
         size="icon"
         onClick={() => navigate(backPath)}
         aria-label="Go back"
-        className="h-11 w-11 rounded-full p-0 hover:bg-white/10"
+        className={`h-11 w-11 rounded-full p-0 hover:bg-white/10${hideBackOnDesktop ? ' lg:hidden' : ''}`}
       >
         <ArrowLeft className="h-6 w-6 text-white" />
       </Button>

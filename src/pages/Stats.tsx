@@ -108,10 +108,11 @@ const Stats = () => {
     // pb-20 keeps the last card clear of the phone bottom bar; the bar is
     // lg:hidden, so desktop keeps its spacing exactly as it was.
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-0">
-      <PageHeader title="Statistics" backPath="/productivity" width={WORKSPACE} />
+      <PageHeader title="Statistics" backPath="/productivity" width={WORKSPACE} hideBackOnDesktop />
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col justify-center">
+      {/* Main Content. Phones keep it centred in the screen; on desktop it
+          starts under the title instead of floating halfway down the page. */}
+      <main className="flex-1 flex flex-col justify-center lg:justify-start">
         <PageWorkspace width={WORKSPACE} className="flex justify-center py-8 text-center">
           {content}
         </PageWorkspace>

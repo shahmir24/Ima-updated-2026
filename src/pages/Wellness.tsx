@@ -82,7 +82,7 @@ const Wellness = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
-      <PageHeader title="Wellness" backPath="/" width={WORKSPACE} />
+      <PageHeader title="Wellness" backPath="/" width={WORKSPACE} hideBackOnDesktop />
 
       {/* Phones and tablets only: the desktop Wellness layout is kept exactly
           as it was, without a search field. */}

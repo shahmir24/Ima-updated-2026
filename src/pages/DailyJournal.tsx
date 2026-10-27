@@ -22,8 +22,8 @@ const DailyJournal = () => {
   return (
     <JournalPageLayout
       title="Where Am I, Really?"
-      backPath="/wellness"
-      backLabel="Back to Wellness"
+      backPath="/journaling"
+      backLabel="Back to Journaling"
       icon={BookOpen}
       iconTile="bg-blue-500/20"
       iconColor="text-blue-300"

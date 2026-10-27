@@ -44,7 +44,7 @@ const SCREENS: {
   back: string; backLabel: string; save: string; width: 'standard' | 'narrow' | 'pair';
 }[] = [
   { type: 'morning-intention', file: 'MorningIntention', Page: MorningIntention, empty: "{ intention: '' }", back: '/journaling', backLabel: 'Back to Journaling', save: 'Save Intention', width: 'narrow' },
-  { type: 'daily-journal', file: 'DailyJournal', Page: DailyJournal, empty: "{ onMind: '', energy: '', letGoLeanIn: '' }", back: '/wellness', backLabel: 'Back to Wellness', save: 'Save Entry', width: 'standard' },
+  { type: 'daily-journal', file: 'DailyJournal', Page: DailyJournal, empty: "{ onMind: '', energy: '', letGoLeanIn: '' }", back: '/journaling', backLabel: 'Back to Journaling', save: 'Save Entry', width: 'standard' },
   { type: 'post-panic', file: 'PostPanicJournal', Page: PostPanicJournal, empty: "{ whatHappened: '', howItFelt: '', whatNeeded: '' }", back: '/journaling', backLabel: 'Back to Journaling', save: 'Save Reflection', width: 'standard' },
   { type: 'focus-reset', file: 'FocusResetJournal', Page: FocusResetJournal, empty: "{ whatMatters: '', justNoise: '' }", back: '/journaling', backLabel: 'Back to Journaling', save: 'Save Focus Reset', width: 'pair' },
   { type: 'gratitude', file: 'GratitudeJournal', Page: GratitudeJournal, empty: "{ smile: '', warmth: '' }", back: '/journaling', backLabel: 'Back to Journaling', save: 'Save Gratitude', width: 'pair' },

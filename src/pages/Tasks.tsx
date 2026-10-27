@@ -177,7 +177,7 @@ const Tasks = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
-      <PageHeader title="Today's Tasks" backPath={isGuest ? '/' : '/productivity'} width={WORKSPACE} />
+      <PageHeader title="Today's Tasks" backPath={isGuest ? '/' : '/productivity'} width={WORKSPACE} hideBackOnDesktop />
 
       {isGuest && (
         <PageWorkspace width={WORKSPACE} className="mb-4">

@@ -113,7 +113,8 @@ const Soundscape = () => {
           variant="ghost" 
           size="icon" 
           onClick={() => navigate('/productivity')}
-          className="h-11 w-11 rounded-full p-0 hover:bg-white/10"
+          // Desktop: the sidebar is the way back; phones keep the arrow.
+          className="h-11 w-11 rounded-full p-0 hover:bg-white/10 lg:hidden"
         >
           <ArrowLeft className="h-6 w-6 text-white" />
         </Button>

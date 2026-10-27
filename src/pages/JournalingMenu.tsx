@@ -72,7 +72,7 @@ const WORKSPACE = 'max-w-5xl';
 const JournalingMenu = () => {
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20 lg:pb-10">
-      <PageHeader title="Journaling" backPath="/wellness" width={WORKSPACE} />
+      <PageHeader title="Journaling" backPath="/wellness" width={WORKSPACE} hideBackOnDesktop />
 
       <main className="flex-1">
         <PageWorkspace width={WORKSPACE} className="space-y-4">
