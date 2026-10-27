@@ -1,7 +1,15 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { setAccountMarker } from '@/lib/account-marker';
+import { browserPushDeviceDeps } from '@/lib/push/gentle-nudges-push-api';
+import {
+  cleanupLeftDeviceConnected,
+  reconcileDeviceSubscription,
+  signOutWithDeviceRelease
+} from '@/lib/push/push-device-lifecycle';
+import { pushCoordination } from '@/lib/push/push-coordination';
+import { clearDeviceStillConnectedNotice, showDeviceStillConnectedNotice } from '@/lib/push/signed-out-notice';
 import { AuthContext, type AuthContextValue } from './auth-context';
 
 interface AuthProviderProps {
@@ -21,6 +29,9 @@ interface OnboardingState {
   /** true / false, or null when the profile could not be read at all. */
   value: boolean | null;
 }
+
+/** The longest sign-out waits for this device's push cleanup before signing out anyway. */
+const SIGN_OUT_DEVICE_CLEANUP_MS = 5000;
 
 /** Delay before the single retry of a failed profile read. */
 const PROFILE_READ_RETRY_MS = 400;
@@ -42,6 +53,29 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const user = session?.user ?? null;
   const userId = user?.id ?? null;
+  // Read by signOut, which stays one stable function across renders.
+  const userIdRef = useRef(userId);
+  userIdRef.current = userId;
+
+  // This device's push subscription follows whoever is signed in (see
+  // push-device-lifecycle.ts): signed out, nothing may arrive here; signed in,
+  // only this account's own registration is kept. Runs once the session is
+  // known, and again on every account change. Never throws.
+  useEffect(() => {
+    if (!sessionResolved) return;
+    pushCoordination.setActiveAccount(userId);
+    // A run started for an earlier account must never act once this one changes.
+    let current = true;
+    void reconcileDeviceSubscription(userId, browserPushDeviceDeps, () => current)
+      .then((result) => {
+        // Confirmed: this device holds no previous account's subscription any more.
+        if (current && (result === 'none' || result === 'released' || result === 'kept')) clearDeviceStillConnectedNotice();
+      })
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, [sessionResolved, userId]);
 
   // Rehydrate the persisted session, then follow every auth change.
   useEffect(() => {
@@ -145,28 +179,45 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, [userId, readOnboardingStatus, applyOnboardingStatus]);
 
   const signOut = useCallback(async () => {
-    const { error } = await supabase.auth.signOut();
+    // First, while the session can still delete this user's own row: stop this
+    // device receiving their notifications (push-device-lifecycle.ts). Bounded
+    // and never throws, so it can never stand in the way of signing out.
+    const cleanup = await signOutWithDeviceRelease(
+      userIdRef.current,
+      browserPushDeviceDeps,
+      async () => {
+        const { error } = await supabase.auth.signOut();
 
-    if (error) {
-      // A global sign out calls the server, and the server call fails whenever
-      // the session it is presenting is already gone or expired — exactly when
-      // signing out matters most. supabase-js returns early on that error
-      // WITHOUT clearing local storage, which would strand the user in a
-      // signed-in-looking app. A local sign out clears the stored session with
-      // no server round trip.
-      console.error('Sign out failed, falling back to a local sign out:', error);
-      const { error: localError } = await supabase.auth.signOut({ scope: 'local' });
-      if (localError) {
-        console.error('Local sign out also failed:', localError);
-      }
+        if (error) {
+          // A global sign out calls the server, and the server call fails whenever
+          // the session it is presenting is already gone or expired — exactly when
+          // signing out matters most. supabase-js returns early on that error
+          // WITHOUT clearing local storage, which would strand the user in a
+          // signed-in-looking app. A local sign out clears the stored session with
+          // no server round trip.
+          console.error('Sign out failed, falling back to a local sign out:', error);
+          const { error: localError } = await supabase.auth.signOut({ scope: 'local' });
+          if (localError) {
+            console.error('Local sign out also failed:', localError);
+          }
+        }
+
+        // onAuthStateChange normally clears the session; do it here too so the
+        // guards redirect even if no event arrives, and so no stale onboarding
+        // answer survives into the next sign-in.
+        setSession(null);
+        setSessionResolved(true);
+        setOnboarding(null);
+      },
+      SIGN_OUT_DEVICE_CLEANUP_MS,
+      // From here on, nothing may register this device for the user signing out.
+      () => pushCoordination.setActiveAccount(null)
+    );
+    if (cleanupLeftDeviceConnected(cleanup)) {
+      // Neither step could be confirmed (offline?). Said plainly on the sign-in
+      // page, and finished on the next start. Nothing about the account or device is shown.
+      showDeviceStillConnectedNotice();
     }
-
-    // onAuthStateChange normally clears the session; do it here too so the
-    // guards redirect even if no event arrives, and so no stale onboarding
-    // answer survives into the next sign-in.
-    setSession(null);
-    setSessionResolved(true);
-    setOnboarding(null);
   }, []);
 
   const refreshOnboardingStatus = useCallback(async () => {

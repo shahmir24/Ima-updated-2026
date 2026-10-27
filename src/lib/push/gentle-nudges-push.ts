@@ -22,6 +22,16 @@
  * setTimeout, or a promise.then.
  */
 
+import { pushCoordination, type PushCoordination } from './push-coordination';
+import { pushLock, type PushLock } from './push-lock';
+
+/** How long an opt-in waits for an unsubscribe still settling before giving up (it can be tried again). */
+const UNSUBSCRIBE_SETTLE_MS = 5000;
+/** How long opt-in / opt-out wait for another tab's operation on the subscription. */
+const LOCK_WAIT_MS = 5000;
+/** How long the cross-tab lock stays held for this tab's own unsubscribe still in flight. */
+const UNSUBSCRIBE_HOLD_MS = 10_000;
+
 export type NudgePermission = NotificationPermission | 'unsupported';
 
 export type NudgePushErrorCode =
@@ -89,6 +99,12 @@ export interface NudgeSettingsPatch {
 export interface NudgePushApi {
   registerSubscription(record: NudgeSubscriptionRecord): Promise<{ error: unknown }>;
   removeSubscription(userId: string, endpoint: string): Promise<{ error: unknown }>;
+  /**
+   * Whether this user has a row for the endpoint. When present, refresh()
+   * counts a browser subscription as this account's only if it is registered
+   * to it, so a previous account's leftover never reads as "on" here.
+   */
+  ownsSubscription?(userId: string, endpoint: string): Promise<{ owned: boolean; error?: undefined } | { error: unknown }>;
   saveSettings(userId: string, patch: NudgeSettingsPatch): Promise<{ error: unknown }>;
 }
 
@@ -135,6 +151,13 @@ export interface NudgePushControllerOptions {
   vapidPublicKey: string | undefined;
   api: NudgePushApi;
   environment?: NudgePushEnvironment;
+  /**
+   * The app-wide record of who this device's subscription is for and what is
+   * touching it (push-coordination.ts). Tests pass their own.
+   */
+  coordination?: PushCoordination;
+  /** The cross-tab lock (push-lock.ts). Tests pass their own. */
+  lock?: PushLock;
 }
 
 export interface NudgePushController {
@@ -269,6 +292,11 @@ function requestPermissionNow(notification: NonNullable<NudgePushEnvironment['No
 // ---------------------------------------------------------------------------
 
 export function createNudgePushController(options: NudgePushControllerOptions): NudgePushController {
+  const coordination = options.coordination ?? pushCoordination;
+  const lock = options.lock ?? pushLock;
+  /** Runs `work` while holding the cross-tab lock; held on until this tab's unsubscribe settles. */
+  const underLock = <T,>(work: () => Promise<T>) =>
+    lock.run(work, { acquireTimeoutMs: LOCK_WAIT_MS, holdAfter: () => coordination.waitForUnsubscribe(UNSUBSCRIBE_HOLD_MS) });
   if (!options.userId) throw new Error('Gentle nudges need a signed-in user.');
 
   const env = options.environment ?? realEnvironment();
@@ -329,10 +357,32 @@ export function createNudgePushController(options: NudgePushControllerOptions): 
     if (inFlight) return;
     set({ loading: true, permission: readPermission() });
     try {
-      set({ subscribed: (await currentSubscription()) !== null, loading: false });
+      const subscription = await currentSubscription();
+      let subscribed: boolean | null = subscription !== null;
+      if (subscription && api.ownsSubscription) {
+        // Only this account's registration counts. Unknown (offline) is unknown, never "on".
+        const result = await api.ownsSubscription(userId, subscription.endpoint);
+        subscribed = 'owned' in result ? result.owned : null;
+      }
+      set({ subscribed, loading: false });
     } catch {
       set({ subscribed: null, loading: false });
     }
+  }
+
+  /**
+   * This opt-in no longer belongs to the signed-in account (it signed out or
+   * switched while this was running): take back what was just set up, so the
+   * device cannot keep receiving that account's nudges. Best effort; the
+   * account check on the next start covers anything left.
+   */
+  async function abandon(subscription: PushSubscriptionLike | null, registered: boolean): Promise<NudgePushResult> {
+    if (subscription) {
+      if (registered) await api.removeSubscription(userId, subscription.endpoint).catch(() => undefined);
+      await coordination.trackUnsubscribe(Promise.resolve().then(() => subscription.unsubscribe())).catch(() => false);
+    }
+    set({ subscribed: false });
+    return failure('register-failed');
   }
 
   async function finishEnable(permissionAnswer: Promise<NotificationPermission>, key: Uint8Array): Promise<NudgePushResult> {
@@ -340,6 +390,21 @@ export function createNudgePushController(options: NudgePushControllerOptions): 
     set({ permission });
     if (permission === 'denied') return failure('permission-denied');
     if (permission !== 'granted') return failure('permission-dismissed');
+
+    // Everything that touches the subscription runs under the cross-tab lock,
+    // so another tab's sign-out, opt-out or account check cannot interleave.
+    // Another tab holding it too long: "try again", nothing changed.
+    const locked = await underLock(() => setUpDevice(key));
+    return locked.ran ? locked.value : failure('subscribe-failed');
+  }
+
+  /** The device part of opt-in. Runs under the cross-tab lock; every check below runs after any wait for it. */
+  async function setUpDevice(key: Uint8Array): Promise<NudgePushResult> {
+    // Never reuse a subscription that sign-out or the account check may still
+    // be unsubscribing: it could die right after being registered here.
+    if (!(await coordination.waitForUnsubscribe(UNSUBSCRIBE_SETTLE_MS))) return failure('subscribe-failed');
+    // Signed out or switched account while the prompt was open: nothing to set up.
+    if (coordination.isInactive(userId)) return failure('register-failed');
 
     const registration = await activeRegistration();
     if (!registration) return failure('service-worker-unavailable');
@@ -352,7 +417,7 @@ export function createNudgePushController(options: NudgePushControllerOptions): 
       } else {
         // A subscription made with another VAPID key can never receive our
         // pushes; replace it.
-        if (existing) await existing.unsubscribe().catch(() => false);
+        if (existing) await coordination.trackUnsubscribe(Promise.resolve().then(() => existing.unsubscribe())).catch(() => false);
         subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
       }
     } catch {
@@ -364,6 +429,10 @@ export function createNudgePushController(options: NudgePushControllerOptions): 
     const record = toSubscriptionRecord(subscription, nav?.userAgent);
     if (!record) return failure('subscribe-failed');
 
+    // Checked immediately before registering, and again once registered: the
+    // device is only ever stored for the account that is signed in here now.
+    if (coordination.isInactive(userId)) return abandon(subscription, false);
+
     // The device first, then the switch: the server never has nudges on for
     // a user whose device it has not stored. A failure leaves the browser
     // subscribed, so trying again simply re-registers the same subscription.
@@ -373,6 +442,7 @@ export function createNudgePushController(options: NudgePushControllerOptions): 
     } catch {
       return failure('register-failed');
     }
+    if (coordination.isInactive(userId)) return abandon(subscription, true);
 
     const zone = env.timeZone?.();
     const timezone = typeof zone === 'string' && zone.trim() ? zone.trim() : undefined;
@@ -408,7 +478,8 @@ export function createNudgePushController(options: NudgePushControllerOptions): 
       notification!.permission === 'granted' ? Promise.resolve('granted') : requestPermissionNow(notification!);
 
     set({ loading: true, error: null });
-    inFlight = finishEnable(permissionAnswer, vapidKey!)
+    inFlight = coordination
+      .trackEnable(finishEnable(permissionAnswer, vapidKey!))
       .catch(() => failure('subscribe-failed'))
       .then((result) => {
         inFlight = null;
@@ -428,18 +499,22 @@ export function createNudgePushController(options: NudgePushControllerOptions): 
       return failure('disable-failed');
     }
 
-    // Then forget this browser. Best effort: nudges are already off.
+    // Then forget this browser, under the cross-tab lock. Best effort: nudges
+    // are already off, so if another tab holds the lock too long this is left
+    // to the next account check.
     if (supported) {
-      try {
-        const subscription = await currentSubscription();
-        if (subscription) {
-          await api.removeSubscription(userId, subscription.endpoint).catch(() => undefined);
-          await subscription.unsubscribe().catch(() => false);
+      await underLock(async () => {
+        try {
+          const subscription = await currentSubscription();
+          if (subscription) {
+            await api.removeSubscription(userId, subscription.endpoint).catch(() => undefined);
+            await coordination.trackUnsubscribe(Promise.resolve().then(() => subscription.unsubscribe())).catch(() => false);
+          }
+          set({ subscribed: false });
+        } catch {
+          // Leave `subscribed` as it was; a refresh() will re-read it.
         }
-        set({ subscribed: false });
-      } catch {
-        // Leave `subscribed` as it was; a refresh() will re-read it.
-      }
+      }).catch(() => undefined);
     }
     return { ok: true, timezoneSaved: false };
   }

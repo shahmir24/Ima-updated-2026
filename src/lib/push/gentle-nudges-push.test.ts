@@ -522,3 +522,42 @@ describe('disable', () => {
     expect(existing.unsubscribe).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('this device as seen by the signed-in account (account switching)', () => {
+  const withOwnership = (owned: boolean | 'error') => {
+    const b = fakeBrowser({ permission: 'granted', existing: fakeSubscription() });
+    const ownsSubscription = vi.fn(async () => (owned === 'error' ? { error: { message: 'Failed to fetch' } } : { owned }));
+    const api = { ...fakeApi({}, b.log), ownsSubscription };
+    const controller = createNudgePushController({ userId: USER_ID, vapidPublicKey: VAPID_KEY, api, environment: b.environment });
+    return { controller, api, ownsSubscription };
+  };
+
+  it('a subscription registered to this account reads as subscribed', async () => {
+    const { controller, ownsSubscription } = withOwnership(true);
+    await controller.refresh();
+    expect(controller.getState().subscribed).toBe(true);
+    expect(ownsSubscription).toHaveBeenCalledWith(USER_ID, ENDPOINT);
+  });
+
+  it("a previous account's leftover subscription never reads as on for this account", async () => {
+    const { controller, api } = withOwnership(false);
+    await controller.refresh();
+    expect(controller.getState().subscribed).toBe(false);
+    // Reading it changes nothing: no registration, no removal, no settings write.
+    noServerCalls(api);
+  });
+
+  it('when ownership cannot be read (offline) it is unknown, never "on"', async () => {
+    const { controller } = withOwnership('error');
+    await controller.refresh();
+    expect(controller.getState().subscribed).toBeNull();
+  });
+
+  it('this account opting in on a device with a leftover subscription registers it to this account only by its own choice', async () => {
+    const { controller, api } = withOwnership(false);
+    await controller.refresh();
+    expect(api.registerSubscription).not.toHaveBeenCalled();
+    expect((await controller.enable()).ok).toBe(true);
+    expect(api.registerSubscription).toHaveBeenCalledWith(expect.objectContaining({ endpoint: ENDPOINT }));
+  });
+});

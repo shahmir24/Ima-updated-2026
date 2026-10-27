@@ -11,6 +11,7 @@ import { getEmailRedirectTo, consumeAuthCallbackError } from '@/lib/auth-redirec
 import { opensOnSignUp } from '@/lib/auth-entry';
 import { useToast } from '@/hooks/use-toast';
 import { IMA_LOCKUP_SRC } from '@/lib/brand';
+import SignedOutDeviceNotice from '@/components/auth/SignedOutDeviceNotice';
 
 const Auth = () => {
   const { toast } = useToast();
@@ -169,6 +170,9 @@ const Auth = () => {
               {isSignUp ? "Join your wellness journey" : "Welcome back to your wellness journey"}
             </p>
           </div>
+
+          {/* Only after a sign-out whose device cleanup could not be confirmed. */}
+          <SignedOutDeviceNotice />
 
           {/* Auth Card */}
           <Card className="border-0 shadow-lg">
