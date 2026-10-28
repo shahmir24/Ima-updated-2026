@@ -14,6 +14,9 @@ import type { PushDeviceDeps } from './push-device-lifecycle';
  *   hides every other account's rows, so "no row" means "not this user's".
  * - Settings are upserted exactly as useUpdateUserSettings does, so a missing
  *   user_settings row cannot lose the change.
+ * - The feature switches are read fresh from the user's own row, never from
+ *   the React Query cache, so turning one feature off decides about the
+ *   device from what the server holds now.
  */
 export const supabaseNudgePushApi: NudgePushApi = {
   async registerSubscription(record) {
@@ -51,6 +54,21 @@ export const supabaseNudgePushApi: NudgePushApi = {
       .from('user_settings')
       .upsert({ user_id: userId, ...patch }, { onConflict: 'user_id' });
     return { error };
+  },
+
+  async readFeatureFlags(userId) {
+    const { data, error } = await supabase
+      .from('user_settings')
+      .select('nudges_enabled, focus_alerts_enabled')
+      .eq('user_id', userId)
+      .limit(1);
+    if (error) return { error };
+    const row = Array.isArray(data) ? data[0] : null;
+    // No row (or one this session cannot see) tells us nothing: never read it as "both off".
+    if (!row || typeof row.nudges_enabled !== 'boolean' || typeof row.focus_alerts_enabled !== 'boolean') {
+      return { error: { message: 'Notification settings could not be read.' } };
+    }
+    return { flags: { nudges_enabled: row.nudges_enabled, focus_alerts_enabled: row.focus_alerts_enabled } };
   }
 };
 

@@ -58,7 +58,7 @@ describe('Profile & Settings — desktop layout (presentation only)', () => {
     const html = render('settings');
     expect(html).toContain('lg:grid lg:grid-cols-2 lg:items-start lg:gap-6');
     const t = text(html);
-    const order = ['Personalization', 'Wellness Settings', 'Time Boxing Settings', 'Gentle nudges', 'Account & Privacy', 'Feedback & Support'].map((h) => t.indexOf(h));
+    const order = ['Personalization', 'Wellness Settings', 'Time Boxing Settings', '🔔 Notifications', 'Account & Privacy', 'Feedback & Support'].map((h) => t.indexOf(h));
     expect(order.every((i) => i >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(t).toContain('Log out');

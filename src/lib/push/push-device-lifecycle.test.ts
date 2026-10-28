@@ -39,7 +39,10 @@ const tick = (ms = 0) => new Promise((r) => setTimeout(r, ms));
 function world(options: { rows?: { user: string; endpoint: string }[]; subscribed?: boolean } = {}) {
   const rows = [...(options.rows ?? [{ user: A, endpoint: THIS_DEVICE }, { user: A, endpoint: LAPTOP }, { user: B, endpoint: B_PHONE }])];
   const browser = { subscribed: options.subscribed ?? true, unsubscribeFails: false, unsubscribeHangs: false };
-  const server = { deleteFails: false, deleteThrows: false, deleteHangs: false, readFails: false };
+  const server = { deleteFails: false, deleteThrows: false, deleteHangs: false, readFails: false, flagsReadFails: false };
+  /** user_settings: each account's two feature switches. */
+  const flags: Record<string, { nudges_enabled: boolean; focus_alerts_enabled: boolean }> = {};
+  const flagsOf = (user: string) => (flags[user] ??= { nudges_enabled: false, focus_alerts_enabled: false });
   const calls: string[] = [];
 
   const subscription: PushSubscriptionLike = {
@@ -79,7 +82,7 @@ function world(options: { rows?: { user: string; endpoint: string }[]; subscribe
   const deliversTo = () =>
     browser.subscribed ? rows.filter((row) => row.endpoint === THIS_DEVICE).map((row) => (row.user === A ? 'A' : 'B')) : [];
 
-  return { rows, browser, server, calls, deps, subscription, deliversTo, coordination };
+  return { rows, browser, server, calls, deps, subscription, deliversTo, coordination, flags, flagsOf };
 }
 
 describe('signing out: this device stops receiving the account\'s notifications', () => {
@@ -289,9 +292,16 @@ function optIn(
       return { error: null };
     },
     removeSubscription: (user, endpoint) => w.deps.removeServerSubscription(user, endpoint),
-    saveSettings: async (_user, patch) => {
-      w.calls.push(`settings(${patch.nudges_enabled ? 'on' : 'off'})`);
+    saveSettings: async (user, patch) => {
+      w.calls.push(`settings(${patch.nudges_enabled || patch.focus_alerts_enabled ? 'on' : 'off'})`);
+      const { timezone: _zone, ...switches } = patch;
+      Object.assign(w.flagsOf(user), switches);
       return { error: null };
+    },
+    readFeatureFlags: async (user) => {
+      w.calls.push('settings.read');
+      if (w.server.flagsReadFails) return { error: { message: 'Failed to fetch' } };
+      return { flags: { ...w.flagsOf(user) } };
     }
   };
   return createNudgePushController({
@@ -549,9 +559,24 @@ describe('cross-tab: two tabs sharing one subscription', () => {
     expect(w.calls).not.toContain('server.delete(A)');
     register.resolve();
     await enabling;
-    expect((await disabling).ok).toBe(true);
-    // Strictly in order: tab 2 registered, then tab 1 removed and unsubscribed.
-    expect(w.calls.indexOf('server.register(A)')).toBeLessThan(w.calls.indexOf('server.delete(A)'));
+    // Strictly in order: tab 2 registered and saved "on" after tab 1's "off";
+    // tab 1 then read the switch back under the lock and left the device for it.
+    expect(await disabling).toMatchObject({ ok: true, device: 'kept' });
+    expect(w.calls.indexOf('server.register(A)')).toBeLessThan(w.calls.lastIndexOf('settings.read'));
+    expect(w.calls).not.toContain('server.delete(A)');
+    // The account and the device agree: on, and this device receives it.
+    expect(w.flags[A].nudges_enabled).toBe(true);
+    expect(w.deliversTo()).toEqual(['A']);
+  });
+
+  it('opt-out in tab 1 after an opt-in in tab 2 has finished: the device is removed', async () => {
+    const w = world({ subscribed: false, rows: [] });
+    const session = { user: A as string | null };
+    const { tab1, tab2 } = twoTabs(w);
+    tab1.coordination.setActiveAccount(A);
+    tab2.coordination.setActiveAccount(A);
+    expect((await optIn(w, A, session, {}, tab2).enable()).ok).toBe(true);
+    expect(await optIn(w, A, session, {}, tab1).disable()).toMatchObject({ ok: true, device: 'released' });
     expect(w.rows).toEqual([]);
     expect(w.deliversTo()).toEqual([]);
   });
@@ -617,5 +642,90 @@ describe('cross-tab: two tabs sharing one subscription', () => {
     expect(result).toMatchObject({ ok: false, error: { code: 'subscribe-failed' } });
     expect(w.calls).not.toContain('browser.subscribe');
     expect(w.rows).toEqual([]);
+  });
+});
+
+describe('cross-tab: Gentle Nudges and Focus alerts share the one subscription', () => {
+  const bothTabsSignedIn = (w: ReturnType<typeof world>) => {
+    const tabs = twoTabs(w);
+    tabs.tab1.coordination.setActiveAccount(A);
+    tabs.tab2.coordination.setActiveAccount(A);
+    return tabs;
+  };
+
+  it('tab 1 turns nudges off while tab 2 turns Focus alerts on: the device stays, for Focus alerts', async () => {
+    const w = world({ subscribed: false, rows: [] });
+    const session = { user: A as string | null };
+    const { tab1, tab2 } = bothTabsSignedIn(w);
+    expect((await optIn(w, A, session, {}, tab1).enable('nudges')).ok).toBe(true);
+
+    // Tab 2's Focus opt-in holds the lock, its registration in flight…
+    const register = deferred<void>();
+    const focusOn = optIn(w, A, session, { register: register.promise }, tab2).enable('focus');
+    await tick();
+    // …while tab 1 — whose screen still thinks Focus is off — turns nudges off.
+    const nudgesOff = optIn(w, A, session, {}, tab1).disable('nudges');
+    await tick(10);
+    expect(w.calls).not.toContain('server.delete(A)');
+    register.resolve();
+    expect((await focusOn).ok).toBe(true);
+    expect(await nudgesOff).toMatchObject({ ok: true, device: 'kept' });
+
+    expect(w.flags[A]).toEqual({ nudges_enabled: false, focus_alerts_enabled: true });
+    expect(w.calls).not.toContain('server.delete(A)');
+    expect(w.subscription.unsubscribe).not.toHaveBeenCalled();
+    expect(w.deliversTo()).toEqual(['A']);
+  });
+
+  it('both tabs turn their feature off at the same time: the device is removed once, nothing left', async () => {
+    const w = world({ subscribed: false, rows: [] });
+    const session = { user: A as string | null };
+    const { tab1, tab2 } = bothTabsSignedIn(w);
+    await optIn(w, A, session, {}, tab1).enable('nudges');
+    await optIn(w, A, session, {}, tab2).enable('focus');
+    expect(w.deliversTo()).toEqual(['A']);
+
+    const [one, two] = await Promise.all([
+      optIn(w, A, session, {}, tab1).disable('nudges'),
+      optIn(w, A, session, {}, tab2).disable('focus')
+    ]);
+    expect([one, two].every((r) => r.ok)).toBe(true);
+    // Whichever ran second found the device already gone; it was removed once.
+    expect(w.calls.filter((c) => c === 'server.delete(A)')).toHaveLength(1);
+    expect(w.subscription.unsubscribe).toHaveBeenCalledTimes(1);
+    expect(w.flags[A]).toEqual({ nudges_enabled: false, focus_alerts_enabled: false });
+    expect(w.rows).toEqual([]);
+    expect(w.deliversTo()).toEqual([]);
+  });
+
+  it('logout with both features on removes the device whatever the switches say', async () => {
+    const w = world({ subscribed: false, rows: [] });
+    const session = { user: A as string | null };
+    const { tab1 } = bothTabsSignedIn(w);
+    await optIn(w, A, session, {}, tab1).enable('nudges');
+    await optIn(w, A, session, {}, tab1).enable('focus');
+    const cleanup = await signOutWithDeviceRelease(A, tab1.deps, async () => {
+      session.user = null;
+    }, 5000, () => tab1.coordination.setActiveAccount(null));
+    expect(cleanup).toEqual({ server: 'done', browser: 'done', deviceReleased: true });
+    expect(w.deliversTo()).toEqual([]);
+  });
+
+  it("account switching: A's turn-off, finishing after the tab moved on to B, leaves the device to sign-out cleanup", async () => {
+    const w = world({ subscribed: false, rows: [] });
+    const session = { user: A as string | null };
+    const { tab1 } = bothTabsSignedIn(w);
+    await optIn(w, A, session, {}, tab1).enable('nudges');
+    // A's old screen finishes a disable after the tab has moved on to B.
+    const controller = optIn(w, A, session, {}, tab1);
+    tab1.coordination.setActiveAccount(B);
+    w.calls.length = 0;
+    const result = await controller.disable('nudges');
+    // Both switches end up off, so only the account guard can be what keeps the device:
+    expect(w.flags[A]).toEqual({ nudges_enabled: false, focus_alerts_enabled: false });
+    expect(result).toEqual({ ok: true, timezoneSaved: false, device: 'kept' });
+    // ...and it stops before even reading the switches.
+    expect(w.calls).toEqual(['settings(off)']);
+    expect(w.subscription.unsubscribe).not.toHaveBeenCalled();
   });
 });

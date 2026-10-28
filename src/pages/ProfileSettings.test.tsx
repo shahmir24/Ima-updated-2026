@@ -45,16 +45,21 @@ const renderSettings = (signedIn: boolean, tab = 'settings') =>
     </QueryClientProvider>
   );
 
-describe('Profile & Settings — Gentle nudges card', () => {
+describe('Profile & Settings — Notifications card', () => {
   it('appears on App Settings, off by default, among the existing cards', () => {
     const html = renderSettings(true);
-    expect(html).toContain('Gentle nudges');
+    expect(html).toContain('Notifications');
+    expect(html).toContain('Focus alerts');
+    expect(html).toContain('Gentle Nudges');
+    expect(html).toContain('Quiet hours');
     expect(html).toContain('Daily nudge time');
     expect(html).toContain('Show task names in notifications');
     expect(html).toMatch(/id="gentle-nudges"[^>]*aria-checked="false"|aria-checked="false"[^>]*id="gentle-nudges"/);
+    expect(html).toMatch(/id="focus-alerts"[^>]*aria-checked="false"|aria-checked="false"[^>]*id="focus-alerts"/);
+    expect(html).not.toContain('Gentle nudges</h3>'); // replaced, not duplicated
 
-    // Existing cards are still there, in order, with nudges before Account & Privacy.
-    const order = ['Personalization', 'Wellness Settings', 'Time Boxing Settings', 'Gentle nudges', 'Account &amp; Privacy'].map((t) =>
+    // Existing cards are still there, in order, with notifications before Account & Privacy.
+    const order = ['Personalization', 'Wellness Settings', 'Time Boxing Settings', '🔔 Notifications', 'Account &amp; Privacy'].map((t) =>
       html.indexOf(t)
     );
     expect(order.every((index) => index >= 0)).toBe(true);
@@ -70,8 +75,9 @@ describe('Profile & Settings — Gentle nudges card', () => {
 
   it('Guest Mode sees the card disabled with a sign-in note', () => {
     const html = renderSettings(false);
-    expect(html).toContain('Sign in to turn on gentle nudges');
+    expect(html).toContain('Sign in to turn on notifications');
     expect(html).toMatch(/id="gentle-nudges"[^>]*disabled=""|disabled=""[^>]*id="gentle-nudges"/);
+    expect(html).toMatch(/id="focus-alerts"[^>]*disabled=""|disabled=""[^>]*id="focus-alerts"/);
   });
 
   it('is not on the Profile Info tab', () => {

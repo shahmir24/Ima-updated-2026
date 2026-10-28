@@ -120,8 +120,9 @@ describe('placement — approved layouts keep their order', () => {
     expect(column.indexOf('{installHint}')).toBeGreaterThan(column.lastIndexOf('to="/body-double"'));
   });
 
-  it('Settings: the card follows Gentle Nudges, before Account & Privacy', () => {
-    const nudges = settings.indexOf('<GentleNudgesCard');
+  it('Settings: the card follows Notifications, before Account & Privacy', () => {
+    const nudges = settings.indexOf('<NotificationsCard');
+    expect(nudges).toBeGreaterThan(-1);
     const card = settings.indexOf('<InstallAppCard />');
     expect(card).toBeGreaterThan(nudges);
     expect(card).toBeLessThan(settings.indexOf('Account & Privacy */}'));

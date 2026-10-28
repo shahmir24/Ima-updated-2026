@@ -53,7 +53,8 @@ function browser() {
 const api = () => ({
   registerSubscription: vi.fn(async () => ({ error: null })),
   removeSubscription: vi.fn(async () => ({ error: null })),
-  saveSettings: vi.fn(async () => ({ error: null }))
+  saveSettings: vi.fn(async () => ({ error: null })),
+  readFeatureFlags: vi.fn(async () => ({ flags: { nudges_enabled: false, focus_alerts_enabled: false } }))
 });
 
 function render(options: { signedIn: boolean; guestStore?: boolean; environment: NudgePushEnvironment; api: ReturnType<typeof api>; queryClient?: QueryClient }) {

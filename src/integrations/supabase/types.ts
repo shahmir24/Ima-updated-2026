@@ -476,10 +476,14 @@ export type Database = {
           daily_focus_goal: string | null
           default_flows: number
           encouragement: boolean
+          focus_alerts_enabled: boolean
           focus_block_minutes: number
           nudge_show_task_titles: boolean
           nudge_time: string
           nudges_enabled: boolean
+          quiet_hours_enabled: boolean
+          quiet_hours_end: string
+          quiet_hours_start: string
           sound_volume: number
           theme: string
           timeboxing_style: string | null
@@ -496,10 +500,14 @@ export type Database = {
           daily_focus_goal?: string | null
           default_flows?: number
           encouragement?: boolean
+          focus_alerts_enabled?: boolean
           focus_block_minutes?: number
           nudge_show_task_titles?: boolean
           nudge_time?: string
           nudges_enabled?: boolean
+          quiet_hours_enabled?: boolean
+          quiet_hours_end?: string
+          quiet_hours_start?: string
           sound_volume?: number
           theme?: string
           timeboxing_style?: string | null
@@ -516,10 +524,14 @@ export type Database = {
           daily_focus_goal?: string | null
           default_flows?: number
           encouragement?: boolean
+          focus_alerts_enabled?: boolean
           focus_block_minutes?: number
           nudge_show_task_titles?: boolean
           nudge_time?: string
           nudges_enabled?: boolean
+          quiet_hours_enabled?: boolean
+          quiet_hours_end?: string
+          quiet_hours_start?: string
           sound_volume?: number
           theme?: string
           timeboxing_style?: string | null

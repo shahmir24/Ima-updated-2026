@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const calls = vi.hoisted(() => ({ log: [] as Array<[string, ...unknown[]]>, result: { error: null as unknown } }));
+const calls = vi.hoisted(() => ({ log: [] as Array<[string, ...unknown[]]>, result: { error: null as unknown } as { error: unknown; data?: unknown } }));
 
 vi.mock('@/integrations/supabase/client', () => {
   const chain = (table: string) => {
     const proxy: Record<string, unknown> = {};
-    for (const method of ['delete', 'eq', 'upsert']) {
+    for (const method of ['delete', 'eq', 'upsert', 'select', 'limit']) {
       proxy[method] = (...args: unknown[]) => {
         calls.log.push([`${table}.${method}`, ...args]);
         return proxy;
@@ -72,5 +72,38 @@ describe('supabaseNudgePushApi', () => {
     expect(calls.log).toEqual([
       ['user_settings.upsert', { user_id: USER_ID, nudges_enabled: true, timezone: 'Asia/Karachi' }, { onConflict: 'user_id' }]
     ]);
+  });
+});
+
+describe('supabaseNudgePushApi.readFeatureFlags — the fresh read behind turning a feature off', () => {
+  it("reads both switches from this user's own row, uncached", async () => {
+    calls.result = { error: null, data: [{ nudges_enabled: true, focus_alerts_enabled: false }] };
+    expect(await supabaseNudgePushApi.readFeatureFlags(USER_ID)).toEqual({ flags: { nudges_enabled: true, focus_alerts_enabled: false } });
+    expect(calls.log).toEqual([
+      ['user_settings.select', 'nudges_enabled, focus_alerts_enabled'],
+      ['user_settings.eq', 'user_id', USER_ID],
+      ['user_settings.limit', 1]
+    ]);
+  });
+
+  it('a missing row is an error, never "both off"', async () => {
+    for (const data of [[], null, undefined]) {
+      calls.result = { error: null, data };
+      const result = await supabaseNudgePushApi.readFeatureFlags(USER_ID);
+      expect(result).not.toHaveProperty('flags');
+      expect(result).toHaveProperty('error');
+    }
+  });
+
+  it('a row without two real booleans is an error, never "off"', async () => {
+    for (const row of [{ nudges_enabled: null, focus_alerts_enabled: false }, { nudges_enabled: false }, { nudges_enabled: 'false', focus_alerts_enabled: false }]) {
+      calls.result = { error: null, data: [row] };
+      expect(await supabaseNudgePushApi.readFeatureFlags(USER_ID)).not.toHaveProperty('flags');
+    }
+  });
+
+  it('a read failure is passed back as an error', async () => {
+    calls.result = { error: { code: 'PGRST301', message: 'JWT expired' }, data: null };
+    expect(await supabaseNudgePushApi.readFeatureFlags(USER_ID)).toEqual({ error: { code: 'PGRST301', message: 'JWT expired' } });
   });
 });

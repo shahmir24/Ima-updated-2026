@@ -1,5 +1,6 @@
 /**
- * Gentle Nudges — this browser's Web Push subscription, for a signed-in user.
+ * Notifications — this browser's Web Push subscription, for a signed-in user,
+ * shared by the two features that use it: Gentle Nudges and Focus alerts.
  *
  * Plain TypeScript with no React and no Supabase import: the browser and the
  * server are both handed in, so every path can be tested. The hook
@@ -20,6 +21,18 @@
  * synchronous, and the first `await` comes after it. The caller must call
  * enable() directly in the click handler — not after its own await, a
  * setTimeout, or a promise.then.
+ *
+ * One subscription, two features
+ * ------------------------------
+ * The browser holds one push subscription per site, so both features share
+ * it, and each has its own account-wide switch in user_settings
+ * (nudges_enabled, focus_alerts_enabled). Turning either on sets the device up
+ * (reusing the subscription if there is one) and then saves that switch.
+ * Turning one off saves that switch first, then — under the cross-tab lock —
+ * reads BOTH switches back from the server and removes this device only if
+ * neither is on any more. A read that fails keeps the device: a stale "off"
+ * must never cut off the feature that is still on. Sign-out always removes
+ * the device (push-device-lifecycle.ts), whatever the switches say.
  */
 
 import { pushCoordination, type PushCoordination } from './push-coordination';
@@ -33,6 +46,20 @@ const LOCK_WAIT_MS = 5000;
 const UNSUBSCRIBE_HOLD_MS = 10_000;
 
 export type NudgePermission = NotificationPermission | 'unsupported';
+
+/** The features that share this device's push subscription. */
+export type PushFeature = 'nudges' | 'focus';
+
+/** Each feature's account-wide switch in user_settings. */
+export const FEATURE_FLAG = {
+  nudges: 'nudges_enabled',
+  focus: 'focus_alerts_enabled'
+} as const satisfies Record<PushFeature, string>;
+
+export interface PushFeatureFlags {
+  nudges_enabled: boolean;
+  focus_alerts_enabled: boolean;
+}
 
 export type NudgePushErrorCode =
   /** Push, Notifications or Service Workers are missing (or not a secure context). */
@@ -51,10 +78,12 @@ export type NudgePushErrorCode =
   | 'subscribe-failed'
   /** The server did not store the subscription. */
   | 'register-failed'
-  /** The subscription is stored but the nudge setting was not saved. */
+  /** The subscription is stored but the feature's setting was not saved. */
   | 'settings-failed'
-  /** Turning nudges off failed. */
-  | 'disable-failed';
+  /** Turning a feature off failed. */
+  | 'disable-failed'
+  /** This screen is still finishing a change to the other feature. */
+  | 'busy';
 
 export interface NudgePushError {
   code: NudgePushErrorCode;
@@ -79,7 +108,23 @@ export interface NudgePushState {
 }
 
 export type NudgePushResult =
-  | { ok: true; timezoneSaved: boolean }
+  | {
+      ok: true;
+      timezoneSaved: boolean;
+      /**
+       * After turning a feature off: 'released' when nothing needed this
+       * device any more and it was removed, 'kept' when it stays (the other
+       * feature is on, or that could not be confirmed).
+       */
+      device?: 'released' | 'kept';
+      /**
+       * After turning a feature off: both switches as the server held them
+       * when the device was decided on. Absent when they could not be read.
+       * Another tab's later opt-in can leave this feature ON; the screen
+       * should show this, not what it asked for.
+       */
+      flags?: PushFeatureFlags;
+    }
   | { ok: false; error: NudgePushError };
 
 /** A PushSubscription reduced to what the server stores. */
@@ -90,10 +135,8 @@ export interface NudgeSubscriptionRecord {
   userAgent: string | null;
 }
 
-export interface NudgeSettingsPatch {
-  nudges_enabled: boolean;
-  timezone?: string;
-}
+/** One feature's switch, plus the device's time zone when turning on. */
+export type NudgeSettingsPatch = Partial<PushFeatureFlags> & { timezone?: string };
 
 /** The server side. Every method resolves; failures come back as `error`. */
 export interface NudgePushApi {
@@ -106,6 +149,11 @@ export interface NudgePushApi {
    */
   ownsSubscription?(userId: string, endpoint: string): Promise<{ owned: boolean; error?: undefined } | { error: unknown }>;
   saveSettings(userId: string, patch: NudgeSettingsPatch): Promise<{ error: unknown }>;
+  /**
+   * Both feature switches as the server has them now (never a cached copy).
+   * No row, or anything but two booleans, is an error: unknown is never "off".
+   */
+  readFeatureFlags(userId: string): Promise<{ flags: PushFeatureFlags; error?: undefined } | { error: unknown }>;
 }
 
 /** The browser side. Defaults to the real globals; tests pass fakes. */
@@ -166,26 +214,31 @@ export interface NudgePushController {
   /** Re-reads support, permission and this browser's subscription. Never prompts. */
   refresh(): Promise<void>;
   /**
-   * Turns nudges on for this account and this browser. CALL IT DIRECTLY FROM
-   * A CLICK/TAP HANDLER: it requests notification permission synchronously,
-   * before its first await (see the note at the top of this file).
+   * Turns a feature on for this account and sets this browser up. CALL IT
+   * DIRECTLY FROM A CLICK/TAP HANDLER: it requests notification permission
+   * synchronously, before its first await (see the note at the top of this
+   * file). Defaults to Gentle Nudges.
    */
-  enable(): Promise<NudgePushResult>;
-  /** Turns nudges off for the account and removes this browser's subscription. */
-  disable(): Promise<NudgePushResult>;
+  enable(feature?: PushFeature): Promise<NudgePushResult>;
+  /**
+   * Turns a feature off for the account, and removes this browser's
+   * subscription only if the server confirms the other feature is off too.
+   */
+  disable(feature?: PushFeature): Promise<NudgePushResult>;
 }
 
 const MESSAGES: Record<NudgePushErrorCode, string> = {
   unsupported: "This browser can't show iMA notifications.",
-  'install-required': 'On iPhone and iPad, add iMA to your Home Screen first, then turn nudges on from there.',
-  'not-configured': "Nudges aren't available right now.",
+  'install-required': 'On iPhone and iPad, add iMA to your Home Screen first, then turn notifications on from there.',
+  'not-configured': "Notifications aren't available right now.",
   'permission-denied': 'Notifications are blocked for iMA. You can allow them in your browser or device settings.',
   'permission-dismissed': 'Notifications were not allowed. You can try again whenever you like.',
   'service-worker-unavailable': "iMA couldn't finish setting up notifications here. Please reload and try again.",
   'subscribe-failed': "Your browser couldn't set up notifications. Please try again.",
   'register-failed': "We couldn't save this device. Please try again.",
-  'settings-failed': "We couldn't save your nudge setting. Please try again.",
-  'disable-failed': "We couldn't turn nudges off. Please try again."
+  'settings-failed': "We couldn't save your notification setting. Please try again.",
+  'disable-failed': "We couldn't turn that off. Please try again.",
+  busy: 'Another notification change is still finishing. Please try again in a moment.'
 };
 
 const errorOf = (result: NudgePushResult): NudgePushError | null => ('error' in result ? result.error : null);
@@ -297,7 +350,7 @@ export function createNudgePushController(options: NudgePushControllerOptions): 
   /** Runs `work` while holding the cross-tab lock; held on until this tab's unsubscribe settles. */
   const underLock = <T,>(work: () => Promise<T>) =>
     lock.run(work, { acquireTimeoutMs: LOCK_WAIT_MS, holdAfter: () => coordination.waitForUnsubscribe(UNSUBSCRIBE_HOLD_MS) });
-  if (!options.userId) throw new Error('Gentle nudges need a signed-in user.');
+  if (!options.userId) throw new Error('Notifications need a signed-in user.');
 
   const env = options.environment ?? realEnvironment();
   const { userId, api } = options;
@@ -320,6 +373,18 @@ export function createNudgePushController(options: NudgePushControllerOptions): 
     error: null
   };
   let inFlight: Promise<NudgePushResult> | null = null;
+  /** The change in flight: which feature, and on or off. */
+  let inFlightOp: { feature: PushFeature; action: 'enable' | 'disable' } | null = null;
+  /**
+   * While a change is in flight, the very same change gets its result; any
+   * other (the other feature, or the opposite action on this one) is refused
+   * with 'busy' — never handed the earlier operation's result as its own.
+   */
+  const busy = (feature: PushFeature, action: 'enable' | 'disable'): Promise<NudgePushResult> | null => {
+    if (!inFlight) return null;
+    if (inFlightOp?.feature === feature && inFlightOp.action === action) return inFlight;
+    return Promise.resolve(failure('busy'));
+  };
 
   const set = (patch: Partial<NudgePushState>) => {
     state = { ...state, ...patch };
@@ -385,7 +450,11 @@ export function createNudgePushController(options: NudgePushControllerOptions): 
     return failure('register-failed');
   }
 
-  async function finishEnable(permissionAnswer: Promise<NotificationPermission>, key: Uint8Array): Promise<NudgePushResult> {
+  async function finishEnable(
+    feature: PushFeature,
+    permissionAnswer: Promise<NotificationPermission>,
+    key: Uint8Array
+  ): Promise<NudgePushResult> {
     const permission = await permissionAnswer;
     set({ permission });
     if (permission === 'denied') return failure('permission-denied');
@@ -394,12 +463,12 @@ export function createNudgePushController(options: NudgePushControllerOptions): 
     // Everything that touches the subscription runs under the cross-tab lock,
     // so another tab's sign-out, opt-out or account check cannot interleave.
     // Another tab holding it too long: "try again", nothing changed.
-    const locked = await underLock(() => setUpDevice(key));
+    const locked = await underLock(() => setUpDevice(feature, key));
     return locked.ran ? locked.value : failure('subscribe-failed');
   }
 
   /** The device part of opt-in. Runs under the cross-tab lock; every check below runs after any wait for it. */
-  async function setUpDevice(key: Uint8Array): Promise<NudgePushResult> {
+  async function setUpDevice(feature: PushFeature, key: Uint8Array): Promise<NudgePushResult> {
     // Never reuse a subscription that sign-out or the account check may still
     // be unsubscribing: it could die right after being registered here.
     if (!(await coordination.waitForUnsubscribe(UNSUBSCRIBE_SETTLE_MS))) return failure('subscribe-failed');
@@ -433,8 +502,9 @@ export function createNudgePushController(options: NudgePushControllerOptions): 
     // device is only ever stored for the account that is signed in here now.
     if (coordination.isInactive(userId)) return abandon(subscription, false);
 
-    // The device first, then the switch: the server never has nudges on for
-    // a user whose device it has not stored. A failure leaves the browser
+    // The device first, then the switch: the server never has a feature on
+    // for a user whose device it has not stored. With the other feature
+    // already on, this re-registers the same subscription: one per device. A failure leaves the browser
     // subscribed, so trying again simply re-registers the same subscription.
     try {
       const { error } = await api.registerSubscription(record);
@@ -446,14 +516,15 @@ export function createNudgePushController(options: NudgePushControllerOptions): 
 
     const zone = env.timeZone?.();
     const timezone = typeof zone === 'string' && zone.trim() ? zone.trim() : undefined;
+    const on: NudgeSettingsPatch = { [FEATURE_FLAG[feature]]: true };
     try {
       if (timezone) {
-        const { error } = await api.saveSettings(userId, { nudges_enabled: true, timezone });
+        const { error } = await api.saveSettings(userId, { ...on, timezone });
         if (!error) return { ok: true, timezoneSaved: true };
-        // Most likely a zone name this database does not know. Nudges still
-        // go on, at the timezone already saved (UTC unless changed).
+        // Most likely a zone name this database does not know. The feature
+        // still goes on, at the timezone already saved (UTC unless changed).
       }
-      const { error } = await api.saveSettings(userId, { nudges_enabled: true });
+      const { error } = await api.saveSettings(userId, on);
       if (error) return failure('settings-failed');
       return { ok: true, timezoneSaved: false };
     } catch {
@@ -461,8 +532,9 @@ export function createNudgePushController(options: NudgePushControllerOptions): 
     }
   }
 
-  function enable(): Promise<NudgePushResult> {
-    if (inFlight) return inFlight;
+  function enable(feature: PushFeature = 'nudges'): Promise<NudgePushResult> {
+    const running = busy(feature, 'enable');
+    if (running) return running;
 
     // Everything up to requestPermission() is synchronous. Keep it that way.
     let immediate: NudgePushResult | null = null;
@@ -478,54 +550,73 @@ export function createNudgePushController(options: NudgePushControllerOptions): 
       notification!.permission === 'granted' ? Promise.resolve('granted') : requestPermissionNow(notification!);
 
     set({ loading: true, error: null });
+    inFlightOp = { feature, action: 'enable' };
     inFlight = coordination
-      .trackEnable(finishEnable(permissionAnswer, vapidKey!))
+      .trackEnable(finishEnable(feature, permissionAnswer, vapidKey!))
       .catch(() => failure('subscribe-failed'))
       .then((result) => {
         inFlight = null;
+        inFlightOp = null;
         set({ loading: false, error: errorOf(result) });
         return result;
       });
     return inFlight;
   }
 
-  async function runDisable(): Promise<NudgePushResult> {
-    // Account-wide off first: once saved, the sender skips this user on every
-    // device, whatever happens to this browser's subscription below.
+  async function runDisable(feature: PushFeature): Promise<NudgePushResult> {
+    // This feature off, account-wide, first: once saved, its sender skips this
+    // user on every device, whatever happens to this browser below.
     try {
-      const { error } = await api.saveSettings(userId, { nudges_enabled: false });
+      const { error } = await api.saveSettings(userId, { [FEATURE_FLAG[feature]]: false });
       if (error) return failure('disable-failed');
     } catch {
       return failure('disable-failed');
     }
+    if (!supported) return { ok: true, timezoneSaved: false };
 
-    // Then forget this browser, under the cross-tab lock. Best effort: nudges
-    // are already off, so if another tab holds the lock too long this is left
-    // to the next account check.
-    if (supported) {
-      await underLock(async () => {
-        try {
-          const subscription = await currentSubscription();
-          if (subscription) {
-            await api.removeSubscription(userId, subscription.endpoint).catch(() => undefined);
-            await coordination.trackUnsubscribe(Promise.resolve().then(() => subscription.unsubscribe())).catch(() => false);
-          }
-          set({ subscribed: false });
-        } catch {
-          // Leave `subscribed` as it was; a refresh() will re-read it.
+    // Then, under the cross-tab lock, decide about this device from what the
+    // server holds NOW — not from this screen's copy, which another tab may
+    // have overtaken. Another tab turning the other feature on finishes (and
+    // saves its switch) before this reads. Best effort: the feature is
+    // already off, so if the lock is busy too long the device simply stays.
+    let device: 'released' | 'kept' = 'kept';
+    let flags: PushFeatureFlags | undefined;
+    await underLock(async () => {
+      // Signed out or switched account meanwhile: sign-out cleanup owns the
+      // device now. Checked here and again before each destructive step.
+      if (coordination.isInactive(userId)) return;
+      const latest = await api.readFeatureFlags(userId).catch((error: unknown) => ({ error }));
+      // Unknown is never "off": keep the device for a feature that may still be on.
+      if (!('flags' in latest)) return;
+      flags = latest.flags;
+      if (flags.nudges_enabled || flags.focus_alerts_enabled) return;
+      try {
+        const subscription = await currentSubscription();
+        if (coordination.isInactive(userId)) return;
+        if (subscription) {
+          await api.removeSubscription(userId, subscription.endpoint).catch(() => undefined);
+          if (coordination.isInactive(userId)) return;
+          await coordination.trackUnsubscribe(Promise.resolve().then(() => subscription.unsubscribe())).catch(() => false);
         }
-      }).catch(() => undefined);
-    }
-    return { ok: true, timezoneSaved: false };
+        device = 'released';
+        set({ subscribed: false });
+      } catch {
+        // Leave `subscribed` as it was; a refresh() will re-read it.
+      }
+    }).catch(() => undefined);
+    return flags ? { ok: true, timezoneSaved: false, device, flags } : { ok: true, timezoneSaved: false, device };
   }
 
-  function disable(): Promise<NudgePushResult> {
-    if (inFlight) return inFlight;
+  function disable(feature: PushFeature = 'nudges'): Promise<NudgePushResult> {
+    const running = busy(feature, 'disable');
+    if (running) return running;
     set({ loading: true, error: null });
-    inFlight = runDisable()
+    inFlightOp = { feature, action: 'disable' };
+    inFlight = runDisable(feature)
       .catch(() => failure('disable-failed'))
       .then((result) => {
         inFlight = null;
+        inFlightOp = null;
         set({ loading: false, error: errorOf(result) });
         return result;
       });

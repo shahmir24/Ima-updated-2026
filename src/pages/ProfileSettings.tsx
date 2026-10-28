@@ -12,14 +12,14 @@ import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import PageWorkspace from '@/components/layout/PageWorkspace';
-import GentleNudgesCard from '@/components/settings/GentleNudgesCard';
+import NotificationsCard from '@/components/settings/NotificationsCard';
 import InstallAppCard from '@/components/settings/InstallAppCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { useAutoSave } from '@/hooks/use-autosave';
 import { useAuth } from '@/contexts/auth-context';
 import { useProfile, useUpdateProfile, type ProfilePatch } from '@/hooks/use-profile';
-import { useUserSettings, useUpdateUserSettings, type UserSettingsPatch } from '@/hooks/use-user-settings';
+import { saveTimezoneBestEffort, useUserSettings, useUpdateUserSettings, type UserSettingsPatch } from '@/hooks/use-user-settings';
 import { lengthsForStyle, styleAfterLengthEdit, type TimeboxingStyle } from '@/lib/focus/focus-setup';
 
 /** Local YYYY-MM-DD, so "today" is the user's calendar day. */
@@ -94,6 +94,13 @@ const ProfileSettings = () => {
       reportSaveFailure('settings', error);
     }
   });
+
+  // The device's time zone, saved by the Notifications card on its own: a zone
+  // this database does not recognise fails only this write, never the
+  // preference saved alongside it, and needs no message.
+  const saveTimezone = (timezone: string) => {
+    void saveTimezoneBestEffort(updateSettings.mutateAsync, timezone);
+  };
 
   // --- profile fields ----------------------------------------------------
   // Local only: the column stores a Storage object path in the private
@@ -708,8 +715,8 @@ const ProfileSettings = () => {
               </div>
             </Card>
 
-            {/* Gentle nudges — off until the user turns them on here */}
-            <GentleNudgesCard settings={settings} save={settingsSave} />
+            {/* Notifications — Focus alerts and Gentle Nudges, both off until turned on here */}
+            <NotificationsCard settings={settings} save={settingsSave} saveTimezone={saveTimezone} />
 
             {/* Install iMA — only what this browser can really do; nothing
                 inside the installed app or where no accurate offer exists. */}

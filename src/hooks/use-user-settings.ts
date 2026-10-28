@@ -8,14 +8,21 @@ export type UserSettingsRow = Database['public']['Tables']['user_settings']['Row
 /**
  * The columns the App Settings tab may write.
  *
- * `timezone` is deliberately absent: it has no control on this screen, and
- * it is load-bearing for day-bucketing elsewhere, so it should not be guessed
- * from a settings edit. `default_flows` (the round count) is written by the
+ * `timezone` has no control on this screen, and it is load-bearing for
+ * day-bucketing elsewhere, so no general settings edit guesses it; its one
+ * writer here is described below. `default_flows` (the round count) is written by the
  * Focus setup (lib/focus/focus-setup.ts).
  *
- * `nudges_enabled` is absent too: only the Gentle Nudges enable/disable flow
- * may write it, so the account is never "on" without a stored device. The
- * nudge time and the task-name privacy choice are plain preferences.
+ * `nudges_enabled` and `focus_alerts_enabled` are absent too: only the
+ * notification enable/disable flow (lib/push/gentle-nudges-push.ts) may write
+ * them, so the account is never "on" without a stored device. The nudge time,
+ * quiet hours and the task-name privacy choice are plain preferences.
+ *
+ * `timezone` is the one exception to the rule above, and only for the
+ * Notifications card: when someone explicitly saves a notification preference
+ * there, the device's own zone is saved with it (a separate, best-effort
+ * write — see NotificationsCard), because nudge times and quiet hours are read
+ * in it.
  */
 export type UserSettingsPatch = Partial<
   Pick<
@@ -33,6 +40,10 @@ export type UserSettingsPatch = Partial<
     | 'daily_focus_goal'
     | 'nudge_time'
     | 'nudge_show_task_titles'
+    | 'quiet_hours_enabled'
+    | 'quiet_hours_start'
+    | 'quiet_hours_end'
+    | 'timezone'
   >
 >;
 
@@ -86,4 +97,24 @@ export function useUpdateUserSettings() {
       queryClient.setQueryData(settingsKey(userId), row);
     }
   });
+}
+
+/**
+ * Saves a time zone on its own, best effort: resolves true once saved, false
+ * if the save fails (most likely a zone this database does not recognise).
+ * Never rejects and never throws, so it cannot disturb the preference saved
+ * alongside it, and it writes nothing but `timezone`.
+ */
+export function saveTimezoneBestEffort(
+  save: (patch: UserSettingsPatch) => Promise<unknown>,
+  timezone: string
+): Promise<boolean> {
+  try {
+    return save({ timezone }).then(
+      () => true,
+      () => false
+    );
+  } catch {
+    return Promise.resolve(false);
+  }
 }

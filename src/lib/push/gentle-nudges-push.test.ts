@@ -1,14 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createPushCoordination } from './push-coordination';
 import {
   createNudgePushController,
   decodeVapidPublicKey,
   toSubscriptionRecord,
   type NudgePushApi,
   type NudgePushEnvironment,
+  FEATURE_FLAG,
+  type NudgeSettingsPatch,
+  type PushFeatureFlags,
   type PushSubscriptionLike
 } from './gentle-nudges-push';
 
 const USER_ID = '11111111-1111-4111-8111-111111111111';
+const OTHER_USER = '22222222-2222-4222-8222-222222222222';
 
 const b64url = (bytes: Uint8Array) => Buffer.from(bytes).toString('base64url');
 const point = (fill: number) => Uint8Array.from([0x04, ...new Array(64).fill(fill)]);
@@ -112,23 +117,45 @@ function fakeBrowser(options: BrowserOptions = {}) {
 
 type LooseApi = Partial<NudgePushApi>;
 
-function fakeApi(overrides: LooseApi = {}, log: string[] = []) {
-  const wrap = <K extends keyof NudgePushApi>(name: K) =>
+/**
+ * The server: user_settings' two feature switches live in `server`, so
+ * saveSettings changes what readFeatureFlags returns, as the real row would.
+ */
+function fakeApi(overrides: LooseApi = {}, log: string[] = [], server: PushFeatureFlags = { nudges_enabled: false, focus_alerts_enabled: false }) {
+  const wrap = <K extends 'registerSubscription' | 'removeSubscription'>(name: K) =>
     vi.fn(async (...args: Parameters<NudgePushApi[K]>): Promise<{ error: unknown }> => {
       log.push(name);
       const override = overrides[name] as unknown as ((...a: Parameters<NudgePushApi[K]>) => Promise<{ error: unknown }>) | undefined;
       return override ? override(...args) : { error: null };
     });
   return {
+    server,
     registerSubscription: wrap('registerSubscription'),
     removeSubscription: wrap('removeSubscription'),
-    saveSettings: wrap('saveSettings')
+    saveSettings: vi.fn(async (userId: string, patch: NudgeSettingsPatch): Promise<{ error: unknown }> => {
+      log.push('saveSettings');
+      const result = overrides.saveSettings ? await overrides.saveSettings(userId, patch) : { error: null };
+      if (!result.error) {
+        const { timezone: _zone, ...switches } = patch;
+        Object.assign(server, switches);
+      }
+      return result;
+    }),
+    readFeatureFlags: vi.fn(async (userId: string) => {
+      log.push('readFeatureFlags');
+      return overrides.readFeatureFlags ? overrides.readFeatureFlags(userId) : { flags: { ...server } };
+    })
   };
 }
 
-function setup(browser: BrowserOptions = {}, apiOverrides: LooseApi = {}, vapid: { key: string | undefined } = { key: VAPID_KEY }) {
+function setup(
+  browser: BrowserOptions = {},
+  apiOverrides: LooseApi = {},
+  vapid: { key: string | undefined } = { key: VAPID_KEY },
+  server?: PushFeatureFlags
+) {
   const b = fakeBrowser(browser);
-  const api = fakeApi(apiOverrides, b.log);
+  const api = fakeApi(apiOverrides, b.log, server);
   const controller = createNudgePushController({ userId: USER_ID, vapidPublicKey: vapid.key, api, environment: b.environment });
   return { ...b, api, controller };
 }
@@ -492,7 +519,12 @@ describe('disable', () => {
   it('turns nudges off account-wide first, then removes and unsubscribes this browser', async () => {
     const existing = fakeSubscription();
     const { controller, api, log } = setup({ permission: 'granted', existing });
-    expect(await controller.disable()).toEqual({ ok: true, timezoneSaved: false });
+    expect(await controller.disable()).toEqual({
+      ok: true,
+      timezoneSaved: false,
+      device: 'released',
+      flags: { nudges_enabled: false, focus_alerts_enabled: false }
+    });
     expect(api.saveSettings).toHaveBeenCalledWith(USER_ID, { nudges_enabled: false });
     expect(api.removeSubscription).toHaveBeenCalledWith(USER_ID, ENDPOINT);
     expect(existing.unsubscribe).toHaveBeenCalledTimes(1);
@@ -559,5 +591,187 @@ describe('this device as seen by the signed-in account (account switching)', () 
     expect(api.registerSubscription).not.toHaveBeenCalled();
     expect((await controller.enable()).ok).toBe(true);
     expect(api.registerSubscription).toHaveBeenCalledWith(expect.objectContaining({ endpoint: ENDPOINT }));
+  });
+});
+
+describe('two features, one subscription (Gentle Nudges + Focus alerts)', () => {
+  const both = { nudges_enabled: true, focus_alerts_enabled: true };
+  const none = { nudges_enabled: false, focus_alerts_enabled: false };
+
+  it('Focus alerts on: same permission and device flow, saves only focus_alerts_enabled', async () => {
+    const { controller, api, requestPermission, log } = setup({ permission: 'default' });
+    const result = await controller.enable('focus');
+    expect(result).toEqual({ ok: true, timezoneSaved: true });
+    expect(requestPermission).toHaveBeenCalledTimes(1);
+    expect(api.saveSettings).toHaveBeenCalledWith(USER_ID, { focus_alerts_enabled: true, timezone: 'Asia/Karachi' });
+    expect(api.server).toEqual({ nudges_enabled: false, focus_alerts_enabled: true });
+    expect(log.indexOf('registerSubscription')).toBeLessThan(log.indexOf('saveSettings'));
+  });
+
+  it('Focus alerts off with nudges off: the device is removed', async () => {
+    const existing = fakeSubscription();
+    const { controller, api } = setup({ permission: 'granted', existing }, {}, undefined, { ...none, focus_alerts_enabled: true });
+    expect(await controller.disable('focus')).toEqual({ ok: true, timezoneSaved: false, device: 'released', flags: none });
+    expect(api.saveSettings).toHaveBeenCalledWith(USER_ID, { focus_alerts_enabled: false });
+    expect(api.removeSubscription).toHaveBeenCalledWith(USER_ID, ENDPOINT);
+    expect(existing.unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('both on: the second feature reuses the one subscription', async () => {
+    const { controller, api, pushManager } = setup({ permission: 'granted' });
+    await controller.enable('nudges');
+    await controller.enable('focus');
+    expect(pushManager.subscribe).toHaveBeenCalledTimes(1);
+    expect(api.registerSubscription).toHaveBeenCalledTimes(2); // the same endpoint, re-registered
+    expect(new Set(api.registerSubscription.mock.calls.map(([record]) => record.endpoint)).size).toBe(1);
+    expect(api.server).toEqual(both);
+  });
+
+  it.each([
+    ['nudges', 'focus_alerts_enabled'],
+    ['focus', 'nudges_enabled']
+  ] as const)('turning %s off while %s is on keeps the device', async (feature, other) => {
+    const existing = fakeSubscription();
+    const { controller, api, log } = setup({ permission: 'granted', existing }, {}, undefined, { ...both });
+    const result = await controller.disable(feature);
+    expect(result).toEqual({ ok: true, timezoneSaved: false, device: 'kept', flags: { ...both, [FEATURE_FLAG[feature]]: false } });
+    expect(api.server[other]).toBe(true);
+    expect(api.removeSubscription).not.toHaveBeenCalled();
+    expect(existing.unsubscribe).not.toHaveBeenCalled();
+    // Decided from a fresh server read taken after its own switch was saved.
+    expect(log.indexOf('saveSettings')).toBeLessThan(log.indexOf('readFeatureFlags'));
+  });
+
+  it('turning both off, one after the other, removes the device on the second', async () => {
+    const existing = fakeSubscription();
+    const { controller, api } = setup({ permission: 'granted', existing }, {}, undefined, { ...both });
+    expect(await controller.disable('nudges')).toMatchObject({ device: 'kept' });
+    expect(await controller.disable('focus')).toMatchObject({ device: 'released' });
+    expect(api.removeSubscription).toHaveBeenCalledTimes(1);
+    expect(existing.unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('never trusts the screen: the other feature turned on elsewhere (stale UI) still keeps the device', async () => {
+    const existing = fakeSubscription();
+    // This screen loaded with focus off; another device or tab has since turned it on.
+    const { controller, api } = setup({ permission: 'granted', existing }, {}, undefined, { nudges_enabled: true, focus_alerts_enabled: false });
+    api.server.focus_alerts_enabled = true;
+    expect(await controller.disable('nudges')).toMatchObject({ ok: true, device: 'kept' });
+    expect(existing.unsubscribe).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['an error', async () => ({ error: { message: 'Failed to fetch' } })],
+    ['a throw', async () => { throw new Error('offline'); }]
+  ])('if the latest settings cannot be read (%s), the device is kept', async (_label, readFeatureFlags) => {
+    const existing = fakeSubscription();
+    const { controller, api } = setup({ permission: 'granted', existing }, { readFeatureFlags }, undefined, { ...both, focus_alerts_enabled: false });
+    // Kept, and no switches reported: the screen must not take a guess for the server's state.
+    expect(await controller.disable('nudges')).toEqual({ ok: true, timezoneSaved: false, device: 'kept' });
+    expect(api.server.nudges_enabled).toBe(false);
+    expect(api.removeSubscription).not.toHaveBeenCalled();
+    expect(existing.unsubscribe).not.toHaveBeenCalled();
+  });
+
+  it('a change to the other feature while one is in flight is refused, not merged into it', async () => {
+    const { controller, api } = setup({ permission: 'granted' });
+    const nudges = controller.enable('nudges');
+    expect(await controller.disable('focus')).toMatchObject({ ok: false, error: { code: 'busy' } });
+    expect(await controller.enable('focus')).toMatchObject({ ok: false, error: { code: 'busy' } });
+    expect((await nudges).ok).toBe(true);
+    expect(api.server).toEqual({ nudges_enabled: true, focus_alerts_enabled: false });
+  });
+
+  it('the opposite action on the same feature, while one is in flight, is refused — never handed the earlier result', async () => {
+    const { controller, api } = setup({ permission: 'granted' });
+    const enabling = controller.enable('nudges');
+    expect(await controller.disable('nudges')).toMatchObject({ ok: false, error: { code: 'busy' } });
+    expect((await enabling).ok).toBe(true);
+    expect(api.server.nudges_enabled).toBe(true);
+
+    const disabling = controller.disable('nudges');
+    expect(await controller.enable('nudges')).toMatchObject({ ok: false, error: { code: 'busy' } });
+    expect(await disabling).toMatchObject({ ok: true, device: 'released' });
+    expect(api.server.nudges_enabled).toBe(false);
+  });
+
+  it('the very same action while in flight shares its result (a double tap does not run twice)', async () => {
+    const { controller, api } = setup({ permission: 'granted' });
+    const first = controller.enable('focus');
+    const second = controller.enable('focus');
+    expect(second).toBe(first);
+    await first;
+    expect(api.registerSubscription).toHaveBeenCalledTimes(1);
+  });
+
+  it('a busy refusal changes nothing on the server and leaves the running operation alone', async () => {
+    const { controller, api } = setup({ permission: 'granted' });
+    const enabling = controller.enable('nudges');
+    await controller.disable('nudges');
+    await enabling;
+    expect(api.saveSettings.mock.calls.map(([, patch]) => patch)).toEqual([{ nudges_enabled: true, timezone: 'Asia/Karachi' }]);
+  });
+
+  it("returns the server's switches after turning off: another tab's later opt-in shows as on", async () => {
+    const existing = fakeSubscription();
+    const { controller, api } = setup({ permission: 'granted', existing }, {}, undefined, { nudges_enabled: true, focus_alerts_enabled: false });
+    // Another tab saves nudges back on after this one saved "off", before this one reads.
+    api.readFeatureFlags.mockImplementationOnce(async () => {
+      api.server.nudges_enabled = true;
+      return { flags: { ...api.server } };
+    });
+    const result = await controller.disable('nudges');
+    expect(result).toEqual({ ok: true, timezoneSaved: false, device: 'kept', flags: { nudges_enabled: true, focus_alerts_enabled: false } });
+    expect(existing.unsubscribe).not.toHaveBeenCalled();
+  });
+
+  it('the account is re-checked right before removing the device and right before unsubscribing', async () => {
+    const coordination = createPushCoordination();
+    coordination.setActiveAccount(USER_ID);
+    const switchDuring = async (step: 'read' | 'remove') => {
+      const b = fakeBrowser({ permission: 'granted', existing: fakeSubscription() });
+      const api = fakeApi({}, b.log);
+      if (step === 'read') {
+        api.readFeatureFlags.mockImplementationOnce(async () => {
+          coordination.setActiveAccount(OTHER_USER); // signed out and B signed in during the read
+          return { flags: { nudges_enabled: false, focus_alerts_enabled: false } };
+        });
+      } else {
+        api.removeSubscription.mockImplementationOnce(async () => {
+          coordination.setActiveAccount(OTHER_USER); // ...during the row delete
+          return { error: null };
+        });
+      }
+      const controller = createNudgePushController({ userId: USER_ID, vapidPublicKey: VAPID_KEY, api, environment: b.environment, coordination });
+      const result = await controller.disable('nudges');
+      coordination.setActiveAccount(USER_ID);
+      return { result, api, unsubscribe: b.current()!.unsubscribe };
+    };
+
+    const duringRead = await switchDuring('read');
+    expect(duringRead.result).toMatchObject({ ok: true, device: 'kept' });
+    expect(duringRead.api.removeSubscription).not.toHaveBeenCalled();
+    expect(duringRead.unsubscribe).not.toHaveBeenCalled();
+
+    const duringRemove = await switchDuring('remove');
+    expect(duringRemove.result).toMatchObject({ ok: true, device: 'kept' });
+    expect(duringRemove.unsubscribe).not.toHaveBeenCalled();
+  });
+
+  it('permission denied blocks either feature before anything is written', async () => {
+    const { controller, api } = setup({ permission: 'denied' });
+    expect(await controller.enable('focus')).toMatchObject({ ok: false, error: { code: 'permission-denied' } });
+    noServerCalls(api);
+  });
+
+  it('iPhone outside the Home Screen app: either feature asks to add iMA first', async () => {
+    const { controller, api } = setup({
+      missing: ['PushManager'],
+      userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X)',
+      standalone: false
+    });
+    expect(controller.getState().installRequired).toBe(true);
+    expect(await controller.enable('focus')).toMatchObject({ ok: false, error: { code: 'install-required' } });
+    noServerCalls(api);
   });
 });
